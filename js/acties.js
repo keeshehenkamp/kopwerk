@@ -42,9 +42,10 @@ const actions={
     const ftp=clamp(Math.round(+g('s-ftp').value)||200,60,600),w=clamp(+g('s-w').value||75,35,200);
     const mh=Math.round(+g('s-mhr').value)||0,evd=g('s-evd').value,evn=g('s-evn').value.trim();
     state.profile={ftp,weight:w,goal:g('s-goal').value,sound:g('s-snd').value==='1',maxHr:mh?clamp(mh,120,230):0};
-    state.event=/^\d{4}-\d{2}-\d{2}$/.test(evd)?{name:evn||'Evenement',date:evd}:null;
+    const evk=g('s-evk').value,evkm=Math.round(+g('s-evkm').value)||0;
+    state.event=/^\d{4}-\d{2}-\d{2}$/.test(evd)?Object.assign({name:evn||'Evenement',date:evd},EVENTS[evk]?{kind:evk}:{},evkm?{km:clamp(evkm,20,400)}:{}):null;
     state.avail=DAYS.map((_,i)=>+g('s-a'+i).value);
-    if(!state.setup){state.setup=true;state.planStart=iso(mondayOf(new Date()));state.weeks[state.planStart]=state.avail.slice();ui.view='schema'}
+    if(!state.setup){state.setup=true;state.started=iso(new Date());state.planStart=iso(mondayOf(new Date()));state.weeks[state.planStart]=state.avail.slice();ui.view='schema'}
     save();render();toast(state.avail.some(x=>x)?'Opgeslagen':'Opgeslagen. Je hebt nog geen trainingsdagen gekozen.');
   },
   openRide(d){ui.modal=null;openRide(d.id)},

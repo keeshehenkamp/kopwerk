@@ -30,12 +30,14 @@ function settingsForm(first){
     <div class="form">
       <div><label class="f" for="s-evn">Evenement waar je naartoe traint (optioneel)</label><input type="text" id="s-evn" maxlength="40" value="${esc(state.event?state.event.name:'')}" placeholder="bijv. Amstel Gold Race" style="width:100%;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:8px 10px"></div>
       <div><label class="f" for="s-evd">Datum van het evenement</label><input type="date" id="s-evd" value="${state.event?state.event.date:''}" style="border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 10px"></div>
+      <div><label class="f" for="s-evk">Soort evenement</label>${sel('id="s-evk"',EVENT_KINDS,state.event&&state.event.kind||'')}</div>
+      <div><label class="f" for="s-evkm">Afstand in km</label><input type="number" id="s-evkm" min="20" max="400" value="${state.event&&state.event.km||''}" placeholder="bijv. 150" style="width:120px"></div>
     </div>
-    <p class="small muted" style="max-width:66ch">Met een datum bouwt het schema ernaartoe: eerst basis, dan opbouw, twee piekweken, een afbouwweek en een rustige week van het evenement zelf. Zonder datum loopt het schema door in blokken van drie opbouwweken en een herstelweek.</p>
+    <p class="small muted" style="max-width:66ch">Met een datum bouwt het schema ernaartoe: eerst basis, dan opbouw, twee piekweken, een afbouwweek en een rustige week van het evenement zelf. Zonder datum loopt het schema door in blokken van drie opbouwweken en een herstelweek. Met de soort en de afstand worden de trainingen en de lange rit afgestemd op wat het evenement vraagt.</p>
     <p class="small muted" style="max-width:66ch">Je FTP is het vermogen dat je ongeveer een uur kunt volhouden; alle trainingen worden daarvan afgeleid. Weet je het niet, begin dan met 200 W en rijd de FTP-test onder Trainingen.</p>
     <div><label class="f">${first?'Beschikbare tijd per dag in een gewone week':'Je standaardweek: beschikbare tijd per dag'}</label>
       <div class="avail">${DAYS.map((d,i)=>`<div><div class="small" style="font-weight:600;margin-bottom:4px">${d}</div>${sel(`id="s-a${i}" aria-label="${DAYS_L[i]}"`,MINS.map(m=>[m,m?durTxt(m):'Rust']),state.avail[i])}</div>`).join('')}</div></div>
-    <p class="small muted" style="max-width:66ch">Dit is je uitgangspunt. In het schema vul je per week in wanneer je echt kunt.</p>
+    <p class="small muted" style="max-width:66ch">Dit is de tijd die je hebt, niet de tijd die je moet trainen. Het schema kiest daarbinnen zelf hoeveel je traint en wanneer je rust, op basis van je FTP, je gewicht en je doel. In het schema vul je per week in wanneer je echt kunt.</p>
     <div><button class="btn pri big" data-act="saveSettings">${first?'Maak mijn schema':'Wijzigingen opslaan'}</button></div>
   </div>`;
 }
@@ -49,16 +51,17 @@ function schemaView(){
       <div><button class="btn pri big" data-act="saveWeek" data-mon="${iso(m)}" data-p="n">Trainingen klaarzetten</button></div></div>`};
   const nextMon=addDays(mondayOf(today),7);
   let prep='';
-  if(ui.weekOff===0&&dow(today)===6&&!state.weeks[iso(nextMon)])prep=planCard(nextMon,`Het is zondag: zet week ${weekNo(nextMon)} klaar`,'Vul in wanneer je komende week kunt fietsen. De trainingen worden daarna ingedeeld op je doel en op de tijd die je per dag hebt.');
-  else if(ui.weekOff>=0&&!plan.custom)prep=planCard(mon,`Zet week ${weekNo(mon)} klaar`,'Voor deze week heb je nog geen beschikbaarheid ingevuld. Vul in wanneer je kunt fietsen; de trainingen worden daarna ingedeeld op je doel en op de tijd die je per dag hebt.');
-  const goal=GOALS[state.profile.goal]||GOALS.ftp;
+  if(ui.weekOff===0&&dow(today)===6&&!state.weeks[iso(nextMon)])prep=planCard(nextMon,`Het is zondag: zet week ${weekNo(nextMon)} klaar`,'Vul in wanneer je komende week kunt fietsen. Het schema kiest daarbinnen hoeveel je traint en op welke dagen.');
+  else if(ui.weekOff>=0&&!plan.custom)prep=planCard(mon,`Zet week ${weekNo(mon)} klaar`,'Voor deze week heb je nog geen beschikbaarheid ingevuld. Vul in wanneer je kunt fietsen; het schema kiest daarbinnen hoeveel je traint en op welke dagen.');
+  const goal=GOALS[state.profile.goal]||GOALS.ftp,prof=plan.prof;
+  if(ui.weekOff===0)logPlan(plan,today);
   let hero='';
   if(ui.weekOff===0){
     const d=plan.days.find(x=>x.iso===tk),r=rideOn(tk);
     if(r)hero=`<div class="card row spread"><div><p class="muted">Vandaag, ${dateLong(today)}</p><h1 style="margin-top:6px">${esc(r.name)} gereden</h1></div><button class="btn pri big" data-act="openRide" data-id="${r.id}">Bekijk de analyse</button></div>`;
     else if(d&&d.event)hero=`<div class="card"><p class="muted">Vandaag, ${dateLong(today)}</p><h1 style="margin-top:6px">${esc(d.event)}</h1><p class="muted" style="margin-top:6px">De dag waar je naartoe hebt getraind. Veel succes.</p></div>`;
     else if(d&&d.wo){const w=d.wo;hero=`<div class="card hero">
-      <div><p class="muted">Vandaag, ${dateLong(today)}</p><h1>${esc(w.name)}</h1>${d.movedFrom!=null?`<p style="color:var(--z5);font-weight:600;margin-bottom:6px">Verplaatst van ${DAYS_L[d.movedFrom]}, omdat je die training hebt gemist.</p>`:''}<p class="muted" style="max-width:54ch">${esc(w.desc)}</p>${whyFor(state.profile.goal,w.type)?`<p style="max-width:54ch;margin-top:8px"><b style="font-weight:600">Voor je doel:</b> ${esc(whyFor(state.profile.goal,w.type))}</p>`:''}
+      <div><p class="muted">Vandaag, ${dateLong(today)}</p><h1>${esc(w.name)}</h1>${d.movedFrom!=null?`<p style="color:var(--z5);font-weight:600;margin-bottom:6px">Verplaatst van ${DAYS_L[d.movedFrom]}, omdat je die training hebt gemist.</p>`:''}<p class="muted" style="max-width:54ch">${esc(w.desc)}</p>${whyOn(d.date,w.type)?`<p style="max-width:54ch;margin-top:8px"><b style="font-weight:600">${prof===goal?'Voor je doel':'Voor '+esc(state.event.name)}:</b> ${esc(whyOn(d.date,w.type))}</p>`:''}
         <div class="kv" style="margin:18px 0"><div><b>${durTxt(w.minutes)}</b><span>duur</span></div><div><b>${w.tss}</b><span>belasting (TSS)</span></div><div><b>${nl(w.IF.toFixed(2))}</b><span>intensiteit</span></div></div>
         <div class="row"><button class="btn pri big" data-act="startDay" data-iso="${d.iso}">Start training</button><button class="btn" data-act="openDay" data-iso="${d.iso}">Details en aanpassen</button></div></div>
       <div>${profileSVG(w.segs)}</div></div>`}
@@ -76,6 +79,10 @@ function schemaView(){
       <span class="dm"><span>${durTxt(d.wo.minutes)}</span>${r?`<span class="done">Gereden${r.score!=null?' '+r.score:''}</span>`:`<span>${d.wo.tss} TSS</span>`}</span></button>`}).join('');
   const K=plan.ctx.kind,phaseTxt={build:'Elke opbouwweek zit er iets meer werk in de zware blokken.',rec:'Minder en lichter, zodat het werk van de afgelopen weken kan landen.',base:'Basisfase: vooral rustige uren en lange blokken onder je drempel.',peak:'Piekfase: de zwaarste weken, gericht op precies wat je evenement vraagt.',taper:'Afbouw: korter trainen op dezelfde intensiteit, zodat je fris wordt zonder scherpte te verliezen.',event:'Alleen korte prikkels. De vorm zit er al in; nu gaat het om fris aan de start staan.'}[K];
   const evTxt=plan.ctx.toGo!=null?`<p><b style="font-weight:600">${esc(state.event.name)}:</b> <span class="muted">${plan.ctx.toGo===0?'deze week':plan.ctx.toGo===1?'volgende week':'nog '+plan.ctx.toGo+' weken'}.</span></p>`:'';
+  const C=plan.coach,availM=plan.days.reduce((a,d)=>a+(d.event?0:d.minutes),0),idealM=r5(C.weekH*60);
+  const basis=C.hist==null?`Bij je FTP (${nl(C.wkg.toFixed(1))} W/kg) en ${prof===goal?'je doel':'je evenement'} past ongeveer ${durTxt(r5(C.ideal*60))} training per week.`:`De afgelopen vier weken reed je gemiddeld ${durTxt(r5(C.hist*60))} per week; het schema bouwt daar geleidelijk op voort.`;
+  const ruimte=K==='event'?'':availM-sum.m>=60&&idealM-sum.m<45?` Je hebt ${durTxt(availM)} beschikbaar. Meer trainen helpt je deze week niet verder: de vrije dagen zijn nodig om te herstellen.`:idealM-sum.m>=45?` Met meer beschikbare tijd zou deze week ongeveer ${durTxt(idealM)} zijn.`:'';
+  const coachTxt=`<p class="small muted" style="max-width:80ch">${basis}${ruimte}</p>`;
   const fatTxt=plan.fat.level?`<p class="notice small">Je belasting van de laatste 7 dagen ligt ${plan.fat.pct}% boven je gemiddelde van de vier weken ervoor. ${plan.fat.level===2?'De zware trainingen zijn daarom een stap lichter en er is één kernsessie vervangen door een duurrit.':'De zware trainingen zijn daarom een stap lichter.'}</p>`:'';
   return `${pend}${prep}${hero}
     <div class="row spread" style="margin-top:34px"><div><h2>Week ${weekNo(mon)}, ${plan.label.toLowerCase()}</h2>
@@ -83,7 +90,8 @@ function schemaView(){
       <div class="row"><button class="btn icon" data-act="week" data-d="-1" aria-label="Vorige week">‹</button>${ui.weekOff?'<button class="btn" data-act="week" data-d="0">Deze week</button>':''}<button class="btn icon" data-act="week" data-d="1" aria-label="Volgende week">›</button>
       ${plan.custom?`<button class="btn" data-act="openAvail" data-mon="${iso(mon)}">Beschikbaarheid aanpassen</button>`:''}
       <button class="btn" data-act="zwoWeek">Download week voor Zwift</button></div></div>
-    <p style="max-width:80ch"><b style="font-weight:600">Doel: ${esc(goal.name.toLowerCase())}.</b> <span class="muted">${esc(goal.plan)}</span></p>
+    ${prof===goal?`<p style="max-width:80ch"><b style="font-weight:600">Doel: ${esc(goal.name.toLowerCase())}.</b> <span class="muted">${esc(goal.plan)}</span></p>`:`<p style="max-width:80ch"><b style="font-weight:600">${esc(prof.name)}.</b> <span class="muted">${esc(prof.plan)}</span></p>`}
+    ${coachTxt}
     ${!plan.custom&&ui.weekOff>=0?`<p class="small muted">Hieronder staat een voorlopige indeling op basis van je standaardweek.</p>`:''}
     ${evTxt}${fatTxt}${adj}<div class="week">${cards}</div>`;
 }
@@ -117,14 +125,14 @@ function modalHTML(){
     const types=[['','Automatisch']].concat(Object.entries(TYPES).filter(([k])=>k!=='ramptest').map(([k,t])=>[k,t.name]));
     adjust=`<div class="form" style="padding-top:6px;border-top:1px solid var(--line)">
       <div><label class="f" for="m-min">Beschikbare tijd deze dag</label>${sel('id="m-min" data-chg="ovMin"',MINS.map(v=>[v,v?durTxt(v):'Rust']),day.o.skip?0:(day.o.minutes!=null?day.o.minutes:day.base))}</div>
-      ${w?`<div><label class="f" for="m-type">Soort training</label>${sel('id="m-type" data-chg="ovType"',types,day.o.type||'')}</div>`:''}
+      <div><label class="f" for="m-type">Soort training</label>${sel('id="m-type" data-chg="ovType"',w?types:[['','Rust']].concat(types.slice(1)),day.o.type||'')}</div>
     </div>`;
   }
   const title=day?`<p class="muted">${dateLong(day.date)}</p>`:'';
-  if(!w)return `<div class="veil" data-act="veil"><div class="modal stack" role="dialog" aria-modal="true" aria-label="Rustdag">${title}<h2>Rustdag</h2><p class="muted">Kies hieronder hoeveel tijd je hebt als je toch wilt trainen.</p>${adjust}<div class="row"><button class="btn" data-act="closeModal">Sluiten</button></div></div></div>`;
+  if(!w)return `<div class="veil" data-act="veil"><div class="modal stack" role="dialog" aria-modal="true" aria-label="Rustdag">${title}<h2>Rustdag</h2><p class="muted">${day&&day.minutes>=20?'Het schema houdt deze dag vrij zodat je herstelt van de zware dagen. Wil je toch trainen, kies dan hieronder een soort training.':'Wil je toch trainen, kies dan hieronder hoeveel tijd je hebt en welke training je wilt rijden.'}</p>${adjust}<div class="row"><button class="btn" data-act="closeModal">Sluiten</button></div></div></div>`;
   const zs=[...new Set(w.segs.filter(s=>s.kind==='work'||s.kind==='steady').map(s=>zoneOf((s.a+s.b)/2)))].sort();
   return `<div class="veil" data-act="veil"><div class="modal stack" role="dialog" aria-modal="true" aria-label="${esc(w.name)}">
-    <div>${title}<h2>${esc(w.name)}</h2><p class="muted" style="margin-top:6px">${esc(w.desc)}</p>${whyFor(state.profile.goal,w.type)?`<p style="margin-top:8px"><b style="font-weight:600">Voor je doel:</b> ${esc(whyFor(state.profile.goal,w.type))}</p>`:''}</div>
+    <div>${title}<h2>${esc(w.name)}</h2><p class="muted" style="margin-top:6px">${esc(w.desc)}</p>${whyOn(day?day.date:new Date(),w.type)?`<p style="margin-top:8px"><b style="font-weight:600">Waarom:</b> ${esc(whyOn(day?day.date:new Date(),w.type))}</p>`:''}</div>
     ${profileSVG(w.segs)}
     <div class="row spread"><div class="kv"><div><b>${durTxt(w.minutes)}</b><span>duur</span></div><div><b>${w.tss}</b><span>belasting (TSS)</span></div><div><b>${nl(w.IF.toFixed(2))}</b><span>intensiteit</span></div></div>
       <div class="row">${zs.map(z=>`<span class="zchip"><i style="background:var(--z${z})"></i>${ZN[z]}</span>`).join('')}</div></div>

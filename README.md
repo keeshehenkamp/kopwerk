@@ -13,7 +13,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 | `css/kopwerk.css` | Opmaak, kleuren, licht en donker |
 | `js/hulp.js` | Datums, opmaak van getallen, vermogenszones |
 | `js/trainingen.js` | Trainingstypes en het opbouwen van een training |
-| `js/planner.js` | Doelen, fases richting een evenement, weekindeling |
+| `js/planner.js` | De coach: doelen en evenementen, fases, weekvolume, rustdagen en weekindeling |
 | `js/analyse.js` | Analyse van een rit, records, conditie en vermoeidheid |
 | `js/bestanden.js` | Import (.fit, .tcx), export (.zwo, zip), downloads |
 | `js/opslag.js` | Opslag in de browser |
@@ -27,6 +27,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 
 - localStorage-sleutel `kopwerk.v1`: instellingen, schema en ritten (`v: 1`).
 - IndexedDB `kopwerk`, store `streams`: meetgegevens per rit (`s:<rit-id>`) en een lopende training (`active`).
+- Sinds de coach bevat de state ook `event.kind` en `event.km` (soort en afstand van het evenement), `started` (eerste dag met een schema) en `plog` (wat er per voorbije dag gepland stond, zodat het verleden niet verschuift). Dit zijn toevoegingen; oude gegevens werken zonder migratie.
 
 Verander deze namen of het formaat niet zonder migratie, anders zijn bestaande gegevens niet meer leesbaar. Alle opslag loopt via `js/opslag.js`. Daar kan later ook synchronisatie op aansluiten.
 

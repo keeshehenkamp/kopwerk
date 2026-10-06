@@ -7,11 +7,13 @@ const TYPES={
   sweetspot:{name:'Sweet spot',hard:true,desc:'Blokken op 88 tot 92% van je FTP: veel trainingseffect voor relatief weinig vermoeidheid. De efficiëntste manier om je FTP te verhogen.'},
   drempel:{name:'Drempelblokken',hard:true,desc:'Blokken rond je FTP. Zwaar maar beheersbaar: je traint het vermogen dat je een uur kunt volhouden.'},
   vo2:{name:'VO2max-intervallen',hard:true,desc:'Korte, harde intervallen ruim boven je FTP met evenveel rust. Vergroot je maximale zuurstofopname.'},
+  heuvels:{name:'Korte klimmen',hard:true,desc:'Herhaalde korte, steile klimmen van ongeveer twee minuten ruim boven je FTP, met rustig herstel ertussen. Zo train je het aanzetten op hellingen zoals in een heuveltocht.'},
   anaeroob:{name:'30/30-intervallen',hard:true,desc:'Dertig seconden hard, dertig seconden rustig. Traint herhaald versnellen en snel herstellen.'},
   klim:{name:'Klimkracht',hard:true,desc:'Blokken op lage cadans, zoals op een lange klim. Blijf zitten en houd je bovenlichaam stil.'},
   sprint:{name:'Sprints',hard:true,desc:'Duurrit met korte sprints van 15 seconden. Traint explosiviteit zonder veel vermoeidheid.'},
   duurklim:{name:'Duurrit met klimblokken',hard:false,desc:'Lange duurrit met blokken op tempo en lage cadans, zoals op een klim midden in een lange tocht. Rustig tussen de blokken.'},
   duurtempo:{name:'Duurrit met tempofinale',hard:false,desc:'Lange duurrit die eindigt met een blok op tempo. Je leert doortrappen als de benen al moe zijn.'},
+  duurheuvels:{name:'Duurrit met korte klimmen',hard:false,desc:'Lange duurrit met elk kwartier een korte, stevige klim. Je leert hellingen aanzetten als de benen al moe zijn, zoals laat in een heuveltocht.'},
   openers:{name:'Activatie',hard:false,desc:'Korte prikkels om de benen wakker te houden zonder vermoeidheid op te bouwen. Past in een herstelweek of de dag voor een zware rit.'},
   ramptest:{name:'FTP-test (ramptest)',hard:true,desc:'Elke minuut gaat het vermogen omhoog tot je niet meer kunt. Stop zodra je de cadans niet meer vasthoudt; je FTP wordt berekend uit je beste minuut.'}
 };
@@ -39,7 +41,7 @@ function repeatBlock(T,wu,cd,o){
 function buildWorkout(type,T,L){
   if(!TYPES[type])type='duur';
   T=clamp(Math.round(T),20,300);L=clamp(L|0,0,2);
-  if((type==='duurklim'||type==='duurtempo')&&T<45)type='duur';
+  if((type==='duurklim'||type==='duurtempo'||type==='duurheuvels')&&T<45)type='duur';
   const wu=T>=60?10:T>=40?8:5, cd=T>=60?5:T>=40?4:3;
   let segs=[],tag='';
   if(type==='herstel'){
@@ -66,6 +68,16 @@ function buildWorkout(type,T,L){
     segs.push(S(fin*60,pick([.78,.80,.82],L),null,'Tempofinale','work'));
     segs.push(S(300,.6,.4,'Cooling-down','cooldown'));
     tag=`${fin} min`;
+  }else if(type==='duurheuvels'){
+    const room=T-10-5,n=clamp(Math.floor(room/15),1,pick([6,8,10],L));
+    segs.push(S(600,.45,.66,'Warming-up','warmup'));
+    for(let i=0;i<n;i++){segs.push(S(780,.66,null,'Duurtempo','steady'));segs.push(S(120,pick([1.05,1.1,1.15],L),null,`Klim ${i+1} van ${n}`,'work'))}
+    const left=room-n*15;
+    if(left>=1)segs.push(S(left*60,.64,null,'Duurtempo','steady'));
+    segs.push(S(300,.6,.4,'Cooling-down','cooldown'));
+    tag=`${n}×2`;
+  }else if(type==='heuvels'){
+    ({segs,tag}=repeatBlock(T,wu,cd,{frac:pick([.3,.35,.4],L),pref:2,off:3,pOn:pick([1.15,1.18,1.2],L),pOff:.5,label:'Klim',maxReps:pick([6,8,10],L),maxOn:2.5}));
   }else if(type==='tempo'){
     ({segs,tag}=repeatBlock(T,wu,cd,{frac:pick([.65,.75,.85],L),pref:15,off:4,pOn:pick([.80,.83,.85],L),label:'Tempo'}));
   }else if(type==='sweetspot'){
