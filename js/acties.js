@@ -6,6 +6,15 @@ function setOverride(k,patch){
   if(Object.keys(o).length)state.overrides[k]=o;else delete state.overrides[k];
   save();render();
 }
+/* weergave: systeem, licht of donker; bewaard per apparaat */
+const THEME_KEY='kopwerk.theme';
+function getTheme(){try{return localStorage.getItem(THEME_KEY)||'auto'}catch(e){return 'auto'}}
+function setTheme(t){try{if(t==='light'||t==='dark')localStorage.setItem(THEME_KEY,t);else localStorage.removeItem(THEME_KEY)}catch(e){}
+  const r=document.documentElement;if(t==='light'||t==='dark')r.dataset.theme=t;else delete r.dataset.theme}
+const isDark=()=>{const t=document.documentElement.dataset.theme;return t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(getTheme()==='auto'&&!P)render()});
+/* elke FTP-wijziging met datum, voor de lijn in Vooruitgang (per dag alleen de laatste) */
+function logFtp(w){const d=iso(new Date()),l=state.ftpLog||(state.ftpLog=[]),x=l.find(e=>e.d===d);if(x)x.w=w;else l.push({d,w})}
 const actions={
   nav(d){ui.view=d.v;ui.modal=null;ui.confirm='';render();window.scrollTo(0,0)},
   selDay(d){ui.selDay=d.iso;render()},
@@ -21,6 +30,22 @@ const actions={
     const n=planWeek(state,mon).days.filter(x=>x.wo).length;
     toast(n?`Week ${weekNo(mon)} staat klaar: ${n} ${n===1?'training':'trainingen'}.`:`Week ${weekNo(mon)} opgeslagen als rustweek.`);
   },
+  /* training niet gedaan, met een reden */
+  openMissed(d){ui.modal={kind:'missed',iso:d.iso};render()},
+  missedWhy(d){const k=ui.modal&&ui.modal.iso;if(!k)return;state.missed=state.missed||{};state.missed[k]={why:d.why,ts:Date.now()};
+    if(d.why==='ziek'){ui.modal={kind:'health',from:k};save();return render()}
+    ui.modal=null;save();render();toast(d.why==='tijd'?'Genoteerd. Als het past, schuift de training naar een andere dag.':'Genoteerd. De rest van de week is een stap lichter.')},
+  undoMissed(d){if(state.missed)delete state.missed[d.iso];save();render()},
+  /* ziek of geblesseerd */
+  openHealth(){ui.modal={kind:'health'};render()},
+  saveHealth(){const k=document.querySelector('input[name="hk"]:checked'),f=document.getElementById('h-from').value,tk=iso(new Date());
+    if(!k||!HEALTH[k.value])return;state.health={kind:k.value,from:/^\d{4}-\d{2}-\d{2}$/.test(f)&&f<=tk?f:tk};ui.modal=null;save();render();window.scrollTo(0,0);
+    toast(HEALTH[k.value].cap?'Doorgegeven. Je schema heeft nu alleen korte, rustige ritjes.':'Doorgegeven. Er staan geen trainingen meer gepland tot je weer beter bent.')},
+  healthDrop(){state.health=null;ui.modal=null;save();render()},
+  healthBetter(){const h=state.health;if(!h)return;const y=iso(addDays(new Date(),-1));state.health=null;
+    if(y>=h.from){h.to=y;(state.healthLog=state.healthLog||[]).push(h)}
+    const n=y>=h.from?dayDiff(parseISO(h.from),parseISO(y))+1:0;save();render();window.scrollTo(0,0);
+    toast(n<=3?'Fijn. Eerst rustig, daarna weer volgens schema.':n<=14?'Fijn. De komende week bouw je rustig op.':'Fijn. De komende weken bouw je rustig op, met daarna een FTP-test.')},
   resetWeek(){delete state.weeks[ui.modal.mon];ui.modal=null;save();render()},
   openWo(d){ui.detail={kind:'wo',type:d.type,min:ui.lib.min,L:ui.lib.L,from:'lib'};ui.view='training';render();window.scrollTo(0,0)},
   closeModal(){ui.modal=null;render()},
@@ -43,11 +68,12 @@ const actions={
     const g=id=>document.getElementById(id);
     const ftp=clamp(Math.round(+g('s-ftp').value)||200,60,600),w=clamp(+g('s-w').value||75,35,200);
     const mh=Math.round(+g('s-mhr').value)||0,evd=g('s-evd').value,evn=g('s-evn').value.trim();
+    if(ftp!==state.profile.ftp)logFtp(ftp);
     state.profile={ftp,weight:w,goal:g('s-goal').value,sound:g('s-snd').value==='1',maxHr:mh?clamp(mh,120,230):0};
     const evk=g('s-evk').value,evkm=Math.round(+g('s-evkm').value)||0;
     const old=state.event,keep=old&&old.profile&&old.name===(evn||'Evenement')&&old.date===evd?{profile:old.profile}:{};
     state.event=/^\d{4}-\d{2}-\d{2}$/.test(evd)?Object.assign({name:evn||'Evenement',date:evd},EVENTS[evk]?{kind:evk}:{},evkm?{km:clamp(evkm,20,400)}:{},keep):null;
-    state.avail=DAYS.map((_,i)=>+g('s-a'+i).value);
+    if(g('s-a0'))state.avail=DAYS.map((_,i)=>+g('s-a'+i).value);
     if(!state.setup){state.setup=true;state.started=iso(new Date());state.planStart=iso(mondayOf(new Date()));state.weeks[state.planStart]=state.avail.slice();ui.view='vandaag'}
     save();render();toast(state.avail.some(x=>x)?'Opgeslagen':'Opgeslagen. Je hebt nog geen trainingsdagen gekozen.');
   },
@@ -133,7 +159,9 @@ const actions={
   stravaConnect(){stravaConnect()},
   stravaFetch(){stravaFetch(true)},
   stravaOff(){delete state.strava;save();render();toast('Strava is ontkoppeld.')},
-  setFtp(d){state.profile.ftp=+d.w;save();render();toast(`FTP is nu ${d.w} W. Alle trainingen zijn daarop aangepast.`)},
+  theme(d,el){setTheme(el.value);render()},
+  themeToggle(){setTheme(isDark()?'light':'dark');render()},
+  setFtp(d){state.profile.ftp=+d.w;logFtp(+d.w);save();render();toast(`FTP is nu ${d.w} W. Alle trainingen zijn daarop aangepast.`)},
   async delRide(){
     if(ui.confirm!=='ride'){ui.confirm='ride';return render()}
     const id=ui.rideId;state.rides=state.rides.filter(r=>r.id!==id);state.deleted=(state.deleted||[]).concat(id);save();await idb.del('s:'+id);

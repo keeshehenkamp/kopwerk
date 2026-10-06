@@ -435,34 +435,34 @@ function makeArch(color,text,finish){
   const tex=canvasTex(512,56,(c,w,h)=>{
     if(finish){for(let i=0;i<32;i++)for(let j=0;j<4;j++){c.fillStyle=(i+j)%2?'#fff':'#111';c.fillRect(i*16,j*14,16,14)}c.fillStyle='rgba(0,0,0,.55)';c.fillRect(150,0,212,h)}
     else{c.fillStyle=color;c.fillRect(0,0,w,h)}
-    c.fillStyle='#fff';c.font='bold 34px Figtree, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,h/2+2)});
+    c.fillStyle='#fff';c.font='bold 34px Inter, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,h/2+2)});
   const tm=new T.MeshBasicMaterial({map:tex}),b=new T.Mesh(new T.BoxGeometry(9.3,1,.25),[m,m,m,m,tm,tm]);
   b.position.y=4.5;b.castShadow=true;g.add(b);return g;
 }
 /* blauw plaatsnaambord; bij het verlaten van het dorp met een rode streep */
 function makePlace(name,out,fr){
   const T=T3,g=new T.Group(),post=new T.Mesh(new T.CylinderGeometry(.05,.05,2.3,6),new T.MeshLambertMaterial({color:'#9aa0a6'}));post.position.y=1.15;g.add(post);
-  const tex=canvasTex(256,96,(c,w,h)=>{c.fillStyle=fr?'#ffffff':'#1d4f9c';c.fillRect(0,0,w,h);c.strokeStyle=fr?'#d62828':'#fff';c.lineWidth=fr?9:6;c.strokeRect(6,6,w-12,h-12);c.fillStyle=fr?'#111':'#fff';c.font='bold 34px Figtree, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(name,w/2,h/2+2);
+  const tex=canvasTex(256,96,(c,w,h)=>{c.fillStyle=fr?'#ffffff':'#1d4f9c';c.fillRect(0,0,w,h);c.strokeStyle=fr?'#d62828':'#fff';c.lineWidth=fr?9:6;c.strokeRect(6,6,w-12,h-12);c.fillStyle=fr?'#111':'#fff';c.font='bold 34px Inter, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(name,w/2,h/2+2);
     if(out){c.strokeStyle='#d62828';c.lineWidth=9;c.beginPath();c.moveTo(14,h-12);c.lineTo(w-14,12);c.stroke()}});
   const b=new T.Mesh(new T.PlaneGeometry(1.8,.68),new T.MeshBasicMaterial({map:tex,side:T.DoubleSide}));b.position.y=2.45;g.add(b);return g;
 }
 /* spandoek op de dranghekken bij de finish */
 function makeBanner(v){
   const T=T3,key='ban'+v;W.ban=W.ban||{};
-  if(!W.ban[key])W.ban[key]=canvasTex(512,96,(c,w,h)=>{c.fillStyle=v?'#FF6A2B':'#1d4f9c';c.fillRect(0,0,w,h);c.fillStyle='#fff';c.font='800 54px Figtree, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(v?'KOPWERK':'GA ERVOOR!',w/2,h/2+3)});
+  if(!W.ban[key])W.ban[key]=canvasTex(512,96,(c,w,h)=>{c.fillStyle=v?'#FF6A2B':'#1d4f9c';c.fillRect(0,0,w,h);c.fillStyle='#fff';c.font='800 54px Inter, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(v?'KOPWERK':'GA ERVOOR!',w/2,h/2+3)});
   W.banM=W.banM||{};W.banM[key]=W.banM[key]||new T.MeshBasicMaterial({map:W.ban[key],side:T.DoubleSide});W.banG=W.banG||new T.PlaneGeometry(2.48,.85);const m=new T.Mesh(W.banG,W.banM[key]);m.position.y=.62;m.userData.shared=true;const g=new T.Group();g.add(m);return g;
 }
 /* bordje bij een haarspeldbocht */
 function makeVirage(n,alt){
   const T=T3,g=new T.Group(),post=new T.Mesh(new T.CylinderGeometry(.05,.05,2.3,6),new T.MeshLambertMaterial({color:'#9aa0a6'}));post.position.y=1.15;g.add(post);
   const tex=canvasTex(256,192,(c,w,h)=>{c.fillStyle='#f6f3ec';c.fillRect(0,0,w,h);c.strokeStyle='#1d4f9c';c.lineWidth=10;c.strokeRect(5,5,w-10,h-10);c.fillStyle='#1d4f9c';c.textAlign='center';c.textBaseline='middle';
-    c.font='800 28px Figtree, system-ui, sans-serif';c.fillText('VIRAGE',w/2,34);c.font='900 88px Figtree, system-ui, sans-serif';c.fillText(n,w/2,102);c.font='700 22px Figtree, system-ui, sans-serif';c.fillStyle='#3a3a3a';c.fillText('altitude '+alt+' m',w/2,162)});
+    c.font='800 28px Inter, system-ui, sans-serif';c.fillText('VIRAGE',w/2,34);c.font='900 88px Inter, system-ui, sans-serif';c.fillText(n,w/2,102);c.font='700 22px Inter, system-ui, sans-serif';c.fillStyle='#3a3a3a';c.fillText('altitude '+alt+' m',w/2,162)});
   const b=new T.Mesh(new T.PlaneGeometry(1.1,.82),new T.MeshBasicMaterial({map:tex,side:T.DoubleSide}));b.position.y=2.6;g.add(b);return g;
 }
 /* woorden voor op het asfalt, met verf die hier en daar is weggesleten */
 function roadWords(){
   return canvasTex(1024,1024,(c,w,h)=>{c.textAlign='center';c.textBaseline='middle';
-    ['ALLEZ','VAS-Y !','FORZA','KOPWERK','HOP HOP','ALLEZ ALLEZ','GO GO GO','ALLEZ KOPWERK'].forEach((t,i)=>{c.font=`900 ${t.length>9?66:88}px Figtree, system-ui, sans-serif`;c.fillStyle=i%3===1?'rgba(255,214,64,.95)':'rgba(255,255,255,.93)';c.fillText(t,w/2,i*128+66)});
+    ['ALLEZ','VAS-Y !','FORZA','KOPWERK','HOP HOP','ALLEZ ALLEZ','GO GO GO','ALLEZ KOPWERK'].forEach((t,i)=>{c.font=`900 ${t.length>9?66:88}px Inter, system-ui, sans-serif`;c.fillStyle=i%3===1?'rgba(255,214,64,.95)':'rgba(255,255,255,.93)';c.fillText(t,w/2,i*128+66)});
     c.globalCompositeOperation='destination-out';for(let i=0;i<26000;i++){c.fillStyle=`rgba(0,0,0,${Math.random()*.7})`;c.fillRect(Math.random()*w,Math.random()*h,2,2)}});
 }
 /* waarschuwing voor een bocht */
@@ -477,7 +477,7 @@ function makeSign(pct){
   const T=T3,g=new T.Group();
   const post=new T.Mesh(new T.CylinderGeometry(.05,.05,2.2,6),new T.MeshLambertMaterial({color:'#9aa0a6'}));post.position.y=1.1;g.add(post);
   const tex=canvasTex(128,128,(c,w,h)=>{c.fillStyle='#fff';c.beginPath();c.moveTo(64,6);c.lineTo(122,116);c.lineTo(6,116);c.closePath();c.fill();
-    c.lineWidth=12;c.strokeStyle='#d62828';c.lineJoin='round';c.stroke();c.fillStyle='#111';c.font='bold 34px Figtree, system-ui, sans-serif';c.textAlign='center';c.fillText(pct+'%',64,96)});
+    c.lineWidth=12;c.strokeStyle='#d62828';c.lineJoin='round';c.stroke();c.fillStyle='#111';c.font='bold 34px Inter, system-ui, sans-serif';c.textAlign='center';c.fillText(pct+'%',64,96)});
   const b=new T.Mesh(new T.PlaneGeometry(1.1,1.1),new T.MeshBasicMaterial({map:tex,transparent:true,side:T.DoubleSide}));b.position.y=2.5;g.add(b);
   return g;
 }
@@ -507,7 +507,7 @@ function kitTex(k){
     /* kraag, rits, achterzakken en naam op de rug */
     c.fillStyle=k.acc;c.fillRect(0,0,512,13);c.fillStyle=shadeC(k.base,-.3);c.fillRect(0,0,3,yb);c.fillRect(509,0,3,yb);
     c.strokeStyle=shadeC(k.base,-.25);c.lineWidth=2;for(const i of[-1,0,1])c.strokeRect(512*(.5+i*.07)-14,yb-38,28,32);
-    if(k.logo){c.fillStyle=k.pat==='band'?k.acc2:k.acc;c.font='800 21px Figtree, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(k.logo,256,256*.62)}
+    if(k.logo){c.fillStyle=k.pat==='band'?k.acc2:k.acc;c.font='800 21px Inter, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(k.logo,256,256*.62)}
     /* broek: zwart met een zijpaneel in de kleur van het shirt */
     c.fillStyle='#16191f';c.fillRect(0,yb,512,256-yb);c.fillStyle=k.base;c.fillRect(512*.23,yb,16,256-yb);c.fillRect(512*.75,yb,16,256-yb);
     /* helm: grondkleur, een streep van voor naar achter, ventilatiegaten en een donkere rand */
@@ -515,7 +515,7 @@ function kitTex(k){
     c.fillStyle='#1b1d22';for(const x of[64,192])for(const dx of[-26,26,-46,46])for(let y=282;y<372;y+=24){c.beginPath();c.ellipse(x+dx,y,5,9,0,0,7);c.fill()}
     c.fillRect(0,388,256,14);
     /* opschrift voor de onderbuis, op beide zijkanten */
-    c.fillStyle=k.frame[0];c.fillRect(256,256,256,128);c.fillStyle=k.frame[0]==='#f2f2f2'||k.frame[0]==='#ffffff'?k.frame[1]:'#ffffff';c.font='800 26px Figtree, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';
+    c.fillStyle=k.frame[0];c.fillRect(256,256,256,128);c.fillStyle=k.frame[0]==='#f2f2f2'||k.frame[0]==='#ffffff'?k.frame[1]:'#ffffff';c.font='800 26px Inter, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';
     /* rechterkant: verticaal gespiegeld, linkerkant: horizontaal gespiegeld, zodat het op de buis van beide kanten leesbaar is */
     c.save();c.translate(384,352);c.scale(1,-1);c.fillText('KOPWERK',0,0);c.restore();c.save();c.translate(384,288);c.scale(-1,1);c.fillText('KOPWERK',0,0);c.restore();
     c.fillStyle='#ffffff';c.fillRect(256,384,256,128)});
@@ -1340,7 +1340,7 @@ function drawProfile(d){
     c.fillStyle=sg?W.zc[zoneOf((sg.a+sg.b)/2)]:'rgba(255,255,255,.35)';c.globalAlpha=.85;
     c.beginPath();c.moveTo(i/N*w,h);c.lineTo(i/N*w,Y(ys[i]));c.lineTo((i+1)/N*w+.6,Y(ys[i+1]));c.lineTo((i+1)/N*w+.6,h);c.fill()}
   c.globalAlpha=1;c.strokeStyle='#fff';c.lineWidth=2;c.beginPath();ys.forEach((y,i)=>i?c.lineTo(i/N*w,Y(y)):c.moveTo(0,Y(y)));c.stroke();
-  const x=(d-a)/(b-a)*w,yy=Y(roadAt(C,d).y);c.fillStyle='#FF6A2B';c.strokeStyle='#fff';c.lineWidth=2.5;c.beginPath();c.arc(x,yy,6,0,7);c.fill();c.stroke();
+  const x=(d-a)/(b-a)*w,yy=Y(roadAt(C,d).y);c.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--acc').trim()||'#1D4ED8';c.strokeStyle='#fff';c.lineWidth=2.5;c.beginPath();c.arc(x,yy,6,0,7);c.fill();c.stroke();
   /* tekst: de klim die eraan komt of waar je in zit */
   const G=dd=>(roadAt(C,dd+20).y-roadAt(C,dd).y)/20*100,len=m=>m>=1000?nl((m/1000).toFixed(1))+' km':Math.round(m/10)*10+' m';
   let s0=-1,s1=-1;for(let dd=d;dd<d+3000;dd+=20){const g2=G(dd);if(s0<0?g2>2.5:g2>1.5){if(s0<0)s0=dd;s1=dd+20}else if(s0>=0&&dd-s1>60)break}

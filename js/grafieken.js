@@ -60,7 +60,7 @@ function trendChart(f){
   const area=pathOf(ctl,y)+`L1000,200L0,200Z`;
   const tk=[0,.5,1].map(q=>{const d=s[Math.round(q*(N-1))].d;return `<span class="xl${q===0?' first':q===1?' last':''}" style="left:${q*100}%">${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span>`}).join('');
   return `<div class="chart" style="height:200px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Conditie en vermoeidheid over twaalf weken">
-    <path d="${area}" fill="var(--z2)" fill-opacity=".22"/><path d="${pathOf(ctl,y)}" fill="none" stroke="var(--z2)" stroke-width="2" vector-effect="non-scaling-stroke"/>
-    <path d="${pathOf(atl,y)}" fill="none" stroke="var(--z5)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>${tk}</div>
-    <div class="legend"><span><i style="background:var(--z2)"></i>Conditie: gemiddelde belasting over 6 weken</span><span><i style="background:var(--z5)"></i>Vermoeidheid: gemiddelde belasting over 7 dagen</span></div>`;
+    <path d="${area}" fill="var(--acc)" fill-opacity=".12"/><path d="${pathOf(ctl,y)}" fill="none" stroke="var(--acc)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+    <path d="${pathOf(atl,y)}" fill="none" stroke="var(--muted)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>${tk}</div>
+    <div class="legend"><span><i style="background:var(--acc)"></i>Conditie: gemiddelde belasting over 6 weken</span><span><i style="background:var(--muted)"></i>Vermoeidheid: gemiddelde belasting over 7 dagen</span></div>`;
 }

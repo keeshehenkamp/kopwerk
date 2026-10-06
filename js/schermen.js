@@ -25,7 +25,7 @@ function shell(body){
   const cur=tabOf(ui.view);
   return `<aside class="side"><div class="brand">${logo}Kopwerk</div>
     <nav class="tabs" aria-label="Hoofdmenu">${TABS.map(([k,t])=>`<button data-act="nav" data-v="${k}"${cur===k?' aria-current="page"':''}>${ICON[k]}<span>${t}</span></button>`).join('')}</nav>
-    <div class="ftp">FTP <b>${state.profile.ftp}</b> W</div></aside>
+    <div class="ftp"><div>FTP <b>${state.profile.ftp}</b> W</div><button class="link small" data-act="themeToggle" style="margin-top:10px">${isDark()?'Lichte weergave':'Donkere weergave'}</button></div></aside>
     <main class="main">${ui.saveFail?'<p class="notice small" style="margin-bottom:14px">Opslaan lukt niet in deze browser. Je gegevens blijven staan tot je de pagina sluit; maak een back-up via Profiel.</p>':''}${body}</main>`;
 }
 
@@ -52,8 +52,8 @@ function settingsForm(first){
       </div>
       ${first?'':`<div class="row"><button class="btn" data-act="aiResearch"${ui.aiBusy?' disabled':''}>${ui.aiBusy?'De coach onderzoekt je evenement':'Laat de coach je evenement onderzoeken'}</button>${ui.aiBusy?'<span class="small muted">Dit duurt meestal een tot twee minuten.</span>':''}</div>`}
     </div>
-    <div class="card stack"><div><h2>${first?'Wanneer kun je fietsen?':'Je standaardweek'}</h2><p class="small muted" style="margin-top:4px">De tijd die je hebt. De coach kiest zelf hoeveel je daarvan traint.</p></div>
-      <div class="avail">${DAYS.map((d,i)=>`<div><label class="f" for="s-a${i}" style="font-weight:600;color:var(--ink)">${d}</label>${sel(`id="s-a${i}"`,MINS.map(m=>[m,m?durTxt(m):'Rust']),state.avail[i])}</div>`).join('')}</div></div>
+    ${first?`<div class="card stack"><div><h2>Wanneer kun je fietsen?</h2><p class="small muted" style="margin-top:4px">De tijd die je hebt. De coach kiest zelf hoeveel je daarvan traint. Elke week kun je dit aanpassen.</p></div>
+      <div class="avail">${DAYS.map((d,i)=>`<div><label class="f" for="s-a${i}" style="font-weight:600;color:var(--ink)">${d}</label>${sel(`id="s-a${i}"`,MINS.map(m=>[m,m?durTxt(m):'Rust']),state.avail[i])}</div>`).join('')}</div></div>`:''}
     <div>${save}</div></div>`;
 }
 function setupView(){
@@ -94,11 +94,16 @@ function dayCard(d,tk){
   if(r)return `<button class="wcard" data-act="openRide" data-id="${r.id}"><div class="t"><div><h3>${esc(r.name)}</h3><div class="m">Gereden · ${clock(r.dur)} · ${r.tss} TSS${r.score!=null?` · uitvoering ${r.score}`:''}</div></div><span class="chev">›</span></div></button>`;
   if(d.event)return `<div class="wcard"><h3>${esc(d.event)}</h3><div class="m">De dag waar je naartoe traint.</div></div>`;
   if(d.wo){
-    const note=d.missed?`<div class="note late">${d.movedTo!=null?'Gemist, verplaatst naar '+DAYS_L[d.movedTo]:'Gemist'}</div>`:d.movedFrom!=null?`<div class="note moved">Verplaatst van ${DAYS_L[d.movedFrom]}</div>`:'';
+    const why={tijd:'geen tijd',moe:'te moe',ziek:'ziek'}[d.why],miss=why?`Niet gedaan (${why})`:'Gemist';
+    const note=d.missed?`<div class="note late">${d.movedTo!=null?miss+', verplaatst naar '+DAYS_L[d.movedTo]:d.why==='moe'?miss+'. De dagen erna zijn lichter.':miss}</div>`:d.movedFrom!=null?`<div class="note moved">Verplaatst van ${DAYS_L[d.movedFrom]}</div>`:'';
+    const act=d.iso>tk?'':d.missed&&d.why?`<div class="row" style="margin-top:8px"><button class="link small" data-act="undoMissed" data-iso="${d.iso}">Toch niet: melding intrekken</button></div>`
+      :d.iso===tk&&!d.missed?`<div class="row" style="margin-top:10px"><button class="btn pri big" data-act="startDay" data-iso="${d.iso}" style="flex:1">Start training</button><button class="btn big" data-act="openMissed" data-iso="${d.iso}">Lukt niet</button></div>`
+      :`<div class="row" style="margin-top:8px"><button class="btn small" data-act="openMissed" data-iso="${d.iso}">Niet gedaan melden</button></div>`;
     return `<button class="wcard" data-act="openDay" data-iso="${d.iso}"><div class="t"><div><h3>${esc(d.wo.name)}</h3><div class="m">${metaOf(d.wo)}</div>${note}</div><span class="chev">›</span></div>${profileSVG(d.wo.segs)}</button>
-      ${d.iso===tk&&!d.missed?`<div style="margin-top:10px"><button class="btn pri big" data-act="startDay" data-iso="${d.iso}" style="width:100%">Start training</button></div>`:''}`;
+      ${act}`;
   }
-  return `<div class="wcard"><div class="t"><div><h3>Rustdag</h3><div class="m">${d.o.skip?'Overgeslagen.':d.minutes>=20?'Herstel hoort bij het plan.':'Geen tijd gepland.'}</div></div><button class="btn small" data-act="openDay" data-iso="${d.iso}">Toch trainen</button></div></div>`;
+  const sick=d.health&&d.health.during?`${healthWord(d.health.h).replace(/^./,c=>c.toUpperCase())} gemeld.`:'';
+  return `<div class="wcard"><div class="t"><div><h3>Rustdag</h3><div class="m">${sick||(d.o.skip?'Overgeslagen.':d.minutes>=20?'Herstel hoort bij het plan.':'Geen tijd gepland.')}</div></div><button class="btn small" data-act="openDay" data-iso="${d.iso}">Toch trainen</button></div></div>`;
 }
 function vandaagView(){
   if(!state.setup)return setupView();
@@ -106,6 +111,7 @@ function vandaagView(){
   logPlan(plan,today);
   const selIso=ui.selDay&&ui.selDay>=iso(mon)&&ui.selDay<=iso(addDays(mon,6))?ui.selDay:tk;
   const sd=plan.days.find(d=>d.iso===selIso);
+  const hs=healthOn(state,tk),H=state.health;
   const strip=`<div class="days">${plan.days.map(d=>`<button class="dd${d.iso===tk?' today':''}" data-act="selDay" data-iso="${d.iso}" aria-pressed="${d.iso===selIso}" aria-label="${DAYS_L[d.i]} ${d.date.getDate()}">${DAYS[d.i]}<b>${d.date.getDate()}</b>${dotFor(d,rideOn(d.iso))}</button>`).join('')}</div>`;
   const lbl=selIso===tk?'Vandaag':dateLong(sd.date).replace(/^./,c=>c.toUpperCase());
   /* voortgang deze week */
@@ -113,14 +119,18 @@ function vandaagView(){
   const sum=weekSum(plan),doneM=Math.round(wk.reduce((a,r)=>a+r.dur,0)/60);
   const week=`<div class="card"><div class="kvl"><span>Deze week</span><span><b>${Math.min(wk.length,planned.length)} van ${planned.length}</b> trainingen</span></div>
     <div class="prog"><i style="width:${sum.m?Math.min(100,Math.round(doneM/sum.m*100)):0}%"></i></div>
-    <div class="kvl"><span>${durTxt(doneM)} gereden</span><span>${durTxt(sum.m)} gepland</span></div></div>`;
+    <div class="kvl"><span>${durTxt(doneM)} gereden</span><span>${durTxt(sum.m)} gepland</span></div>
+    ${H?'':'<div style="margin-top:10px"><button class="link small" data-act="openHealth">Ziek of geblesseerd?</button></div>'}</div>`;
   /* komende trainingen, ook volgende week */
   const next=planWeek(state,addDays(mon,7),today).days,up=plan.days.concat(next).filter(d=>d.iso>tk&&(d.wo||d.event)&&!rideOn(d.iso)).slice(0,4);
   const upcoming=up.length?`<div class="card"><h3 style="margin-bottom:4px">Komende trainingen</h3><div class="list">${up.map(d=>`<button data-act="${d.event?'nav':'openDay'}" data-iso="${d.iso}" data-v="schema"><span class="when"><b>${DAYS[d.i]}</b>${d.date.getDate()} ${MONTHS[d.date.getMonth()].slice(0,3)}</span>${dotFor(d)}<span class="w"><b>${esc(d.event||d.wo.name)}</b><span>${d.event?'Evenement':durTxt(d.wo.minutes)}</span></span></button>`).join('')}</div></div>`:'';
   const pend=ui.pending?`<div class="notice row spread"><span>Er staat een onderbroken training klaar: ${esc(ui.pending.wo.name)}, ${clock(ui.pending.rec.p.length)} gereden.</span><span class="row"><button class="btn small" data-act="pendSave">Opslaan</button><button class="btn small" data-act="pendDrop">Weggooien</button></span></div>`:'';
-  const fat=plan.fat.level?`<p class="notice small">Je hebt de laatste week ${plan.fat.pct}% meer gereden dan gewoonlijk. De zware trainingen zijn daarom een stap lichter.</p>`:'';
+  const fat=H||plan.fat.health?'':plan.fat.tired?'<p class="notice small">Je was te moe voor een training. De rest van de week is een stap lichter.</p>':plan.fat.level?`<p class="notice small">Je hebt de laatste week ${plan.fat.pct}% meer gereden dan gewoonlijk. De zware trainingen zijn daarom een stap lichter.</p>`:'';
+  const sick=H?`<div class="notice stack"><span>Je bent ${healthWord(H)} gemeld sinds ${dateLong(parseISO(H.from))} (${HEALTH[H.kind].label.toLowerCase()}). ${HEALTH[H.kind].cap?'Je schema heeft alleen korte, rustige ritjes.':'Er staan geen trainingen gepland.'}</span>
+      <span class="row"><button class="btn small pri" data-act="healthBetter">Ik ben weer beter</button><button class="btn small" data-act="openHealth">Aanpassen</button></span></div>`
+    :hs&&hs.ret?`<p class="notice small">Je bouwt weer op na ${healthWord(hs.h)==='ziek'?'je ziekte':'je blessure'}: ${hs.cap!=null?'eerst alleen rustige ritten.':'deze week minder zware trainingen.'}</p>`:'';
   return `<div class="home"><div class="stack">${pend}${bandHTML(plan,today)}${strip}<div><div class="daylbl" style="margin-top:0">${lbl}</div>${dayCard(sd,tk)}</div></div>
-    <div class="stack">${prepCard(plan,today)}${fat}${week}${upcoming}</div></div>`;
+    <div class="stack">${sick}${prepCard(plan,today)}${fat}${week}${upcoming}</div></div>`;
 }
 
 /* ---------- schema ---------- */
@@ -142,7 +152,7 @@ function schemaView(){
   const rows=plan.days.map(d=>{
     const r=rideOn(d.iso),when=`<span class="when"><b>${DAYS[d.i]}</b>${d.date.getDate()} ${MONTHS[d.date.getMonth()].slice(0,3)}</span>`;
     if(d.event)return `<div class="drow">${when}${dotFor(d)}<span class="w"><b>${esc(d.event)}</b><span>Dag van je evenement</span></span><span></span><span></span></div>`;
-    const st=r?`<span class="st ok">Gereden${r.score!=null?' '+r.score:''}</span>`:d.missed?`<span class="st late">Gemist</span>`:d.movedFrom!=null?`<span class="st">Van ${DAYS[d.movedFrom]}</span>`:d.wo?`<span class="st">${d.wo.tss} TSS</span>`:'<span class="st"></span>';
+    const st=r?`<span class="st ok">Gereden${r.score!=null?' '+r.score:''}</span>`:d.missed?`<span class="st late">${d.why?'Niet gedaan':'Gemist'}</span>`:d.movedFrom!=null?`<span class="st">Van ${DAYS[d.movedFrom]}</span>`:d.wo?`<span class="st">${d.wo.tss} TSS</span>`:'<span class="st"></span>';
     return `<button class="drow${d.iso===tk?' today':''}" data-act="openDay" data-iso="${d.iso}">${when}${dotFor(d,r)}<span class="w"><b>${d.wo?esc(d.wo.name):'Rust'}</b><span>${d.wo?durTxt(d.wo.minutes):d.o.skip?'Overgeslagen':''}</span></span>${d.wo?profileSVG(d.wo.segs):'<span></span>'}${st}</button>`}).join('');
   const K=plan.ctx.kind,phaseTxt={build:'Elke opbouwweek zit er iets meer werk in de zware blokken.',rec:'Minder en lichter, zodat het werk van de afgelopen weken kan landen.',base:'Basisfase: vooral rustige uren en lange blokken onder je drempel.',peak:'Piekfase: de zwaarste weken, gericht op precies wat je evenement vraagt.',taper:'Afbouw: korter trainen op dezelfde intensiteit, zodat je fris wordt zonder scherpte te verliezen.',event:'Alleen korte prikkels. De vorm zit er al in; nu gaat het om fris aan de start staan.'}[K];
   const C=plan.coach,availM=plan.days.reduce((a,d)=>a+(d.event?0:d.minutes),0),idealM=r5(C.weekH*60);
@@ -214,6 +224,32 @@ function libView(){
 }
 
 /* ---------- ritten ---------- */
+/* Vooruitgang: je FTP door de weken, wat je ritten erover zeggen, en je trede per soort training. */
+function progressCard(){
+  const real=state.rides.filter(r=>!r.sim);if(!real.length)return '';
+  const today=new Date(),mon=mondayOf(today),first=mondayOf(parseISO(real.reduce((a,r)=>r.date<a?r.date:a,real[0].date)));
+  const NW=Math.min(26,Math.max(6,Math.round(dayDiff(first,mon)/7)+1)),log=(state.ftpLog||[]).slice().sort((a,b)=>a.d<b.d?-1:1),pts=[];
+  for(let w=NW-1;w>=0;w--){const m=addDays(mon,-7*w),e=iso(addDays(m,6));
+    /* ingestelde FTP aan het eind van die week; schatting uit je beste 20 minuten of een FTP-test in de zes weken ervoor */
+    let f=null,fd='';for(const r of real)if(r.date<=e&&r.date>=fd&&r.ftp){f=r.ftp;fd=r.date}for(const x of log)if(x.d<=e&&x.d>=fd){f=x.w;fd=x.d}
+    if(w===0)f=state.profile.ftp;
+    const s0=iso(addDays(m,-35));let est=0;for(const r of real)if(r.date>=s0&&r.date<=e)est=Math.max(est,ftpEstimate(r));
+    pts.push({m,f,est:est||null})}
+  const vals=pts.flatMap(p=>[p.f,p.est]).filter(v=>v),lo=Math.min(...vals)*.94,hi=Math.max(...vals)*1.04,y=v=>200-(v-lo)/(hi-lo)*200,N=pts.length;
+  const line=k=>{let d='',pen=false;pts.forEach((p,i)=>{const v=p[k];if(!v){pen=false;return}const X=(i/(N-1)*1000).toFixed(1);d+=k==='f'&&pen?`H${X}V${y(v).toFixed(1)}`:`${pen?'L':'M'}${X},${y(v).toFixed(1)}`;pen=true});return d};
+  const tk=[0,.5,1].map(q=>{const m=pts[Math.round(q*(N-1))].m;return `<span class="xl${q===0?' first':q===1?' last':''}" style="left:${q*100}%">${m.getDate()} ${MONTHS[m.getMonth()].slice(0,3)}</span>`}).join('');
+  const kg=state.profile.weight||75,now=state.profile.ftp,back=pts[Math.max(0,N-7)].f,est=pts[N-1].est;
+  const diff=back&&N>=7?now-back:null;
+  const txt=`<b>${now} W</b> (${nl((now/kg).toFixed(1))} W/kg)${diff?`, ${diff>0?'+':''}${diff} W in zes weken`:''}.${est&&Math.abs(est-now)>=5?` Je ritten wijzen op ongeveer ${est} W.`:''}`;
+  /* trede per soort training: stijgt als je een training goed afrondt */
+  const seen=new Set(),lv=Object.entries(state.prog||{}).filter(([t,v])=>LADDER[t]&&v).map(([t,v])=>({l:LADDER[t].label,v,n:LADDER[t].steps.length})).sort((a,b)=>b.v/b.n-a.v/a.n).filter(x=>!seen.has(x.l)&&seen.add(x.l));
+  const lvHTML=lv.length?`<div class="stack" style="gap:8px;margin-top:14px"><div class="small muted">Trede per soort training</div>${lv.map(x=>`<div><div class="kvl small"><span>${x.l}</span><span>${x.v} van ${x.n}</span></div><div class="prog"><i style="width:${Math.round(x.v/x.n*100)}%"></i></div></div>`).join('')}</div>`:'';
+  return `<div class="card"><h3 style="margin-bottom:6px">Vooruitgang</h3><p class="small" style="margin-bottom:10px">FTP nu ${txt}</p>
+    <div class="chart" style="height:180px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je FTP door de weken">
+      <path d="${line('est')}" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
+      <path d="${line('f')}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>${tk}</div>
+    <div class="legend"><span><i style="background:var(--acc)"></i>Ingestelde FTP</span><span><i style="background:var(--muted)"></i>Geschat uit je beste 20 minuten</span></div>${lvHTML}</div>`;
+}
 function recordsCard(){
   const all=records(state.rides),cut=iso(addDays(new Date(),-42)),recent=records(state.rides.filter(r=>r.date>=cut));
   const ds=BESTS.filter(([w])=>all[w]);
@@ -225,8 +261,8 @@ function recordsCard(){
   return `<div class="card"><h3 style="margin-bottom:10px">Vermogenscurve en records</h3><div class="cols">
     <div><div class="chart" style="height:200px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je beste vermogen per duur">
       <path d="${line(all)}" fill="none" stroke="var(--ink)" stroke-width="2" vector-effect="non-scaling-stroke"/>
-      <path d="${line(recent)}" fill="none" stroke="var(--z5)" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/></svg>${lbl}</div>
-      <div class="legend"><span><i style="background:var(--ink)"></i>Beste ooit</span><span><i style="background:var(--z5)"></i>Laatste 6 weken</span></div></div>
+      <path d="${line(recent)}" fill="none" stroke="var(--acc)" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/></svg>${lbl}</div>
+      <div class="legend"><span><i style="background:var(--ink)"></i>Beste ooit</span><span><i style="background:var(--acc)"></i>Laatste 6 weken</span></div></div>
     <div class="scroll"><table><thead><tr><th>Duur</th><th>Record</th><th>W/kg</th><th>6 weken</th><th>Op</th></tr></thead><tbody>
       ${ds.map(([w,t])=>{const d=parseISO(all[w].date);return `<tr><td>${t}</td><td><b style="font-weight:600">${all[w].w} W</b></td><td>${nl((all[w].w/kg).toFixed(1))}</td><td>${recent[w]?recent[w].w+' W':'–'}</td><td><button class="link" data-act="openRide" data-id="${all[w].id}">${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</button></td></tr>`}).join('')}
     </tbody></table></div></div></div>`;
@@ -282,7 +318,7 @@ function rittenView(){
   return `${head}
     <div class="stats"><div><b>${f.ctl}</b><span>Conditie</span></div><div><b>${f.atl}</b><span>Vermoeidheid</span></div><div><b>${f.tsb>0?'+':''}${f.tsb}</b><span>Vorm: ${form.toLowerCase()}</span></div><div><b>${bars[7].done}<small>van ${bars[7].pl}</small></b><span>TSS deze week</span></div></div>
     <div class="cols" style="margin-top:16px">
-      <div class="card"><h3 style="margin-bottom:10px">Conditie en vermoeidheid</h3>${trendChart(f)}</div>
+      <div class="stack" style="gap:16px">${progressCard()}<div class="card"><h3 style="margin-bottom:10px">Conditie en vermoeidheid</h3>${trendChart(f)}</div></div>
       <div class="card"><h3 style="margin-bottom:14px">Belasting per week</h3><div class="bars">${bars.map(b=>`<div class="b"><span class="num">${b.done||''}</span><div class="col" style="height:${Math.max(2,Math.max(b.pl,b.done)/mx*100)}%${b.pl?'':';border-color:transparent'}"><i style="height:${Math.min(100,b.done/Math.max(1,b.pl,b.done)*100)}%"></i></div><span>wk ${weekNo(b.m)}</span></div>`).join('')}</div>
         <p class="small muted" style="margin-top:12px">Gestippeld: gepland. Gevuld: gereden.</p></div>
     </div>
@@ -377,7 +413,9 @@ function linkCard(){
 function profielView(){
   if(!state.setup)return setupView();
   return `<div class="head"><div><h1>Profiel</h1></div></div>
-    <div class="stack">${settingsForm(false)}${profileCard()}${linkCard()}${aiCard()}
+    <div class="stack">${settingsForm(false)}
+    <div class="card stack"><h2>Weergave</h2><div class="form"><div><label class="f" for="s-theme">Licht of donker</label>${sel('id="s-theme" data-chg="theme"',[['auto','Zoals je apparaat'],['light','Licht'],['dark','Donker']],getTheme())}</div></div></div>
+    ${profileCard()}${linkCard()}${aiCard()}
     <div class="card stack"><div><h2>Je gegevens</h2><p class="small muted" style="margin-top:4px;max-width:66ch">Alles staat in deze browser, op dit apparaat. Maak af en toe een back-up, zeker voordat je browsergegevens wist of van computer wisselt.</p></div>
       <div class="row"><button class="btn" data-act="backup">Back-up downloaden</button><label class="btn" style="cursor:pointer">Back-up terugzetten<input type="file" accept=".json,application/json" data-chg="restore" style="position:absolute;opacity:0;width:1px;height:1px"></label>
       <button class="btn warn" data-act="wipe">${ui.confirm==='wipe'?'Klik nog eens om alles te wissen':'Alles wissen'}</button></div></div></div>`;
@@ -389,10 +427,29 @@ function availModal(){
   return `<div class="veil" data-act="veil"><div class="modal stack" role="dialog" aria-modal="true" aria-label="Beschikbaarheid week ${weekNo(mon)}">
     <div><p class="muted">${mon.getDate()} ${MONTHS[mon.getMonth()]} tot en met ${addDays(mon,6).getDate()} ${MONTHS[addDays(mon,6).getMonth()]}</p><h2>Wanneer kun je in week ${weekNo(mon)}?</h2></div>
     <div class="avail">${plan.days.map(d=>`<div><label class="f" for="w-a${d.i}"><b style="color:var(--ink)">${DAYS[d.i]}</b> ${d.date.getDate()}</label>${sel(`id="w-a${d.i}"`,MINS.map(m=>[m,m?durTxt(m):'Rust']),d.o.skip?0:(d.o.minutes!=null?d.o.minutes:d.base))}</div>`).join('')}</div>
-    <div class="row spread"><div class="row"><button class="btn pri" data-act="saveWeek" data-mon="${ui.modal.mon}" data-p="w">Trainingen klaarzetten</button>${plan.custom?'<button class="btn" data-act="resetWeek">Standaardweek gebruiken</button>':''}</div><button class="btn" data-act="closeModal">Sluiten</button></div>
+    <div class="row spread"><div class="row"><button class="btn pri" data-act="saveWeek" data-mon="${ui.modal.mon}" data-p="w">Trainingen klaarzetten</button>${plan.custom?'<button class="btn" data-act="resetWeek">Zelfde als vorige week</button>':''}</div><button class="btn" data-act="closeModal">Sluiten</button></div>
   </div></div>`;
 }
+/* training niet gedaan: waarom? */
+function missedModal(){
+  const d=parseISO(ui.modal.iso),tk=iso(new Date());
+  return `<div class="veil" data-act="veil"><div class="modal stack" role="dialog" aria-modal="true" aria-label="Training niet gedaan">
+    <div><p class="muted">${dateLong(d).replace(/^./,c=>c.toUpperCase())}</p><h2>${ui.modal.iso===tk?'Lukt het vandaag niet?':'Training niet gedaan'}</h2></div>
+    <div class="stack"><button class="btn big" data-act="missedWhy" data-why="tijd">Geen tijd</button><button class="btn big" data-act="missedWhy" data-why="moe">Te moe</button><button class="btn big" data-act="missedWhy" data-why="ziek">Ziek of geblesseerd</button></div>
+    <div><button class="btn" data-act="closeModal">Annuleren</button></div></div></div>`;
+}
+/* ziek of geblesseerd melden of aanpassen */
+function healthModal(){
+  const H=state.health,cur=(H&&H.kind)||'ziekL',from=(H&&H.from)||ui.modal.from||iso(new Date());
+  return `<div class="veil" data-act="veil"><div class="modal stack" role="dialog" aria-modal="true" aria-label="Ziek of geblesseerd">
+    <div><h2>Ziek of geblesseerd</h2><p class="small muted" style="margin-top:4px">Je schema past zich aan tot je meldt dat je weer beter bent.</p></div>
+    <div class="stack">${Object.entries(HEALTH).map(([k,h])=>`<label class="row" style="gap:10px;align-items:center"><input type="radio" name="hk" value="${k}"${k===cur?' checked':''}><span>${h.label}<span class="small muted"> · ${h.cap?'alleen kort en rustig':'niet trainen'}</span></span></label>`).join('')}</div>
+    <div><label class="f" for="h-from">Sinds</label><input type="date" id="h-from" value="${from}" max="${iso(new Date())}"></div>
+    <div class="row spread"><div class="row"><button class="btn pri" data-act="saveHealth">Opslaan</button>${H?'<button class="btn" data-act="healthDrop">Melding intrekken</button>':''}</div><button class="btn" data-act="closeModal">Annuleren</button></div></div></div>`;
+}
 function modalHTML(){
+  if(ui.modal&&ui.modal.kind==='missed')return missedModal();
+  if(ui.modal&&ui.modal.kind==='health')return healthModal();
   if(ui.modal&&ui.modal.kind==='avail')return availModal();
   if(ui.modal&&ui.modal.kind==='add')return addModal();
   return '';
