@@ -105,7 +105,8 @@ function coachTargets(st,monday,ctx,fat){
   let ideal=level*(p.goal==='duur'?1.1:p.goal==='fit'?.9:1);
   const ev=ctx.toGo!=null&&st.event?st.event:null,ek=ev&&EVENTS[ev.kind]?ev.kind:'';
   const km=ev?(ev.km||EVENT_KM[ek]||0):0;
-  const evH=km?km/((ek?EVENTS[ek].kmh:25)*clamp(wkg/3,.8,1.25)**.4):0;
+  const pf=ev&&ev.profile,hm=pf&&pf.hoogtemeters>0?pf.hoogtemeters:0;
+  const evH=km?(hm?km/(28*clamp(wkg/3,.8,1.25)**.4)+hm/(1100*clamp(wkg/3,.8,1.3)):km/((ek?EVENTS[ek].kmh:25)*clamp(wkg/3,.8,1.25)**.4)):0;
   if(evH)ideal=Math.max(ideal,Math.min(level*1.4,evH*1.5));
   const now=mondayOf(new Date()),hist=recentHours(st,monday<now?monday:now);
   const base=hist==null?ideal*.85:hist<ideal?Math.min(ideal,hist*1.1+.5):Math.min(hist,ideal*1.25);

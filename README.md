@@ -20,6 +20,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 | `js/bluetooth.js` | Trainer en hartslagmeter via Web Bluetooth |
 | `js/player.js` | De workout player en de demo-modus |
 | `js/grafieken.js` | Grafieken |
+| `js/ai.js` | AI-coach: Claude onderzoekt het evenement (route, hoogtemeters, hellingen); richtvermogen per helling |
 | `js/schermen.js` | Schermen en vensters |
 | `js/acties.js` | Knoppen, toetsen en het opstarten van de app |
 
@@ -28,6 +29,8 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 - localStorage-sleutel `kopwerk.v1`: instellingen, schema en ritten (`v: 1`).
 - IndexedDB `kopwerk`, store `streams`: meetgegevens per rit (`s:<rit-id>`) en een lopende training (`active`).
 - Sinds de coach bevat de state ook `event.kind` en `event.km` (soort en afstand van het evenement), `started` (eerste dag met een schema) en `plog` (wat er per voorbije dag gepland stond, zodat het verleden niet verschuift), en `prog` (trede per soort training op de opbouwladder, bijgewerkt na elke rit met je gevoel en de uitvoering). Ritten krijgen `lvl`, de trede waarop ze gereden zijn. Dit zijn toevoegingen; oude gegevens werken zonder migratie.
+
+- localStorage-sleutel `kopwerk.ai`: de Claude API-sleutel, los van de state zodat hij niet in back-ups komt. Het onderzochte evenement staat in `event.profile`.
 
 Verander deze namen of het formaat niet zonder migratie, anders zijn bestaande gegevens niet meer leesbaar. Alle opslag loopt via `js/opslag.js`. Daar kan later ook synchronisatie op aansluiten.
 

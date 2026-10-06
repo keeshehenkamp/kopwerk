@@ -33,6 +33,7 @@ function settingsForm(first){
       <div><label class="f" for="s-evk">Soort evenement</label>${sel('id="s-evk"',EVENT_KINDS,state.event&&state.event.kind||'')}</div>
       <div><label class="f" for="s-evkm">Afstand in km</label><input type="number" id="s-evkm" min="20" max="400" value="${state.event&&state.event.km||''}" placeholder="bijv. 150" style="width:120px"></div>
     </div>
+    ${first?'':`<div class="row"><button class="btn" data-act="aiResearch"${ui.aiBusy?' disabled':''}>${ui.aiBusy?'De coach onderzoekt je evenement':'Laat de coach je evenement onderzoeken'}</button>${ui.aiBusy?'<span class="small muted">Dit duurt meestal een tot twee minuten.</span>':''}</div>`}
     <p class="small muted" style="max-width:66ch">Weet je je FTP niet? Vul 200 in; de coach plant in de eerste week een FTP-test.</p>
     <div><label class="f">${first?'Beschikbare tijd per dag in een gewone week':'Je standaardweek: beschikbare tijd per dag'}</label>
       <div class="avail">${DAYS.map((d,i)=>`<div><div class="small" style="font-weight:600;margin-bottom:4px">${d}</div>${sel(`id="s-a${i}" aria-label="${DAYS_L[i]}"`,MINS.map(m=>[m,m?durTxt(m):'Rust']),state.avail[i])}</div>`).join('')}</div></div>
@@ -81,7 +82,9 @@ function schemaView(){
   const C=plan.coach,availM=plan.days.reduce((a,d)=>a+(d.event?0:d.minutes),0),idealM=r5(C.weekH*60);
   const basis=C.hist==null?`Bij je FTP (${nl(C.wkg.toFixed(1))} W/kg) en ${prof===goal?'je doel':'je evenement'} past ongeveer ${durTxt(r5(C.ideal*60))} training per week.`:`De afgelopen vier weken reed je gemiddeld ${durTxt(r5(C.hist*60))} per week; het schema bouwt daar geleidelijk op voort.`;
   const ruimte=K==='event'?'':availM-sum.m>=60&&idealM-sum.m<45?` Je hebt ${durTxt(availM)} beschikbaar. Meer trainen helpt je deze week niet verder: de vrije dagen zijn nodig om te herstellen.`:idealM-sum.m>=45?` Met meer beschikbare tijd zou deze week ongeveer ${durTxt(idealM)} zijn.`:'';
-  const coachTxt=`<p class="small muted" style="max-width:80ch">${basis}${ruimte}</p>`;
+  const pf=plan.ctx.toGo!=null&&state.event&&state.event.profile,PS=pf&&profileSummary(pf,state.profile.ftp,state.profile.weight||75);
+  const pfTxt=PS?` Afgestemd op ${esc(pf.naam)}: ${Math.round(pf.afstand_km)} km${pf.hoogtemeters?`, ${Math.round(pf.hoogtemeters)} hoogtemeters`:''}${PS.climbs.length?`, ${PS.climbs.length} hellingen van meestal ${clock(PS.median*60)}`:''}.`:'';
+  const coachTxt=`<p class="small muted" style="max-width:80ch">${basis}${ruimte}${pfTxt}</p>`;
   const fatTxt=plan.fat.level?`<p class="notice small">Je belasting van de laatste 7 dagen ligt ${plan.fat.pct}% boven je gemiddelde van de vier weken ervoor. ${plan.fat.level===2?'De zware trainingen zijn daarom een stap lichter en er is één kernsessie vervangen door een duurrit.':'De zware trainingen zijn daarom een stap lichter.'}</p>`:'';
   return `${pend}${prep}${hero}
     <div class="row spread" style="margin-top:34px"><div><h2>Week ${weekNo(mon)}, ${plan.label.toLowerCase()}</h2>
@@ -259,8 +262,28 @@ function rideView(){
     <div class="row">${rec?'<button class="btn" data-act="csv">Download meetgegevens (CSV)</button>':''}<button class="btn warn" data-act="delRide">${ui.confirm==='ride'?'Klik nog eens om te verwijderen':'Training verwijderen'}</button></div>`;
 }
 
+const hostOf=u=>{try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return ''}};
+/* wat de coach over het evenement heeft gevonden; alle tekst komt van internet en wordt dus ge-escaped */
+function profileCard(){
+  const ev=state.event,p=ev&&ev.profile;if(!p)return '';
+  const S=profileSummary(p,state.profile.ftp,state.profile.weight||75),at=p.at?parseISO(p.at):null;
+  const rows=S.climbs.slice(0,15).map(c=>`<tr><td>${esc(c.naam)}</td><td>${nl((+c.lengte_km).toFixed(1))} km</td><td>${nl((+c.gemiddeld_pct).toFixed(1))}%${c.max_pct?` <span class="muted">max ${Math.round(c.max_pct)}%</span>`:''}</td><td>${clock(c.min*60)}</td><td>${c.watt} W</td></tr>`).join('');
+  const src=(p.bronnen||[]).filter(u=>/^https?:\/\//.test(u)).slice(0,4).map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(hostOf(u))}</a>`).join(', ');
+  return `<div class="card stack"><div class="row spread"><div><h2>${esc(p.naam)}</h2>
+      <p class="muted small" style="margin-top:4px">${Math.round(p.afstand_km)} km${p.hoogtemeters?` · ${Math.round(p.hoogtemeters)} hoogtemeters`:''} · ${S.climbs.length} ${S.climbs.length===1?'helling':'hellingen'}${at?` · onderzocht op ${at.getDate()} ${MONTHS[at.getMonth()]}`:''}${p.zekerheid!=='hoog'?` · zekerheid ${esc(p.zekerheid)}`:''}</p></div>
+      <button class="btn" data-act="aiResearch"${ui.aiBusy?' disabled':''}>Opnieuw onderzoeken</button></div>
+    <p style="max-width:70ch">${esc(p.kenmerken)}</p>
+    ${rows?`<div class="scroll"><table><thead><tr><th>Helling</th><th>Lengte</th><th>Stijging</th><th>Jouw tijd</th><th>Richtvermogen</th></tr></thead><tbody>${rows}</tbody></table></div>${S.climbs.length>15?`<p class="small muted">En nog ${S.climbs.length-15} hellingen.</p>`:''}`:''}
+    <p class="small muted">Tijd en vermogen zijn een schatting met je huidige FTP en gewicht.${src?' Bronnen: '+src+'.':''}</p></div>`;
+}
+function aiCard(){
+  const k=aiKey();
+  return `<div class="card stack"><h2>AI-coach</h2><p class="small muted" style="max-width:66ch">Met je Claude-sleutel onderzoekt de coach je evenement. De sleutel blijft alleen in deze browser en gaat niet mee in back-ups.</p>
+    <div class="row"><input type="password" id="ai-key" autocomplete="off" spellcheck="false" placeholder="${k?'Ingesteld, eindigt op '+esc(k.slice(-4)):'sk-ant-...'}" style="flex:1;min-width:200px;max-width:420px;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:8px 10px">
+    <button class="btn" data-act="aiSaveKey">Opslaan</button>${k?'<button class="btn warn" data-act="aiDelKey">Wissen</button>':''}</div></div>`;
+}
 function settingsView(){
-  return `<h1>Instellingen</h1>${settingsForm(false)}
+  return `<h1>Instellingen</h1>${settingsForm(false)}${profileCard()}${aiCard()}
     <div class="card stack"><h2>Je gegevens</h2><p class="muted" style="max-width:66ch">Alles wordt in deze browser bewaard, op dit apparaat. Maak af en toe een back-up, zeker voordat je browsergegevens wist of van computer wisselt.</p>
       <div class="row"><button class="btn" data-act="backup">Back-up downloaden</button><label class="btn" style="cursor:pointer">Back-up terugzetten<input type="file" accept=".json,application/json" data-chg="restore" style="position:absolute;opacity:0;width:1px;height:1px"></label>
       <button class="btn warn" data-act="wipe">${ui.confirm==='wipe'?'Klik nog eens om alles te wissen':'Alles wissen'}</button></div></div>`;

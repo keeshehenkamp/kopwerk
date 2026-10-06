@@ -43,7 +43,8 @@ const actions={
     const mh=Math.round(+g('s-mhr').value)||0,evd=g('s-evd').value,evn=g('s-evn').value.trim();
     state.profile={ftp,weight:w,goal:g('s-goal').value,sound:g('s-snd').value==='1',maxHr:mh?clamp(mh,120,230):0};
     const evk=g('s-evk').value,evkm=Math.round(+g('s-evkm').value)||0;
-    state.event=/^\d{4}-\d{2}-\d{2}$/.test(evd)?Object.assign({name:evn||'Evenement',date:evd},EVENTS[evk]?{kind:evk}:{},evkm?{km:clamp(evkm,20,400)}:{}):null;
+    const old=state.event,keep=old&&old.profile&&old.name===(evn||'Evenement')&&old.date===evd?{profile:old.profile}:{};
+    state.event=/^\d{4}-\d{2}-\d{2}$/.test(evd)?Object.assign({name:evn||'Evenement',date:evd},EVENTS[evk]?{kind:evk}:{},evkm?{km:clamp(evkm,20,400)}:{},keep):null;
     state.avail=DAYS.map((_,i)=>+g('s-a'+i).value);
     if(!state.setup){state.setup=true;state.started=iso(new Date());state.planStart=iso(mondayOf(new Date()));state.weeks[state.planStart]=state.avail.slice();ui.view='schema'}
     save();render();toast(state.avail.some(x=>x)?'Opgeslagen':'Opgeslagen. Je hebt nog geen trainingsdagen gekozen.');
@@ -100,6 +101,30 @@ const actions={
       state.prog[r.type]=clamp(r.lvl+progStep(r),1,LADDER[r.type].steps.length);
     }
     save();render();
+  },
+  aiSaveKey(){
+    const k=(document.getElementById('ai-key').value||'').trim();
+    if(!/^sk-ant-/.test(k))return toast('Dit lijkt geen Claude-sleutel. Hij begint met sk-ant-.');
+    if(!aiSetKey(k))return toast('Opslaan lukt niet in deze browser.');
+    render();toast('Sleutel opgeslagen in deze browser.');
+  },
+  aiDelKey(){aiSetKey('');render();toast('Sleutel gewist.')},
+  async aiResearch(){
+    if(ui.aiBusy)return;
+    const g=id=>document.getElementById(id);
+    if(!g('s-evn').value.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(g('s-evd').value))return toast('Vul eerst de naam en de datum van je evenement in.');
+    if(!aiKey())return toast('Vul eerst je Claude-sleutel in, onderaan deze pagina.');
+    actions.saveSettings();
+    ui.aiBusy=true;render();
+    try{
+      const ev=state.event,p=await aiResearchEvent(ev);
+      p.at=iso(new Date());
+      if(state.event&&state.event.name===ev.name&&state.event.date===ev.date){
+        state.event.profile=p;state.event.kind=p.soort;if(!state.event.km)state.event.km=Math.round(p.afstand_km);
+        save();toast('Je evenement is onderzocht. Het schema is erop aangepast.');
+      }
+    }catch(e){toast(aiError(e))}
+    ui.aiBusy=false;render();
   },
   setFtp(d){state.profile.ftp=+d.w;save();render();toast(`FTP is nu ${d.w} W. Alle trainingen zijn daarop aangepast.`)},
   async delRide(){
