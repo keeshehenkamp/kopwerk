@@ -309,6 +309,7 @@ function rideView(){
     <div class="stats">
       <div><b>${clock(r.dur)}</b><span>${outdoor?'Duur':'Gepland '+clock(r.planned)}</span></div>
       ${r.score!=null?`<div><b>${r.score}<small>/100</small></b><span>Uitvoering</span></div>`:''}
+      ${r.game?`<div><b>${r.game.pts.toLocaleString('nl-NL')}</b><span>Punten</span></div><div><b>${r.game.stars}<small>/${r.game.max}</small></b><span>Sterren, langste reeks ${clock(r.game.streak)}</span></div>`:''}
       <div><b>${r.avgP||'–'}<small>W</small></b><span>Gemiddeld</span></div>
       <div><b>${r.np||'–'}<small>W</small></b><span>Genormaliseerd${r.np?', '+nl((r.np/kg).toFixed(1))+' W/kg':''}</span></div>
       <div><b>${nl(r.IF.toFixed(2))}</b><span>Intensiteit</span></div>

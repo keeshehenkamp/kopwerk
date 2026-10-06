@@ -19,6 +19,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 | `js/opslag.js` | Opslag in de browser |
 | `js/bluetooth.js` | Trainer en hartslagmeter via Web Bluetooth |
 | `js/player.js` | De workout player en de demo-modus |
+| `js/wereld.js` | 3D-rit (three.js): weg uit de trainingsblokken, landschappen, tempomaker, punten en sterren |
 | `js/grafieken.js` | Grafieken |
 | `js/ai.js` | AI-coach: Claude onderzoekt het evenement (route, hoogtemeters, hellingen); richtvermogen per helling |
 | `js/schermen.js` | Schermen en vensters |

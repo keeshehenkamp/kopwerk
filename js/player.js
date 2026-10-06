@@ -11,7 +11,7 @@ function openPlayer(wo){
   const maxI=Math.max(1.3,...wo.segs.map(s=>Math.max(s.a,s.b)))*1.08;
   wo=Object.assign({},wo,{segs:wo.segs.map(s=>Object.assign({},s))});
   P={wo,planned:wo.sec,tr:[],free:false,freeSec:0,ftp:state.profile.ftp,starts,total:t,maxI,mode:'ready',sim:false,speed:1,clock:0,pos:0,si:-1,bias:1,erg:true,grade:1,sent:-1,
-     rec:{p:[],hr:[],cad:[],tgt:[]},laps:[],trace:'',last:now(),zero:0,auto:false,startTs:0,simP:0,simH:70,lastSave:0,stopArm:false,drawn:-1};
+     rec:{p:[],hr:[],cad:[],tgt:[]},game:gameNew(wo),laps:[],trace:'',last:now(),zero:0,auto:false,startTs:0,simP:0,simH:70,lastSave:0,stopArm:false,drawn:-1};
   ui.modal=null;ui.bleMsg='';
   P.timer=setInterval(tick,200);
   render();
@@ -23,7 +23,7 @@ function rebuild(){
   P.sent=-1;P.drawn=-1;
 }
 function enterFree(){
-  P.free=true;P.erg=false;P.zero=0;
+  gameEndBlock();P.free=true;P.erg=false;P.zero=0;
   P.laps.push({l:'Vrij rijden',k:'steady',c:0,s:P.rec.p.length});
   if(ble.cp)setGrade(P.grade);
   beep(990,600);renderPlayer();
@@ -64,6 +64,7 @@ function stepSecond(){
   P.rec.hr.push(fh&&live.hr?live.hr:0);
   P.rec.cad.push(fresh&&live.cad?Math.round(live.cad):0);
   P.rec.tgt.push(tgt);
+  gameStep(i,P.rec.p[P.rec.p.length-1],tgt);
   const v=P.rec.p[P.rec.p.length-1]/P.ftp;P.tr.push([P.pos,v]);
   P.trace+=`${(P.pos/P.total*1000).toFixed(1)},${(100-clamp(v/P.maxI,0,1)*100).toFixed(1)} `;
   P.pos+=1;
@@ -164,13 +165,15 @@ function playerHTML(){
         ${P.free?'':`<button class="btn" data-act="repeat" id="p-repeat" hidden>Blok herhalen</button><button class="btn" data-act="skip">Volgend blok</button><button class="btn" data-act="extend">+5 min uitrijden</button>`}
         <button class="btn warn" data-act="stop">${P.stopArm?'Klik nog eens om te stoppen':'Stoppen en opslaan'}</button>
       </div>`;
-  return `<div class="player">
+  const v3=view3d(),hud=v3&&P.game.on?`<div class="phud"><b id="p-pts">0</b><span>punten</span><span id="p-mult" class="pmult"></span><span id="p-stars" class="pstars">★ 0</span></div><div class="ppop" id="p-pop" hidden></div>`:'';
+  return `<div class="player${v3?' w3':''}">
     <div class="pzone" id="p-zone"></div>
     <div class="ptop">
-      <div><h2>${esc(w.name)}</h2>${status}</div>
+      <div><h2>${esc(w.name)}</h2>${status}${v3?' <span class="small" id="p-km"></span>':''}</div>
       <div class="pclock"><span id="p-elapsed" style="color:var(--ink);font-size:34px;font-weight:600">0:00</span><span> / ${clock(P.total)}${P.free?' +':''}</span></div>
-      ${ready?'<button class="btn" data-act="closePlayer">Sluiten</button>':'<span></span>'}
+      <div class="row"><button class="btn" data-act="view3d">${v3?'Cijfers':'3D'}</button>${ready?'<button class="btn" data-act="closePlayer">Sluiten</button>':''}</div>
     </div>
+    ${hud}
     <div class="pmain">
       ${readyBox}
       <div class="pseg"><span id="p-seg"></span><span id="p-left"></span></div>
@@ -187,7 +190,7 @@ function playerHTML(){
     <div class="pctl">${ctl}</div>
   </div>`;
 }
-function renderPlayer(){if(!P)return;document.getElementById('app').innerHTML=playerHTML();P.drawn=-1;paintPlayer()}
+function renderPlayer(){if(!P)return;document.getElementById('app').innerHTML=playerHTML();P.drawn=-1;paintPlayer();worldSync()}
 function markRecords(ride){
   if(ride.sim)return;
   const old=records(state.rides),prs=[];
@@ -198,7 +201,7 @@ function markRecords(ride){
 function makeRide(a){
   const an=analyze(a.rec,a.ftp,a.laps,a.planned||a.wo.sec,a.wo.type);
   const d=new Date(a.startTs||Date.now());
-  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,planned:a.planned||a.wo.sec,ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps},an);
+  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,planned:a.planned||a.wo.sec,ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game)},an);
 }
 async function storeRide(a){
   const ride=makeRide(a);
@@ -210,7 +213,7 @@ async function storeRide(a){
 }
 async function finishRide(){
   if(!P||P.mode==='done')return;
-  const a=P;a.mode='done';clearInterval(a.timer);
+  gameEndBlock();const a=P;a.mode='done';clearInterval(a.timer);
   if(ble.cp&&!a.sim)setGrade(0);
   try{if(wake){wake.release();wake=null}}catch(e){}
   if(a.rec.p.length<60){await idb.del('active');P=null;toast('Korter dan een minuut gereden: niet opgeslagen.');return render()}
