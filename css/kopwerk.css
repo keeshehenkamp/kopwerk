@@ -267,7 +267,8 @@ tr:last-child td{border:0}
 #world{position:fixed;inset:0;z-index:29;background:#a9d6f2}
 #world canvas{display:block;width:100%;height:100%}
 .player.w3{background:transparent;--ink:#fff;--muted:rgba(255,255,255,.72);--surface:rgba(16,20,28,.72);--line:rgba(255,255,255,.18);--sunk:rgba(255,255,255,.16);--bg:#10141c;color:#fff}
-.w3 .ptop,.w3 .pctl{background:linear-gradient(rgba(10,13,20,.62),rgba(10,13,20,.38));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.w3 .ptop{background:linear-gradient(rgba(10,13,20,.5),rgba(10,13,20,0));text-shadow:0 1px 8px rgba(0,0,0,.5)}
+.w3 .pctl{backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .w3 .pctl{background:linear-gradient(rgba(10,13,20,.38),rgba(10,13,20,.62))}
 .w3 .pmain{justify-content:flex-end;padding-bottom:10px;gap:8px}
 .w3 .pseg{align-self:flex-start;font-size:clamp(18px,2.2vw,28px);background:rgba(10,13,20,.55);border-radius:14px;padding:8px 14px;gap:22px}
