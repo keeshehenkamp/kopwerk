@@ -68,7 +68,7 @@ async function setupTrainer(server){
 function bleError(e){
   if(!e)return '';
   if(e.name==='NotFoundError')return '';
-  if(e.name==='SecurityError'||e.name==='NotAllowedError')return 'Bluetooth is in deze weergave geblokkeerd. Vraag in de chat om de app als los bestand en open dat rechtstreeks in Chrome.';
+  if(e.name==='SecurityError'||e.name==='NotAllowedError')return 'Bluetooth is geblokkeerd. Open Kopwerk in Chrome of Edge via het vaste adres en sta Bluetooth toe als de browser daarom vraagt.';
   return 'Koppelen is niet gelukt. Controleer of de trainer aan staat en niet met Zwift of een andere app verbonden is, en probeer het opnieuw.';
 }
 async function connectTrainer(){

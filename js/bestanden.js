@@ -101,25 +101,16 @@ function zip(files){
 }
 
 /* ================= downloads ================= */
-let dl=null;
-const framed=(()=>{try{return window.self!==window.top}catch(e){return true}})();
-if(window.claude&&typeof window.claude.use==='function'){window.claude.use('downloads').then(x=>{dl=x}).catch(()=>{})}
 let toastT=0;
 function toast(msg){let t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';t.setAttribute('role','status');document.body.appendChild(t)}t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true},3800)}
-async function saveFile(filename,data){
-  if(dl){
-    try{await dl.save({filename,data});}
-    catch(e){if(!e||e.code!=='declined')toast('Downloaden lukt hier niet. Probeer het opnieuw of open de app als los bestand.')}
-    return;
-  }
-  if(framed){toast('Downloaden is in deze weergave nog niet beschikbaar. Probeer het over een paar seconden opnieuw.');return}
+function saveFile(filename,data){
   const blob=data instanceof Blob?data:new Blob([data]);
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),8000);
 }
-/* .zwo mag in de gepubliceerde weergave alleen in een zip; als los bestand gaat het direct. */
+/* Eén training gaat als los .zwo-bestand, een hele week samen in een zip. */
 function saveZwo(list,zipName){
   const files=list.map(x=>({name:x.name+'.zwo',text:toZwo(x.wo)}));
-  if(dl||framed||files.length>1)return saveFile(zipName+'.zip',zip(files));
+  if(files.length>1)return saveFile(zipName+'.zip',zip(files));
   return saveFile(files[0].name,files[0].text);
 }
