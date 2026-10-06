@@ -208,7 +208,7 @@ function libView(){
   const cards=Object.keys(TYPES).map(k=>{const w=buildWorkout(k,l.min,l.L);
     return `<button class="wcard" data-act="openWo" data-type="${k}"><h3>${esc(w.name)}</h3><div class="m">${durTxt(w.minutes)} · ${w.tss} TSS</div>${profileSVG(w.segs)}<p>${esc(w.desc)}</p></button>`}).join('');
   return `<div class="head"><div><h1>Trainingen</h1><p>Losse trainingen, op maat van de tijd die je hebt.</p></div>
-    <div class="row"><label class="small muted">Duur ${sel('data-chg="libMin"',[30,45,60,75,90,120].map(m=>[m,durTxt(m)]),l.min)}</label>
+    <div class="row"><button class="btn pri" data-act="demo">Bekijk de demo</button><label class="small muted">Duur ${sel('data-chg="libMin"',[30,45,60,75,90,120].map(m=>[m,durTxt(m)]),l.min)}</label>
     <label class="small muted">Zwaarte ${sel('data-chg="libL"',[[0,'Licht'],[1,'Normaal'],[2,'Zwaar']],l.L)}</label></div></div>
     <div class="grid">${cards}</div>`;
 }
@@ -248,6 +248,19 @@ function addModal(){
       <div><button class="btn pri" data-act="saveManual">Rit toevoegen</button></div></div>
   </div></div>`;
 }
+/* beloningen: wat deze rit bijzonder maakt ten opzichte van eerdere ritten */
+function awardsOf(r){
+  if(!r.game)return [];
+  const others=state.rides.filter(x=>x.id!==r.id&&x.game&&!!x.sim===!!r.sim&&x.ts<r.ts),out=[];
+  if(r.game.max&&r.game.stars===r.game.max)out.push(['★','Alle blokken drie sterren']);
+  if(others.length){
+    if(r.game.pts>Math.max(...others.map(x=>x.game.pts)))out.push(['🏆','Meeste punten ooit']);
+    if(r.game.streak>=60&&r.game.streak>Math.max(...others.map(x=>x.game.streak)))out.push(['🔥','Langste reeks ooit: '+clock(r.game.streak)]);
+    const same=others.filter(x=>x.name===r.name);
+    if(same.length&&r.game.pts>Math.max(...same.map(x=>x.game.pts)))out.push(['↑','Beter dan je vorige keren op deze training']);
+  }
+  return out;
+}
 function rittenView(){
   const rides=[...state.rides].sort((a,b)=>b.ts-a.ts);
   const head=`<div class="head"><div><h1>Ritten</h1></div><div class="row">${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Buitenrit toevoegen</button></div></div>`;
@@ -263,6 +276,9 @@ function rittenView(){
   const months=groups.map(g=>`<div class="month">${MONTHS[g.d.getMonth()].replace(/^./,c=>c.toUpperCase())}${g.d.getFullYear()!==today.getFullYear()?' '+g.d.getFullYear():''}</div>
     <div class="card" style="padding:4px 14px"><div class="list">${g.list.map(r=>{const d=new Date(r.ts);
       return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${DAYS[dow(d)]} ${d.getDate()}</b></span><span class="w"><b>${esc(r.name)}${r.sim?' <span class="badge">Demo</span>':''}</b><span>${clock(r.dur)} · ${r.tss} TSS${r.np?' · '+r.np+' W':''}</span></span><span class="r">${r.score!=null?r.score+'/100':''}</span></button>`}).join('')}</div></div>`).join('');
+  const top=state.rides.filter(r=>r.game).sort((a,b)=>b.game.pts-a.game.pts).slice(0,5);
+  const best=top.length?`<div class="card"><h3 style="margin-bottom:6px">Jouw beste ritten</h3><div class="list">${top.map((r,i)=>{const d=new Date(r.ts);
+    return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${i+1}</b></span><span class="w"><b>${esc(r.name)}${r.sim?' <span class="badge">Demo</span>':''}</b><span>${d.getDate()} ${MONTHS[d.getMonth()]} · ★ ${r.game.stars}/${r.game.max} · reeks ${clock(r.game.streak)}</span></span><span class="r">${r.game.pts.toLocaleString('nl-NL')}</span></button>`}).join('')}</div></div>`:'';
   return `${head}
     <div class="stats"><div><b>${f.ctl}</b><span>Conditie</span></div><div><b>${f.atl}</b><span>Vermoeidheid</span></div><div><b>${f.tsb>0?'+':''}${f.tsb}</b><span>Vorm: ${form.toLowerCase()}</span></div><div><b>${bars[7].done}<small>van ${bars[7].pl}</small></b><span>TSS deze week</span></div></div>
     <div class="cols" style="margin-top:16px">
@@ -270,7 +286,7 @@ function rittenView(){
       <div class="card"><h3 style="margin-bottom:14px">Belasting per week</h3><div class="bars">${bars.map(b=>`<div class="b"><span class="num">${b.done||''}</span><div class="col" style="height:${Math.max(2,Math.max(b.pl,b.done)/mx*100)}%${b.pl?'':';border-color:transparent'}"><i style="height:${Math.min(100,b.done/Math.max(1,b.pl,b.done)*100)}%"></i></div><span>wk ${weekNo(b.m)}</span></div>`).join('')}</div>
         <p class="small muted" style="margin-top:12px">Gestippeld: gepland. Gevuld: gereden.</p></div>
     </div>
-    <div style="margin-top:16px">${recordsCard()}</div>
+    ${(()=>{const parts=[recordsCard(),best].filter(Boolean);return parts.length?`<div class="cols" style="margin-top:16px">${parts.map(x=>`<div>${x}</div>`).join('')}</div>`:''})()}
     ${months}`;
 }
 function rideView(){
@@ -304,6 +320,7 @@ function rideView(){
   return `<button class="back" data-act="nav" data-v="ritten">‹ Ritten</button>
     <div class="head"><div><h1>${esc(r.name)}${r.sim?' <span class="badge" style="vertical-align:middle">Demo</span>':''}</h1><p>${dateLong(d)} ${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}</p></div>${ftpBtn}</div>
     <div class="stack">
+    ${awardsOf(r).length?`<div class="awards">${awardsOf(r).map(([i,t])=>`<span><b>${i}</b>${esc(t)}</span>`).join('')}</div>`:''}
     ${r.prs&&r.prs.length?`<p class="notice" style="border-color:var(--z5)"><b style="font-weight:600">Nieuw record.</b> ${r.prs.map(x=>`${x.t}: ${x.w} W, was ${x.old} W`).join('. ')}.</p>`:''}
     ${r.rpe==null?rpe:''}
     <div class="stats">

@@ -19,7 +19,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 | `js/opslag.js` | Opslag in de browser |
 | `js/bluetooth.js` | Trainer en hartslagmeter via Web Bluetooth |
 | `js/player.js` | De workout player en de demo-modus |
-| `js/wereld.js` | 3D-rit (three.js): weg uit de trainingsblokken, landschappen, tempomaker, punten en sterren |
+| `js/wereld.js` | 3D-rit (three.js): weg uit de trainingsblokken, landschappen met dorpen, publiek, weer en tijd van de dag, hoogteprofiel, tempomaker, punten en sterren, productdemo |
 | `js/grafieken.js` | Grafieken |
 | `js/ai.js` | AI-coach: Claude onderzoekt het evenement (route, hoogtemeters, hellingen); richtvermogen per helling |
 | `js/schermen.js` | Schermen en vensters |
@@ -48,3 +48,7 @@ Web Bluetooth werkt alleen via https of op localhost, in Chrome of Edge. Zonder 
 ## Publiceren
 
 Elke push naar `main` werkt de site via GitHub Pages bij.
+
+## Nieuwe versie uitrollen
+
+Verhoog bij elke wijziging het `?v=`-nummer achter de scripts en het stylesheet in `index.html`. Anders laden browsers soms nog een oud bestand naast een nieuw bestand.

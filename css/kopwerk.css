@@ -222,6 +222,10 @@ tr:last-child td{border:0}
 @media (max-width:700px){.avail{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media (max-width:420px){.avail{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
+/* beloningen */
+.awards{display:flex;flex-wrap:wrap;gap:8px}
+.awards span{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 14px 7px 8px;font-weight:600;font-size:14.5px}
+.awards b{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#FFD43B;color:#3a2a00;font-size:14px}
 /* vensters */
 .veil{position:fixed;inset:0;background:rgba(8,12,18,.55);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto;z-index:20}
 .modal{background:var(--surface);border-radius:20px;width:min(720px,100%);padding:24px}
@@ -288,6 +292,11 @@ tr:last-child td{border:0}
 .ppop{position:absolute;left:50%;top:32%;transform:translate(-50%,-50%);font-size:clamp(56px,9vw,110px);color:#FFD43B;letter-spacing:.08em;text-shadow:0 3px 18px rgba(0,0,0,.5);animation:pop .5s ease-out;pointer-events:none}
 .pload{position:absolute;left:50%;top:40%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;font-weight:700;text-shadow:0 1px 6px rgba(0,0,0,.5)}
 .pload[hidden]{display:none}
+.pprof{position:absolute;left:26px;top:108px;width:240px;pointer-events:none;background:rgba(10,13,20,.45);border-radius:12px;padding:8px 10px 6px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.pprof canvas{display:block;width:100%;height:56px}.pprof span{display:block;font-size:13px;font-weight:700;margin-top:4px;color:#fff}
+.pcd{position:absolute;left:50%;top:30%;transform:translate(-50%,-50%);font-size:clamp(90px,14vw,170px);font-weight:800;color:#fff;text-shadow:0 4px 24px rgba(0,0,0,.45);animation:pop .35s ease-out;pointer-events:none;font-variant-numeric:tabular-nums}
+.pcd[hidden]{display:none}
+@media (max-width:900px){.pprof{left:16px;top:120px;width:148px;padding:6px 8px 4px}.pprof canvas{height:38px}.pprof span{font-size:11px}}
 .pload b{display:block;width:200px;height:8px;border-radius:4px;background:rgba(255,255,255,.25);overflow:hidden}.pload i{display:block;height:100%;width:0;background:#fff;transition:width .2s}
 @keyframes pop{from{transform:translate(-50%,-50%) scale(.4);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
 @media (max-width:900px){.ptop{flex-wrap:wrap;gap:4px 12px;padding-top:10px;padding-bottom:10px}.ptop>div:first-child{flex:1 1 100%}.ptop h2{font-size:21px}.pclock{font-size:26px}.pclock span{font-size:17px}#p-elapsed{font-size:26px!important}

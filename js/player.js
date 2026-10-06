@@ -166,7 +166,7 @@ function playerHTML(){
         <button class="btn warn" data-act="stop">${P.stopArm?'Klik nog eens om te stoppen':'Stoppen en opslaan'}</button>
       </div>`;
   const v3=view3d(),hud=v3&&P.game.on?`<div class="phud"><b id="p-pts">0</b><span>punten</span><span id="p-mult" class="pmult"></span><span id="p-stars" class="pstars">★ 0</span></div><div class="ppop" id="p-pop" hidden></div>`:'';
-  const load=v3?'<div class="pload" id="p-load" hidden><span>Wereld laden</span><b><i></i></b></div>':'';
+  const load=v3?'<div class="pload" id="p-load" hidden><span>Wereld laden</span><b><i></i></b></div><div class="pprof"><canvas id="p-prof" width="360" height="84"></canvas><span id="p-proft"></span></div><div class="pcd" id="p-cd" hidden></div>':'';
   return `<div class="player${v3?' w3':''}">
     <div class="pzone" id="p-zone"></div>
     <div class="ptop">
@@ -217,6 +217,7 @@ async function finishRide(){
   gameEndBlock();const a=P;a.mode='done';clearInterval(a.timer);
   if(ble.cp&&!a.sim)setGrade(0);
   try{if(wake){wake.release();wake=null}}catch(e){}
+  if(a.wo.type==='demo'){P=null;toast('Dat was de demo. Start een echte training vanuit Vandaag of Trainingen.');return render()}
   if(a.rec.p.length<60){await idb.del('active');P=null;toast('Korter dan een minuut gereden: niet opgeslagen.');return render()}
   await storeRide(a);P=null;render();
 }
