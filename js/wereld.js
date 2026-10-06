@@ -25,7 +25,7 @@ function gameEndBlock(){
   const g=P&&P.game,b=g&&g.blk;if(!b)return;g.blk=null;
   const s=P.wo.segs[b.i];if(!s||s.d<20||b.n<10)return;
   const ok=(b.a+b.b)/b.n,st=b.n/s.d<.5?0:b.a/b.n>=.85?3:ok>=.75?2:ok>=.5?1:0;
-  g.stars.push(st);g.pop={st,t:now()};
+  g.stars.push(st);(g.by=g.by||{})[b.i]=st;g.pop={st,t:now()};
 }
 const gameResult=g=>g&&g.on&&g.stars.length?{pts:g.pts,stars:g.stars.reduce((a,b)=>a+b,0),max:g.stars.length*3,streak:g.best}:null;
 
@@ -68,7 +68,7 @@ function buildCourse(){
   const Ys=new Float32Array(N),R=8;let acc=0;
   for(let k=0;k<N;k++){acc+=Y[k];if(k>=2*R+1)acc-=Y[k-2*R-1];const lo=Math.max(0,k-2*R);Ys[Math.max(0,k-R)]=acc/(k-lo+1)}
   for(let k=N-R;k<N;k++)Ys[k]=Y[k];
-  const yAt=d=>Ys[clamp(Math.round(d/STEP),0,N-1)];
+  const yAt=d=>Ys[clamp(Math.round(d/STEP),0,N-1)],UP=new Float32Array(N);for(let k=1;k<N;k++)UP[k]=UP[k-1]+Math.max(0,Ys[k]-Ys[k-1]);
   /* landschappen van 4 tot 5 km; stukken met veel klimmen worden heuvels of bergen, de rest wisselt per rit */
   const seed=[...(P.wo.name+P.startTs)].reduce((a,c)=>a*31+c.charCodeAt(0)|0,7),r=rng(seed);
   const zones=[];let zd=0,bag=[],last='';
@@ -76,12 +76,12 @@ function buildCourse(){
     const len=4000+r()*1000;let up=0,steep=0;
     for(let d=zd;d<zd+len&&d<L-40;d+=40){const g=(yAt(d+40)-yAt(d))/40*100;if(g>2.5){up+=40;if(g>5)steep+=40}}
     let ty;
-    if(P.wo.type==='demo'){const zi=zones.length;ty=['polder','meer','heuvels','bergen','bergen','heuvels','polder'][zi]||'polder';zones.push({ty,a:zd,b:zd+([1350,1250,900,1700,800,3000][zi]||3000)});zd=zones[zi].b;last=ty;continue}
+    if(P.wo.type==='demo'){const zi=zones.length;ty=['polder','provence','heuvels','bergen','bergen','provence','polder'][zi]||'polder';zones.push({ty,a:zd,b:zd+([1350,1250,900,1700,800,3000][zi]||3000)});zd=zones[zi].b;last=ty;continue}
     if(up/len>.2)ty=steep>up*.4?'bergen':'heuvels';
-    else{if(!bag.length)bag=['polder','meer','heuvels','bergen'].sort(()=>r()-.5);ty=bag.pop();if(ty===last&&bag.length){bag.unshift(ty);ty=bag.pop()}}
+    else{if(!bag.length)bag=['polder','provence','meer','heuvels','provence','bergen'].sort(()=>r()-.5);ty=bag.pop();if(ty===last&&bag.length){bag.unshift(ty);ty=bag.pop()}}
     zones.push({ty,a:zd,b:zd+len});zd+=len;last=ty;
   }
-  const C={S,H,n,L,N,Y:Ys,zones,seed,ph:r()*6};
+  const C={S,H,n,L,N,Y:Ys,UP,zones,seed,ph:r()*6};
   /* bochten: polder lang rechtdoor met af en toe een scherpe bocht, heuvels en bergen slingerend */
   const X=new Float32Array(N),Z=new Float32Array(N),HD=new Float32Array(N),K=new Float32Array(N);
   let hd=0,x=0,z=0,turn=0,amt=0,next=500,zig=null;const ph=C.ph;
@@ -108,10 +108,10 @@ function buildCourse(){
   Object.assign(C,{X,Z,HD,K});
   /* kanalen met een bruggetje in de polder */
   /* dorpen waar de weg doorheen loopt */
-  const NAMES=['Oosterwold','Hoogveen','Kerkdriel','Molenhoek','Westerbroek','Zandvoorde','Lindewijk','Ellecom','Bergharen','Nieuwlande','Aldeboarn','Holterberg','Vierhouten','Oudemirdum','Wijnaldum','Boxmeer'].sort(()=>r()-.5);
+  const NAMES2={heuvels:['Epen','Slenaken','Gulpen','Wahlwiller','Mechelen','Eys','Noorbeek'],provence:['Lourmarin','Bonnieux','Gordes','Ménerbes','Sault','Bédoin','Venasque'],bergen:['Saint-Véran','Valloire','Huez','Bourg-Doisans','Vaujany','Oz']},NAMES=['Oosterwold','Hoogveen','Kerkdriel','Molenhoek','Westerbroek','Zandvoorde','Lindewijk','Ellecom','Bergharen','Nieuwlande','Aldeboarn','Holterberg','Vierhouten','Oudemirdum','Wijnaldum','Boxmeer'].sort(()=>r()-.5);
   C.villages=[];for(const zn of zones){const d=zn.a+(zn.b-zn.a)*(.3+r()*.4),gr=Math.abs(Ys[Math.min(N-1,Math.round(d/STEP)+40)]-Ys[Math.round(d/STEP)])/160*100;
-    if(P.wo.type==='demo'&&zn.ty!=='polder'&&!(zn.ty==='heuvels'&&zn.a>3000))continue;
-    if(P.wo.type==='demo'||zn.ty==='polder'||zn.ty==='heuvels'||(zn.ty==='meer'&&r()<.6)||(zn.ty==='bergen'&&gr<3&&r()<.6))C.villages.push({d,len:170+r()*110,ty:zn.ty,name:NAMES[C.villages.length%NAMES.length]})}
+    if(P.wo.type==='demo'&&!((zn.ty==='polder'&&zn.a<1)||(zn.ty==='provence'&&zn.a<2000)))continue;
+    if(P.wo.type==='demo'||zn.ty==='polder'||zn.ty==='heuvels'||zn.ty==='provence'||(zn.ty==='meer'&&r()<.6)||(zn.ty==='bergen'&&gr<3&&r()<.6))C.villages.push({d,len:170+r()*110,ty:zn.ty,name:(NAMES2[zn.ty]||NAMES)[Math.floor(r()*(NAMES2[zn.ty]||NAMES).length)]})}
   C.canals=[];for(const zn of zones)if(zn.ty==='polder')for(let d=zn.a+600+r()*400;d<zn.b-300;d+=1100+r()*700)if(Math.abs(K[Math.round(d/STEP)])<.004&&!C.villages.some(v=>Math.abs(v.d-d)<v.len/2+80))C.canals.push(d);
   return C;
 }
@@ -125,7 +125,7 @@ const villageW=(C,d)=>{let w=0;for(const v of C.villages){const t=1-clamp((Math.
 const canalAt=(C,d)=>{for(const c of C.canals)if(Math.abs(c-d)<12)return d-c;return null};
 /* gewicht per landschap rond een grens, zodat het ene landschap geleidelijk overgaat in het volgende */
 function landMix(C,d){
-  const z=zoneAt(C,d),i=C.zones.indexOf(z),m={polder:0,heuvels:0,bergen:0,meer:0},B=350;
+  const z=zoneAt(C,d),i=C.zones.indexOf(z),m={polder:0,heuvels:0,bergen:0,meer:0,provence:0},B=350;
   const toNext=z.b-d,fromPrev=d-z.a;
   if(toNext<B&&C.zones[i+1]){const w=.5-toNext/B/2;m[z.ty]+=1-w;m[C.zones[i+1].ty]+=w}
   else if(fromPrev<B&&i>0){const w=.5-fromPrev/B/2;m[z.ty]+=1-w;m[C.zones[i-1].ty]+=w}
@@ -140,7 +140,8 @@ function landH(C,d,off,mix,ry){
   const side=Math.tanh(off/60)*60*sd,wall=t=>Math.pow(clamp((ao-t)/45,0,1),1.5);
   let h=0;
   if(mix.polder){const c=canalAt(C,d);h+=mix.polder*(-.6*near+(ao>11&&ao<14?-1.2:0)+(c!=null&&ao>4.2?-2.6*clamp((7-Math.abs(c))/2,0,1):0)+wall(60)*4)}
-  h+=mix.heuvels*(near*(side*.25+3+5*n)+wall(35)*38*(.7+.3*n));
+  if(mix.heuvels){const hw=clamp((Math.sin(d/650+C.ph*2)-.55)/.2,0,1);h+=mix.heuvels*(near*(side*.25+3+5*n)+wall(35)*38*(.7+.3*n)+hw*clamp((ao-4.7)/1.6,0,1)*2.6)}
+  h+=mix.provence*(near*(side*.12+1.5+3.5*n)+wall(45)*22*(.7+.3*n));
   h+=mix.bergen*(near*(side*.5+3+4*n)+wall(22)*80*(.6+.4*n));
   h+=mix.meer*(off<0?(ao>20?-2.6-near*2.5:-.4*near):near*(2+3*n)+wall(40)*30);
   const vw=villageW(C,d);if(vw>0)h*=1-vw*clamp((60-ao)/30,0,1);
@@ -215,7 +216,7 @@ function propGeos(){
   G.bushok=partsGeo([[new T.BoxGeometry(3.4,.12,1.6),'#3a3f46',M4(0,2.45,0)],[new T.BoxGeometry(3.3,2.3,.05),'#b8cfd8',M4(0,1.25,.7)],[new T.BoxGeometry(.05,2.3,1.4),'#b8cfd8',M4(-1.65,1.25,0)],
     [new T.BoxGeometry(.08,2.4,.08),'#3a3f46',M4(1.66,1.2,-.75)],[new T.BoxGeometry(2.4,.08,.45),'#7a5a3a',M4(0,.5,.35)],[new T.BoxGeometry(.6,1.2,.06),'#f2c230',M4(1.2,1.6,.73)]]);
   G.bank=partsGeo([[new T.BoxGeometry(1.8,.07,.45),'#8a6a4a',M4(0,.48,0)],[new T.BoxGeometry(1.8,.4,.06),'#8a6a4a',M4(0,.75,.2)],[new T.BoxGeometry(.08,.48,.4),'#3a3f46',M4(-.75,.24,0)],[new T.BoxGeometry(.08,.48,.4),'#3a3f46',M4(.75,.24,0)]]);
-  G.heg=partsGeo([[new T.BoxGeometry(.9,1.1,4.2),'#3f7a36',M4(0,.55,2)]]);
+  G.heg=partsGeo([0,1,2,3,4].map(i=>[new T.IcosahedronGeometry(.62,1),i%2?'#3f8a36':'#4a9a3e',M4(0,.6,.4+i*.85,1,.95,1)]));
   G.tuinhek=partsGeo([0,1,2,3,4,5,6,7].map(i=>[new T.BoxGeometry(.07,.8,.08),'#f2f0ea',M4(0,.4,i*.5)]).concat([[new T.BoxGeometry(.05,.07,4),'#f2f0ea',M4(0,.6,1.75)]]));
   /* polder */
   G.knotwilg=partsGeo([[new T.CylinderGeometry(.35,.42,2.2,7),'#6d5a45',M4(0,1.1,0)],[new T.IcosahedronGeometry(1.5,1),'#8fa86a',M4(0,3.1,0,1.1,1,1.1)],[new T.IcosahedronGeometry(1,0),'#9db776',M4(.6,3.8,.2)]]);
@@ -226,11 +227,11 @@ function propGeos(){
   G.auto=partsGeo([[new T.BoxGeometry(1.75,.7,4.2),'#ffffff',M4(0,.6,0)],[new T.BoxGeometry(1.6,.6,2.2),'#ffffff',M4(0,1.2,-.1)],[new T.BoxGeometry(1.63,.36,1.9),'#2c3640',M4(0,1.24,-.1)],[new T.BoxGeometry(1.4,.37,2.24),'#2c3640',M4(0,1.24,-.1)],
     ...[[-.85,1.35],[.85,1.35],[-.85,-1.35],[.85,-1.35]].map(([x,z])=>[new T.CylinderGeometry(.33,.33,.22,12),'#1c1c1c',(()=>{const m=new T.Matrix4().makeRotationZ(Math.PI/2);m.setPosition(x,.33,z);return m})()])]);
   const arm=(x,a,b)=>{const m=new T.Matrix4().makeRotationZ(a);m.premultiply(new T.Matrix4().makeRotationX(b||0));m.setPosition(x,1.42,0);return m};
-  const body=arms=>partsGeo([[new T.CylinderGeometry(.09,.07,.86,6),'#2d333b',M4(-.1,.43,0)],[new T.CylinderGeometry(.09,.07,.86,6),'#2d333b',M4(.1,.43,0)],[new T.CapsuleGeometry(.19,.34,3,8),'#ffffff',M4(0,1.13,0,1,1,.75)],
-    ...arms.map(([x,a,b])=>[new T.CapsuleGeometry(.055,.42,2,6),'#ffffff',(()=>{const m=arm(x,a,b);m.multiply(new T.Matrix4().makeTranslation(0,.22,0));return m})()])]);
+  const body=arms=>partsGeo([[new T.CylinderGeometry(.09,.07,.86,5,1,true),'#2d333b',M4(-.1,.43,0)],[new T.CylinderGeometry(.09,.07,.86,5,1,true),'#2d333b',M4(.1,.43,0)],[new T.CapsuleGeometry(.19,.34,2,6),'#ffffff',M4(0,1.13,0,1,1,.75)],
+    ...arms.map(([x,a,b])=>[new T.CapsuleGeometry(.055,.42,1,5),'#ffffff',(()=>{const m=arm(x,a,b);m.multiply(new T.Matrix4().makeTranslation(0,.22,0));return m})()])]);
   G.mens=body([[-.22,.45],[.22,-.45]]);
   G.mens2=body([[-.22,2.7,.4],[.22,-2.7,.4]]);
-  G.hoofd=partsGeo([[new T.SphereGeometry(.13,8,6),'#e3b08f',M4(0,1.62,0)],[new T.SphereGeometry(.135,8,4,0,Math.PI*2,0,Math.PI/2.4),'#4a3426',M4(0,1.66,-.01)]]);
+  G.hoofd=partsGeo([[new T.SphereGeometry(.13,7,5),'#e3b08f',M4(0,1.62,0)],[new T.SphereGeometry(.135,7,3,0,Math.PI*2,0,Math.PI/2.4),'#4a3426',M4(0,1.66,-.01)]]);
   G.vlag=partsGeo([[new T.CylinderGeometry(.02,.02,2.6,4),'#ddd',M4(.35,1.6,0)],[new T.BoxGeometry(.9,.6,.02),'#ffffff',M4(.82,2.55,0)]]);
   G.erf=partsGeo([[new T.CircleGeometry(1,16).rotateX(-Math.PI/2),'#a39478',null]]);
   /* heuvels */
@@ -250,7 +251,7 @@ function propGeos(){
 
   G.struik=partsGeo([[new T.IcosahedronGeometry(.8,0),'#3f7d34',M4(0,.5,0)],[new T.IcosahedronGeometry(.6,0),'#4d8f3d',M4(.5,.45,.2)],[new T.IcosahedronGeometry(.5,0),'#468638',M4(-.4,.4,-.2)]]);
   /* ===== animatiefilm-stijl: ronde, zachte vormen en warme kleuren ===== */
-  const ball=(r,c,x,y,z,sx,sy,sz)=>[new T.IcosahedronGeometry(r,2),c,M4(x,y,z,sx||1,sy||sx||1,sz||sx||1)];
+  const ball=(r,c,x,y,z,sx,sy,sz,det)=>[new T.IcosahedronGeometry(r,det??(r>3?2:1)),c,M4(x,y,z,sx||1,sy||sx||1,sz||sx||1)];
   const stam=(r0,r1,h,c)=>[new T.CylinderGeometry(r0,r1,h,8),c||'#7a5236',M4(0,h/2,0)];
   G.boom=partsGeo([stam(.16,.26,2.4),ball(1.55,'#5fae3e',0,3.3,0,1,.92,1),ball(1.1,'#72c04b',.85,3.9,.35),ball(1.05,'#56a238',-.8,3.6,-.3),ball(.85,'#7fca55',.1,4.5,.1)]);
   G.eik=partsGeo([stam(.32,.5,3.2,'#6b4a32'),ball(2.3,'#4f9e36',0,4.6,0,1.15,.85,1.15),ball(1.6,'#5fb042',1.6,5.1,.6),ball(1.5,'#46902f',-1.5,4.9,-.5),ball(1.3,'#6cbc4a',.2,6,.2)]);
@@ -281,6 +282,7 @@ function propGeos(){
     }
     if(gable&&h>3.5&&!trap)P.push([new T.BoxGeometry(.95,1.05,.08),frame,M4(0,h+rh*.36,d/2+.5)],[new T.BoxGeometry(.75,.85,.1),glass,M4(0,h+rh*.36,d/2+.52)]);
     if(chim)P.push([new T.BoxGeometry(.65,1.8,.65),'#a65a44',M4(w*.27,h+rh*.62,-d*.22)],[new T.BoxGeometry(.8,.15,.8),'#7d4434',M4(w*.27,h+rh*.62+.95,-d*.22)]);
+    if(o.extra)P.push(...o.extra(w,d,h));
     if(o.awning)P.push([new T.BoxGeometry(w*.9,.14,1.7),o.awning,(()=>{const m=new T.Matrix4().makeRotationX(.35);m.setPosition(0,3,d/2+.85);return m})()]);
     return partsGeo(P);
   };
@@ -308,6 +310,44 @@ function propGeos(){
   /* tulpenveld: een rij bloemen */
   G.tulpblad=partsGeo([[new T.BoxGeometry(.75,.3,10.2),'#4f9e3a',M4(0,.15,0)]]);
   G.tulpbloem=partsGeo([[new T.CapsuleGeometry(.24,9.6,2,6).rotateX(Math.PI/2),'#ffffff',M4(0,.42,0,1,.8,1)]]);
+  /* ===== vier werelden ===== */
+  G.wolk=partsGeo([ball(7,'#ffffff',0,0,0,1,.75,1),ball(5.5,'#ffffff',6.5,-.8,1),ball(5,'#ffffff',-6.5,-1,-1),ball(4.5,'#ffffff',2,3,0),ball(4,'#ffffff',-3,2.4,1.5)]);
+  /* Provence */
+  G.cipres=partsGeo([stam(.14,.2,1.2,'#5b4330'),ball(.85,'#2e5a33',0,3.4,0,1,4.1,1),ball(.6,'#386a3c',.1,5.8,0,1,2.2,1)]);
+  G.olijf=partsGeo([[new T.CylinderGeometry(.18,.3,1.6,8),'#857a66',(()=>{const m=new T.Matrix4().makeRotationZ(.25);m.setPosition(.15,.8,0);return m})()],[new T.CylinderGeometry(.12,.18,1.2,7),'#857a66',(()=>{const m=new T.Matrix4().makeRotationZ(-.5);m.setPosition(-.2,1.7,0);return m})()],
+    ball(1.2,'#93a56f',.3,2.6,0,1.3,.7,1.2),ball(.9,'#a3b47e',-.8,2.4,.4,1.2,.7,1),ball(.8,'#879a62',.9,2.9,-.4,1.2,.7,1)]);
+  G.plataan=partsGeo([[new T.CylinderGeometry(.32,.42,5,10),'#c8bea4',M4(0,2.5,0)],...[0,1,2,3,4].map(i=>[new T.BoxGeometry(.28,.5,.05),'#8f8a72',M4(Math.cos(i)*.31,.8+i*.85,Math.sin(i)*.31,1,1,1,i)]),
+    ball(2.6,'#6f9e3c',0,7,0,1.25,.8,1.25),ball(1.9,'#7cad48',1.8,7.6,.7),ball(1.8,'#638f34',-1.7,7.3,-.6),ball(1.6,'#86b552',.2,8.4,.2)]);
+  G.lavendel=partsGeo([...[0,1,2,3,4,5,6,7,8].map(i=>ball(.42,i%2?'#8f6ad3':'#9d7be0',0,.32,-4.8+i*1.2,1,.75,1.1)),[new T.BoxGeometry(.7,.2,10.4),'#6f8f4a',M4(0,.1,0)]]);
+  G.zonnebloem=partsGeo([...[0,1,2,3,4,5].flatMap(i=>{const z=-4.5+i*1.8;return [[new T.CylinderGeometry(.03,.04,1.7,5),'#4f8a2e',M4(0,.85,z)],[new T.CylinderGeometry(.32,.32,.08,14),'#ffcd1f',(()=>{const m=new T.Matrix4().makeRotationX(Math.PI/2-.3);m.setPosition(0,1.75,z+.05);return m})()],[new T.CylinderGeometry(.14,.14,.1,10),'#5a3a1a',(()=>{const m=new T.Matrix4().makeRotationX(Math.PI/2-.3);m.setPosition(0,1.76,z+.08);return m})()],ball(.28,'#4f8a2e',0,.9,z,1,.5,1)]})]);
+  G.mas=house2({w:9,d:8,h:4.4,wall:'#ecd2a4',roof:'#c8643c',gable:false,rh:1.8,shut:'#5b8fb0',door:'#5b8fb0',frame:'#f6ead2',chim:true});
+  G.mas2=house2({w:7,d:7.5,h:5.6,wall:'#e3bd8a',roof:'#b85a36',gable:false,rh:1.6,shut:'#6f9c62',door:'#6f9c62',frame:'#f6ead2'});
+  /* Limburg: vakwerk en mergel */
+  const beams=(w,d,h)=>{const P=[],c='#4a3426',t=.13;for(const side of[1,-1]){const z=side*(d/2+.13);
+    for(const x of[-w/2+.1,-w/4,0,w/4,w/2-.1])P.push([new T.BoxGeometry(t,h,.06),c,M4(x,h/2+.1,z)]);
+    for(const y of[.25,h/2,h])P.push([new T.BoxGeometry(w,t,.06),c,M4(0,y,z)]);
+    for(const [x0,s] of[[-w/2+.1,1],[w/4,1]]){const L=Math.hypot(w/4,h/2);const m=new T.Matrix4().makeRotationZ(-s*Math.atan2(w/4,h/2));m.setPosition(x0+w/8,h*.75,z);P.push([new T.BoxGeometry(t,L,.06),c,m])}}
+    for(const side of[1,-1])for(const z of[-d/2+.1,0,d/2-.1])P.push([new T.BoxGeometry(.06,h,t),c,M4(side*(w/2+.13),h/2+.1,z)]);return P};
+  G.vakwerk=house2({w:7,d:9,h:5.2,wall:'#f7f3ea',roof:'#3e4650',door:'#6b2f2a',frame:'#ffffff',shut:null,extra:beams});
+  G.mergel=house2({w:6.5,d:8,h:5.4,wall:'#efe1bd',roof:'#3e4650',door:'#2f5d3a',shut:'#2f5d3a'});
+  G.vakhoeve=house2({w:10,d:18,h:4,wall:'#f7f3ea',roof:'#3e4650',rh:5.5,door:'#6b2f2a',box:false,extra:beams});
+  /* Alpen */
+  G.chalet2=house2({w:9,d:10,h:6,wall:'#9a6a3e',roof:'#56504c',rh:2.6,frame:'#fff2dc',door:'#5a3a22',shut:'#2f6b3a',extra:(w,d,h)=>{const P=[[new T.BoxGeometry(w+.4,.15,1.2),'#7a5232',M4(0,3,d/2+.7)],[new T.BoxGeometry(w+.4,.7,.06),'#7a5232',M4(0,3.4,d/2+1.3)]];
+    for(let i=0;i<9;i++)P.push(ball(.14,['#e8312f','#ff6fae','#ffffff'][i%3],-w/2+.5+i*(w-1)/8,3.85,d/2+1.32));return P}});
+  G.alpenkerk=partsGeo([[rbox(7,7,12,.4),'#f6f1e6',null],[roofG(7,4,12,.4),'#5c5a58',M4(0,7.1,0)],[rbox(3.8,14,3.8,.2),'#f6f1e6',M4(0,0,-7.6)],ball(2,'#4f7a5a',0,15.6,-7.6,1,1.25,1),[new T.ConeGeometry(.5,2.4,10),'#4f7a5a',M4(0,18,-7.6)],[new T.BoxGeometry(.05,.9,.05),'#c9a227',M4(0,19.6,-7.6)],[new T.SphereGeometry(.8,16,12),'#ffffff',M4(0,11.5,-5.65,1,1,.2)]]);
+  G.hout=partsGeo([0,1,2,3,4,5,6,7,8].map(i=>[new T.CylinderGeometry(.17,.17,1.6,9),i%2?'#a97c4f':'#8f6540',(()=>{const m=new T.Matrix4().makeRotationZ(Math.PI/2);m.setPosition(0,.17+Math.floor(i/3)*.32,(i%3-1)*.35+(Math.floor(i/3)%2)*.17);return m})()]));
+  G.piek=partsGeo([[new T.ConeGeometry(1,1,9),'#93a8c0',M4(0,.5,0)],[new T.ConeGeometry(.38,.38,9),'#f4f7fb',M4(0,.81,0)]]);
+  /* finish */
+  G.dranghek=partsGeo([[new T.BoxGeometry(.05,1.1,2.5),'#c9ced4',M4(0,.55,0)],[new T.BoxGeometry(.06,.06,2.5),'#e9ecef',M4(0,1.1,0)],[new T.BoxGeometry(.4,.05,.05),'#9aa0a6',M4(0,.02,-1.1)],[new T.BoxGeometry(.4,.05,.05),'#9aa0a6',M4(0,.02,1.1)]]);
+  /* natuur dichtbij de weg */
+  G.varen=partsGeo([0,1,2,3,4,5,6].map(i=>[new T.ConeGeometry(.16,1.1,4),i%2?'#3f8f3a':'#4fa246',(()=>{const m=new T.Matrix4().makeRotationY(i*.9);m.multiply(new T.Matrix4().makeRotationX(1.05));m.setPosition(Math.sin(i*.9)*.3,.35,Math.cos(i*.9)*.3);m.scale(new T.Vector3(1,1,.25));return m})()]));
+  G.paddenstoel=partsGeo([[new T.CylinderGeometry(.05,.07,.22,8),'#f4efe4',M4(0,.11,0)],[new T.SphereGeometry(.15,12,8,0,Math.PI*2,0,Math.PI/2),'#d8322a',M4(0,.2,0)],...[0,1,2,3].map(i=>ball(.025,'#ffffff',Math.cos(i*1.6)*.09,.31,Math.sin(i*1.6)*.09)),
+    [new T.CylinderGeometry(.04,.05,.16,8),'#f4efe4',M4(.25,.08,.1)],[new T.SphereGeometry(.1,10,6,0,Math.PI*2,0,Math.PI/2),'#a0602f',M4(.25,.15,.1)]]);
+  G.stam=partsGeo([[new T.CylinderGeometry(.32,.36,4.5,10),'#6b4f36',(()=>{const m=new T.Matrix4().makeRotationZ(Math.PI/2);m.setPosition(0,.3,0);return m})()],ball(.3,'#5f8f3a',-1,.55,0,1.4,.4,1.1),ball(.25,'#6a9a40',1.2,.5,.1,1.3,.4,1)]);
+  G.distel=partsGeo([[new T.CylinderGeometry(.02,.03,.7,5),'#6f8f4a',M4(0,.35,0)],ball(.11,'#9b59c9',0,.74,0),[new T.CylinderGeometry(.02,.02,.5,5),'#6f8f4a',M4(.15,.25,.05)],ball(.08,'#a96ad3',.15,.52,.05)]);
+  G.keien=partsGeo([ball(.35,'#a9a39a',0,.12,0,1,.55,1.2),ball(.25,'#9b958c',.45,.08,.2,1,.5,1),ball(.2,'#b5afa6',-.4,.06,-.15,1,.5,1)]);
+  G.stoeprand=partsGeo([[new T.BoxGeometry(.24,.17,2.02),'#d6d1c8',M4(0,.04,0)]]);
+  G.paaltje=partsGeo([[new T.CylinderGeometry(.08,.09,.8,10),'#3a3f46',M4(0,.4,0)],[new T.SphereGeometry(.085,10,6,0,Math.PI*2,0,Math.PI/2),'#3a3f46',M4(0,.8,0)],[new T.CylinderGeometry(.09,.09,.06,10),'#e6e6e6',M4(0,.66,0)]]);
   return G;
 }
 function makeMill(){
@@ -329,11 +369,17 @@ function makeArch(color,text,finish){
   b.position.y=4.5;b.castShadow=true;g.add(b);return g;
 }
 /* blauw plaatsnaambord; bij het verlaten van het dorp met een rode streep */
-function makePlace(name,out){
+function makePlace(name,out,fr){
   const T=T3,g=new T.Group(),post=new T.Mesh(new T.CylinderGeometry(.05,.05,2.3,6),new T.MeshLambertMaterial({color:'#9aa0a6'}));post.position.y=1.15;g.add(post);
-  const tex=canvasTex(256,96,(c,w,h)=>{c.fillStyle='#1d4f9c';c.fillRect(0,0,w,h);c.strokeStyle='#fff';c.lineWidth=6;c.strokeRect(6,6,w-12,h-12);c.fillStyle='#fff';c.font='bold 34px Figtree, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(name,w/2,h/2+2);
+  const tex=canvasTex(256,96,(c,w,h)=>{c.fillStyle=fr?'#ffffff':'#1d4f9c';c.fillRect(0,0,w,h);c.strokeStyle=fr?'#d62828':'#fff';c.lineWidth=fr?9:6;c.strokeRect(6,6,w-12,h-12);c.fillStyle=fr?'#111':'#fff';c.font='bold 34px Figtree, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(name,w/2,h/2+2);
     if(out){c.strokeStyle='#d62828';c.lineWidth=9;c.beginPath();c.moveTo(14,h-12);c.lineTo(w-14,12);c.stroke()}});
   const b=new T.Mesh(new T.PlaneGeometry(1.8,.68),new T.MeshBasicMaterial({map:tex,side:T.DoubleSide}));b.position.y=2.45;g.add(b);return g;
+}
+/* spandoek op de dranghekken bij de finish */
+function makeBanner(v){
+  const T=T3,key='ban'+v;W.ban=W.ban||{};
+  if(!W.ban[key])W.ban[key]=canvasTex(512,96,(c,w,h)=>{c.fillStyle=v?'#FF6A2B':'#1d4f9c';c.fillRect(0,0,w,h);c.fillStyle='#fff';c.font='800 54px Figtree, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(v?'KOPWERK':'GA ERVOOR!',w/2,h/2+3)});
+  W.banM=W.banM||{};W.banM[key]=W.banM[key]||new T.MeshBasicMaterial({map:W.ban[key],side:T.DoubleSide});W.banG=W.banG||new T.PlaneGeometry(2.48,.85);const m=new T.Mesh(W.banG,W.banM[key]);m.position.y=.62;m.userData.shared=true;const g=new T.Group();g.add(m);return g;
 }
 /* waarschuwing voor een bocht */
 function makeBend(right){
@@ -351,35 +397,59 @@ function makeSign(pct){
   const b=new T.Mesh(new T.PlaneGeometry(1.1,1.1),new T.MeshBasicMaterial({map:tex,transparent:true,side:T.DoubleSide}));b.position.y=2.5;g.add(b);
   return g;
 }
-/* fietser met benen die met de cadans meedraaien; vooruit = -z */
+/* fietser: getailleerde benen en armen, tenue, helm met ventilatiegaten, racefiets met diepe velgen; vooruit = -z */
 function makeRider(jersey,ghost,frame){
-  const T=T3,o={transparent:!!ghost,opacity:ghost?.62:1};
-  const mt=(c,flat)=>new T.MeshLambertMaterial(Object.assign({color:c,flatShading:!!flat},o));
-  const J=mt(jersey),K=mt('#1d222b'),S=mt('#e3a98a'),F=mt(frame||'#2a2f38'),Bk=mt('#15181d'),Rim=mt('#9aa1a9'),Wt=mt('#f2f2f2'),H=mt(ghost?jersey:'#f4f4f4');
-  const g=new T.Group(),add=(geo,mat,x,y,z)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);g.add(m);return m};
-  const spokes=(()=>{const parts=[];for(let i=0;i<12;i++){const m=new T.Matrix4().makeRotationX(i*Math.PI/6);m.multiply(new T.Matrix4().makeTranslation(0,.155,0));parts.push([new T.CylinderGeometry(.004,.004,.31,3),'#c8ccd2',m])}return partsGeo(parts)})();
+  const T=T3,o={transparent:!!ghost,opacity:ghost?.6:1};
+  const mt=(c,sh)=>new T.MeshPhongMaterial(Object.assign({color:c,shininess:sh||14,specular:'#2a2a2a'},o));
+  const J=mt(jersey,20),J2=mt(new T.Color(jersey).offsetHSL(0,0,-.18).getStyle(),20),K=mt('#16191f',30),S=mt('#e0a283',8),F=mt(frame||'#20242b',60),Bk=mt('#121417',20),Cb=mt('#2b2f36',70),Al=mt('#b9bec5',80),Wt=mt('#f4f4f2'),H=mt(ghost?jersey:'#f6f6f4',50),Gl=mt('#1b1d22',90);
+  const g=new T.Group(),add=(geo,mat,x,y,z,p)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);(p||g).add(m);return m};
+  /* een ledemaat met een vorm (dikker bij de spier), lengte 1 langs y; setLimb rekt het uit */
+  const lathe=(prof,mat)=>{const m=new T.Mesh(new T.LatheGeometry(prof.map(([r,y])=>new T.Vector2(r,y-.5)),14),mat);m.userData.len=1;g.add(m);return m};
+  const tube=(mat,r)=>{const m=new T.Mesh(new T.CylinderGeometry(r,r,1,10),mat);m.userData.len=1;g.add(m);return m};
+  /* wielen: band, diepe carbon velg, spaken */
   const wheel=z=>{const w=new T.Group();w.position.set(0,.34,z);
-    const t=new T.Mesh(new T.TorusGeometry(.322,.022,6,28),Bk);t.rotation.y=Math.PI/2;w.add(t);
-    const rim=new T.Mesh(new T.TorusGeometry(.3,.012,4,28),Rim);rim.rotation.y=Math.PI/2;w.add(rim);
-    w.add(new T.Mesh(spokes,new T.MeshLambertMaterial(Object.assign({vertexColors:true},o))));
-    const hub=new T.Mesh(new T.CylinderGeometry(.025,.025,.08,8),Rim);hub.rotation.z=Math.PI/2;w.add(hub);
+    const t=new T.Mesh(new T.TorusGeometry(.322,.016,8,40),Bk);t.rotation.y=Math.PI/2;w.add(t);
+    const rim=new T.Mesh(new T.CylinderGeometry(.307,.307,.024,40,1,true),Cb);rim.rotation.z=Math.PI/2;w.add(rim);
+    const band=new T.Mesh(new T.RingGeometry(.25,.307,40),Cb);band.rotation.y=Math.PI/2;w.add(band);
+    const sp=[];for(let i=0;i<16;i++){const m=new T.Matrix4().makeRotationX(i*Math.PI/8);m.multiply(new T.Matrix4().makeTranslation(0,.13,0));sp.push([new T.CylinderGeometry(.0035,.0035,.25,3),'#c9ced4',m])}
+    w.add(new T.Mesh(partsGeo(sp),new T.MeshLambertMaterial(Object.assign({vertexColors:true},o))));
+    const hub=new T.Mesh(new T.CylinderGeometry(.03,.03,.09,12),Al);hub.rotation.z=Math.PI/2;w.add(hub);
     g.add(w);return w};
   const wr=wheel(.5),wf=wheel(-.52);
-  const limb=(mat,r,len)=>{const m=new T.Mesh(len?new T.CapsuleGeometry(r,len-2*r,4,10):new T.CylinderGeometry(r,r*.85,1,8),mat);m.userData.len=len||0;g.add(m);return m};
-  /* frame, voorvork, stuur en zadel */
-  const tube=[[0,.34,.5,0,.3,.02],[0,.3,.02,0,.93,.12],[0,.93,.12,0,.96,-.4],[0,.3,.02,0,.96,-.4],[0,.34,.5,0,.93,.12],[0,.98,-.42,0,.34,-.52],[0,.96,-.4,0,1.01,-.47]];
-  for(const t of tube)setLimb(limb(F,.02),t.slice(0,3),t.slice(3));
-  setLimb(limb(Bk,.016),[-.2,1.01,-.47],[.2,1.01,-.47]);
-  for(const x of[-.2,.2]){setLimb(limb(Bk,.014),[x,1.01,-.47],[x,1.0,-.56]);setLimb(limb(Bk,.014),[x,1.0,-.56],[x,.9,-.52])}
-  const sad=add(new T.BoxGeometry(.11,.035,.27),Bk,0,.965,.15);sad.scale.x=.9;
-  const ring=add(new T.CylinderGeometry(.1,.1,.012,18),Rim,.04,.3,.02);ring.rotation.z=Math.PI/2;
-  /* lichaam */
-  const torso=limb(J,.13,.55),neck=limb(S,.045),head=add(new T.SphereGeometry(.1,12,10),S,0,0,0);
-  const helm=add(new T.SphereGeometry(.125,12,8,0,Math.PI*2,0,Math.PI/2),H,0,0,0);helm.scale.set(1,.9,1.3);
-  const glas=add(new T.BoxGeometry(.17,.04,.03),Bk,0,0,0);
-  const arms=[-1,1].map(s=>({s,up:limb(J,.048,.27),lo:limb(S,.036,.26)}));
-  const legs=[-.095,.095].map(x=>({x,th:limb(K,.07,.47),sh:limb(S,.048,.4),sock:limb(Wt,.04),ft:add(new T.BoxGeometry(.085,.07,.26),Bk,0,0,0),cr:limb(Rim,.012)}));
-  return {g,legs,arms,torso,neck,head,helm,glas,wr,wf,a:Math.random()*6,stand:0};
+  /* frame */
+  const fr=[[.034,[0,.34,.5],[0,.3,.02]],[.024,[0,.3,.02],[0,.96,.13]],[.03,[0,.95,.12],[0,.97,-.42]],[.036,[0,.3,.02],[0,.95,-.41]],[.02,[0,.34,.5],[0,.93,.13]],[.024,[0,.99,-.43],[0,.34,-.52]],[.026,[0,.97,-.41],[0,1.04,-.47]]];
+  for(const [r,a,b] of fr){const m=tube(F,r);setLimb(m,a,b)}
+  for(const x of[-.04,.04]){setLimb(tube(F,.012),[x,.34,.5],[x*.4,.3,.02]);setLimb(tube(F,.012),[x,.34,.5],[x*.4,.92,.12])}
+  /* stuur met beugels */
+  setLimb(tube(Bk,.014),[-.21,1.04,-.5],[.21,1.04,-.5]);setLimb(tube(Bk,.018),[0,1.04,-.47],[0,1.04,-.5]);
+  for(const x of[-.2,.2]){const c=new T.CatmullRomCurve3([new T.Vector3(x,1.04,-.5),new T.Vector3(x,1.04,-.6),new T.Vector3(x,.98,-.63),new T.Vector3(x,.93,-.58),new T.Vector3(x,.93,-.52)]);g.add(new T.Mesh(new T.TubeGeometry(c,12,.014,8),Bk));add(new T.BoxGeometry(.035,.06,.05),Bk,x,1.07,-.58)}
+  /* zadel, bidon, crank */
+  const sad=add(new T.CapsuleGeometry(.05,.18,4,10),Bk,0,.985,.15);sad.rotation.x=Math.PI/2;sad.scale.set(1.35,1,.5);
+  const bid=add(new T.CylinderGeometry(.035,.035,.2,12),mt('#ffffff'),0,.55,-.16);bid.rotation.x=-.85;
+  const ring=add(new T.CylinderGeometry(.1,.1,.01,28),Al,.05,.3,.02);ring.rotation.z=Math.PI/2;
+  setLimb(tube(Gl,.006),[.05,.39,.03],[.05,.37,.5]);setLimb(tube(Gl,.006),[.05,.21,.03],[.05,.31,.5]);
+  /* lichaam: romp als groep van bollen, zodat schouders en rug vorm hebben */
+  const tor=new T.Group();g.add(tor);
+  add(new T.SphereGeometry(.13,18,14),K,0,.05,-.02,tor).scale.set(1.2,.85,.95);           // heup in broek
+  add(new T.CapsuleGeometry(.135,.2,6,14),J,0,.2,0,tor).scale.set(1.18,1,.85);       // onderrug
+  add(new T.SphereGeometry(.17,18,14),J,0,.41,0,tor).scale.set(1.3,.85,.95);         // borst en schouders
+  add(new T.CylinderGeometry(.172,.172,.05,20,1,true),J2,0,.36,0,tor).scale.set(1.3,1,.95); // streep op het shirt
+  const neck=tube(S,.05);
+  const head=new T.Group();g.add(head);
+  add(new T.SphereGeometry(.088,18,14),S,0,-.01,0,head).scale.set(.95,1.08,1.05);
+  add(new T.SphereGeometry(.13,22,14,0,Math.PI*2,0,Math.PI/1.7),H,0,-.005,.012,head).scale.set(1.04,.96,1.3);
+  add(new T.SphereGeometry(.132,20,12,0,Math.PI*2,0,Math.PI/1.75),J,0,-.004,.012,head).scale.set(.32,.97,1.31);
+  add(new T.TorusGeometry(.098,.022,8,20,Math.PI*.9),Gl,0,.02,-.005,head).rotation.set(Math.PI/2+.1,0,Math.PI*.55);
+  const arms=[-1,1].map(s=>({s,up:lathe([[0,0],[.05,.03],[.055,.25],[.05,.6],[.042,.97],[0,1]],S),sl:lathe([[0,0],[.056,.04],[.058,.5],[.052,1],[0,1]],J),lo:lathe([[0,0],[.04,.04],[.045,.3],[.033,.95],[0,1]],S),hand:add(new T.SphereGeometry(.04,12,10),Bk,0,0,0)}));
+  const legs=[-.095,.095].map(x=>({x,
+    th:lathe([[0,0],[.08,.03],[.088,.25],[.078,.6],[.058,.95],[0,1]],S),
+    bib:lathe([[0,0],[.084,.03],[.092,.25],[.082,.62],[.075,.7],[0,.7]],K),
+    sh:lathe([[0,0],[.048,.03],[.06,.28],[.05,.55],[.034,.92],[0,1]],S),
+    sock:tube(Wt,.036),
+    ft:add(new T.CapsuleGeometry(.042,.17,4,10),Bk,0,0,0),
+    cr:tube(Al,.012),ped:add(new T.BoxGeometry(.09,.015,.07),Gl,0,0,0)}));
+  for(const l of legs){l.ft.rotation.x=Math.PI/2;l.ft.scale.set(1,1,.75);l.ftg=new T.Group();g.add(l.ftg);l.ftg.add(l.ft);l.ft.position.set(0,.02,-.03)}
+  return {g,legs,arms,tor,neck,head,wr,wf,a:Math.random()*6,stand:0,t:0};
 }
 function setLimb(m,a,b){
   const T=T3,A=new T.Vector3(...a),B=new T.Vector3(...b),d=B.clone().sub(A),len=d.length(),L=m.userData.len||0;
@@ -393,19 +463,22 @@ function joint(a,b,l1,l2,pref){
   return [a[0]+ux*k+px/pl*h,a[1]+uy*k+py/pl*h,a[2]+uz*k+pz/pl*h];
 }
 function poseRider(R,dt,cad,spd,stand){
-  R.stand+=((stand?1:0)-R.stand)*Math.min(1,dt*3);const st=R.stand;
+  R.stand+=((stand?1:0)-R.stand)*Math.min(1,dt*3);const st=R.stand;R.t+=dt;
   R.a+=cad/60*Math.PI*2*dt;const rot=spd*dt/.34;R.wr.rotation.x-=rot;R.wf.rotation.x-=rot;
-  const BB=[0,.3,.02],sway=Math.sin(R.a)*st;
-  const hip=[sway*.05,.99+st*.12,.15-st*.24],sh=[sway*.03,1.28+st*.06,-.33-st*.1];
-  setLimb(R.torso,hip,sh);R.torso.scale.x=1.15;
-  const hd=[sh[0],sh[1]+.12,sh[2]-.09];setLimb(R.neck,sh,hd);
-  R.head.position.set(hd[0],hd[1]+.04,hd[2]-.03);R.helm.position.set(hd[0],hd[1]+.05,hd[2]-.02);R.glas.position.set(hd[0],hd[1]+.04,hd[2]-.125);
-  for(const A of R.arms){const s=[sh[0]+A.s*.16,sh[1]-.03,sh[2]],hand=[A.s*.2,1.0,-.52],el=joint(s,hand,.27,.26,[A.s*.5,-.3,.5]);setLimb(A.up,s,el);setLimb(A.lo,el,hand)}
+  const BB=[0,.3,.02],sway=Math.sin(R.a)*st,rock=cad?Math.sin(R.a*2)*.012:0;
+  const hip=[sway*.05,.99+st*.12,.15-st*.24],sh=[sway*.03,1.27+st*.07+rock,-.34-st*.1];
+  /* romp van heup naar schouders */
+  const T=T3,dir=new T.Vector3(sh[0]-hip[0],sh[1]-hip[1],sh[2]-hip[2]),len=dir.length();
+  R.tor.position.set(...hip);R.tor.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),dir.normalize());R.tor.scale.set(1,len/.5,1);R.tor.rotateY(sway*.25);
+  const hd=[sh[0],sh[1]+.11,sh[2]-.12];setLimb(R.neck,[sh[0],sh[1]-.02,sh[2]-.02],hd);
+  R.head.position.set(hd[0],hd[1]+.05,hd[2]-.03);R.head.rotation.set(-.05+st*.1,0,sway*.08);
+  for(const A of R.arms){const s=[sh[0]+A.s*.17,sh[1]-.02,sh[2]+.02],hand=[A.s*.2,1.06-st*.02,-.57],el=joint(s,hand,.29,.27,[A.s*.6,-.2,.5]);
+    setLimb(A.up,s,el);const m=[s[0]+(el[0]-s[0])*.45,s[1]+(el[1]-s[1])*.45,s[2]+(el[2]-s[2])*.45];setLimb(A.sl,s,m);setLimb(A.lo,el,hand);A.hand.position.set(...hand)}
   R.legs.forEach((l,i)=>{
-    const a=R.a+i*Math.PI,p=[l.x,BB[1]+.17*Math.cos(a),BB[2]-.17*Math.sin(a)],hp=[hip[0]+l.x,hip[1],hip[2]];
-    const knee=joint(hp,p,.45,.44,[0,0,-1]),ank=[p[0],p[1]+.07,p[2]+.02];
-    setLimb(l.th,hp,knee);setLimb(l.sh,knee,ank);setLimb(l.sock,[ank[0],ank[1]+.08,ank[2]],ank);setLimb(l.cr,[l.x*.6,BB[1],BB[2]],p);
-    l.ft.position.set(l.x,p[1]+.01,p[2]-.03);
+    const a=R.a+i*Math.PI,p=[l.x,BB[1]+.17*Math.cos(a),BB[2]-.17*Math.sin(a)],hp=[hip[0]+l.x*.95,hip[1]-.02,hip[2]];
+    const ank=[p[0],p[1]+.075,p[2]+.035],knee=joint(hp,ank,.46,.42,[0,0,-1]);
+    setLimb(l.th,hp,knee);setLimb(l.bib,hp,knee);setLimb(l.sh,knee,ank);setLimb(l.sock,[ank[0],ank[1]+.07,ank[2]],[ank[0],ank[1]-.01,ank[2]]);setLimb(l.cr,[l.x*.62,BB[1],BB[2]],p);
+    l.ped.position.set(l.x,p[1],p[2]);l.ftg.position.set(l.x,p[1]+.03,p[2]);l.ftg.rotation.x=-.12+.22*Math.sin(a+.6);
   });
   R.g.rotation.z+=sway*.1;
 }
@@ -414,11 +487,11 @@ function poseRider(R,dt,cad,spd,stand){
 /* licht en weer: past bij het tijdstip van de rit, af en toe bewolkt of een bui */
 function pickMood(){
   const t=new Date(),h=t.getHours()+t.getMinutes()/60,u=rng(Math.floor(Date.now()/36e5)*7+3)();
-  const m={top:'#2f8ae6',hor:'#cfe8f7',sun:'#ffdcae',si:3.3,hemi:1.55,sky:'#e2f0ff',gr:'#566a32',dir:[-70,75,-120],disc:'#fff6d8',exp:1.25,ring:['#a9bfd2','#93abc0'],fog:[35,240],rain:false,disc_on:true,cloud:'#ffffff',name:'dag'};
+  const m={top:'#2f8ae6',hor:'#cfe8f7',sun:'#ffdcae',si:3.3,hemi:1.55,sky:'#e2f0ff',gr:'#566a32',dir:[-70,75,-120],disc:'#fff6d8',exp:1.25,ring:['#a9bfd2','#93abc0'],fog:[70,330],rain:false,disc_on:true,cloud:'#ffffff',name:'dag'};
   if(h>=5&&h<9.5)Object.assign(m,{top:'#5b8fc6',hor:'#f2dcc2',sun:'#ffcf96',si:2.9,hemi:1.3,dir:[-60,32,-140],disc:'#ffe2b0',ring:['#c4b9c4','#a9a9bd'],name:'ochtend'});
   else if(h>=18&&h<21.5)Object.assign(m,{top:'#3b5d98',hor:'#f6b788',sun:'#ffad6a',si:2.7,hemi:1.15,sky:'#ffd9b8',dir:[-60,20,-150],disc:'#ffb36b',ring:['#b79aa6','#8f7f99'],exp:1.3,cloud:'#ffd9c0',name:'avond'});
   else if(h>=21.5||h<5)Object.assign(m,{top:'#18264a',hor:'#5f6688',sun:'#b9c4ff',si:1.2,hemi:.85,sky:'#9aa8d8',gr:'#2a3024',dir:[-40,60,-120],ring:['#4a5070','#3a4060'],exp:1.45,disc_on:false,cloud:'#8890a8',name:'schemer'});
-  if(m.name!=='schemer'&&u<.22){Object.assign(m,{top:'#8e9aa6',hor:'#c9ced3',si:m.si*.35,hemi:2.1,sky:'#e6ecf2',disc_on:false,ring:['#aeb6bf','#9aa3ad'],fog:[25,190],cloud:'#d5d9de',name:'bewolkt'});
+  if(m.name!=='schemer'&&u<.22){Object.assign(m,{top:'#8e9aa6',hor:'#c9ced3',si:m.si*.35,hemi:2.1,sky:'#e6ecf2',disc_on:false,ring:['#aeb6bf','#9aa3ad'],fog:[45,230],cloud:'#d5d9de',name:'bewolkt'});
     if(u<.08)Object.assign(m,{top:'#7d8792',hor:'#aeb4ba',fog:[20,150],rain:true,cloud:'#b8bdc3',name:'regen'})}
   return m;
 }
@@ -466,7 +539,7 @@ async function worldOpen(){
      npcs:[['#E04848','#f2f2f2'],['#2EAA6E','#1d222b'],['#F4D03F','#1d222b'],['#9B5DE5','#f2f2f2'],['#f2f2f2','#c22']].slice(0,small?3:5).map(([j,f])=>({R:makeRider(j,false,f),d:null,f:1,off:2.25,cad:82+Math.random()*14})),
      disp:0,extra:0,gap:2,last:performance.now(),camP:null,mills:[],raf:0,tex:worldTextures()};
   for(const R of[W.me,W.pace,...W.npcs.map(n=>n.R)]){R.g.traverse(o=>{if(o.isMesh)o.castShadow=true});scene.add(R.g)}
-  const fit=()=>{const w=innerWidth,h=innerHeight;ren.setSize(w,h);if(comp)comp.setSize(w,h);cam.aspect=w/h;cam.fov=w<h?72:58;cam.setViewOffset(w,h,0,Math.round(h*(w<h?.12:.2)),w,h);cam.updateProjectionMatrix()};
+  const fit=()=>{const w=innerWidth,h=innerHeight;ren.setSize(w,h);if(comp)comp.setSize(w,h);cam.aspect=w/h;cam.fov=w<h?70:55;cam.setViewOffset(w,h,0,Math.round(h*(w<h?.04:.02)),w,h);cam.updateProjectionMatrix()};
   W.fit=fit;addEventListener('resize',fit);fit();
   worldBuild();
   /* eerst een paar kilometer klaarzetten, met een laadbalk; de rest volgt tijdens het fietsen */
@@ -480,7 +553,8 @@ async function worldOpen(){
 function worldTextures(){
   const T=T3,noise=(n,base,spread,dots)=>canvasTex(n,n,(c,w,h)=>{c.fillStyle=base;c.fillRect(0,0,w,h);
     for(let i=0;i<dots;i++){const v=Math.round(128+(Math.random()-.5)*spread);c.fillStyle=`rgba(${v},${v},${v},.35)`;c.fillRect(Math.random()*w,Math.random()*h,1+Math.random()*2,1+Math.random()*2)}});
-  const gras=noise(128,'#ffffff',120,2600);
+  const gras=canvasTex(256,256,(c,w,h)=>{c.fillStyle='#ffffff';c.fillRect(0,0,w,h);
+    for(let i=0;i<5200;i++){const v=Math.round(150+Math.random()*105),x=Math.random()*w,y=Math.random()*h,l=2+Math.random()*5;c.strokeStyle=`rgba(${v},${v},${v},.55)`;c.lineWidth=1;c.beginPath();c.moveTo(x,y);c.lineTo(x+(Math.random()-.5)*2,y-l);c.stroke()}});
   const asf=canvasTex(256,512,(c,w,h)=>{c.fillStyle='#5b5f6b';c.fillRect(0,0,w,h);
     for(let i=0;i<9000;i++){const v=Math.round(100+Math.random()*60);c.fillStyle=`rgba(${v},${v},${v+4},.4)`;c.fillRect(Math.random()*w,Math.random()*h,1+Math.random()*2,1+Math.random()*2)}
     c.fillStyle='rgba(30,32,36,.1)';for(const x of[.22,.66])c.fillRect(x*w,0,.12*w,h);
@@ -488,7 +562,14 @@ function worldTextures(){
     c.strokeStyle='rgba(30,30,34,.3)';c.lineWidth=.8;for(let i=0;i<4;i++){let x=Math.random()*w,y=Math.random()*h;c.beginPath();c.moveTo(x,y);for(let j=0;j<6;j++){x+=(Math.random()-.5)*30;y+=Math.random()*25;c.lineTo(x,y)}c.stroke()}});
   for(const t of[asf,gras]){t.wrapS=t.wrapT=T.RepeatWrapping;t.colorSpace=T.NoColorSpace}
   gras.colorSpace=T.SRGBColorSpace;asf.colorSpace=T.SRGBColorSpace;
-  return {asf,gras};
+  const klinker=canvasTex(256,256,(c,w,h)=>{c.fillStyle='#8a6b5a';c.fillRect(0,0,w,h);
+    for(let y=0;y<16;y++)for(let x=-1;x<9;x++){const v=Math.random()*30-15;c.fillStyle=`rgb(${165+v},${92+v*.6},${70+v*.5})`;c.fillRect(x*32+(y%2)*16+1,y*16+1,30,14)}});
+  klinker.wrapS=klinker.wrapT=T.RepeatWrapping;
+  const tegel=canvasTex(128,128,(c,w,h)=>{c.fillStyle='#9a958c';c.fillRect(0,0,w,h);for(let y=0;y<4;y++)for(let x=0;x<4;x++){const v=Math.random()*14-7;c.fillStyle=`rgb(${196+v},${190+v},${180+v})`;c.fillRect(x*32+1.5,y*32+1.5,29,29)}});
+  tegel.wrapS=tegel.wrapT=T.RepeatWrapping;
+  const steen=canvasTex(256,256,(c,w,h)=>{c.fillStyle='#8f877a';c.fillRect(0,0,w,h);for(let y=0;y<8;y++)for(let x=-1;x<5;x++){const v=Math.random()*24-12;c.fillStyle=`rgb(${205+v},${192+v},${168+v})`;c.fillRect(x*64+(y%2)*32+2,y*32+2,60,28)}});
+  steen.wrapS=steen.wrapT=T.RepeatWrapping;
+  return {asf,gras,klinker,tegel,steen};
 }
 function worldClose(){
   if(!W||W.loading)return;cancelAnimationFrame(W.raf);removeEventListener('resize',W.fit);
@@ -519,14 +600,23 @@ function clipOff(C,d,p,off){
 function worldBuild(){
   const T=T3;
   if(W.root){for(const ci of [...W.chunks.keys()])dropChunk(ci);W.root.traverse(o=>{if(o.geometry&&!o.userData.shared)o.geometry.dispose();if(o.material)[].concat(o.material).forEach(m=>{if(m.map&&m.map!==W.tex.asf&&m.map!==W.tex.gras)m.map.dispose();m.dispose()})});W.scene.remove(W.root)}
-  const C=buildCourse(),root=new T.Group();roadHash(C);W.C=C;W.root=root;W.total=P.total;W.segN=P.wo.segs.length;W.mills=[];W.chunks=new Map();
+  const C=buildCourse(),root=new T.Group();roadHash(C);C.finish=distAt(C,P.total);W.C=C;W.root=root;W.total=P.total;W.segN=P.wo.segs.length;W.mills=[];W.chunks=new Map();
   if(!W.mat){const tree=new T.MeshPhongMaterial({vertexColors:true,shininess:12,specular:'#1a1a1a'});
     const crowd=new T.MeshLambertMaterial({vertexColors:true});
     crowd.onBeforeCompile=sh=>{sh.uniforms.uT=W.wind;sh.vertexShader='uniform float uT;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvec4 ip=instanceMatrix*vec4(0.,0.,0.,1.);transformed.y+=max(0.,sin(uT*7.+ip.x*1.7+ip.z*.9))*.16;')};
     tree.onBeforeCompile=sh=>{sh.uniforms.uT=W.wind;sh.vertexShader='uniform float uT;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nfloat sw=max(0.,position.y-.8)*.035;vec4 ip=instanceMatrix*vec4(0.,0.,0.,1.);transformed.x+=sin(uT*1.6+ip.x*.15+ip.z*.1)*sw;transformed.z+=cos(uT*1.3+ip.z*.15)*sw*.6;')};
-    W.mat={tree,crowd,blob:new T.MeshBasicMaterial({color:'#000',transparent:true,opacity:.22,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}),
+    const house=new T.MeshPhongMaterial({vertexColors:true,shininess:10,specular:'#202020'});
+    house.onBeforeCompile=sh=>{sh.vertexShader='varying vec3 vWP;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\nvWP=(modelMatrix*instanceMatrix*vec4(transformed,1.)).xyz;');
+      sh.fragmentShader='varying vec3 vWP;\nfloat hh(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}\n'+sh.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+        vec3 nn=normalize(cross(dFdx(vWP),dFdy(vWP)));float ny=abs(nn.y);
+        if(ny<.35){float u=abs(nn.x)>abs(nn.z)?vWP.z:vWP.x;float row=floor(vWP.y/.27);float bx=floor((u+mod(row,2.)*.45)/.9);
+          float mx=fract((u+mod(row,2.)*.45)/.9),my=fract(vWP.y/.27);float mo=max(step(mx,.035),step(my,.09));diffuseColor.rgb*=mix(.93+.12*hh(vec2(row,bx)),.8,mo);}
+        else if(ny<.95){float row=floor(vWP.y/.32);float my=fract(vWP.y/.32);diffuseColor.rgb*=mix(.9+.14*hh(vec2(row,floor((vWP.x+vWP.z)/.5))),.72,step(my,.16));}`)};
+    W.mat={tree,crowd,house,tegel:new T.MeshLambertMaterial({map:W.tex.tegel}),blob:new T.MeshBasicMaterial({color:'#000',transparent:true,opacity:.22,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}),
     lam:new T.MeshLambertMaterial({vertexColors:true,map:W.tex.gras}),asf:new T.MeshLambertMaterial({map:W.tex.asf}),line:new T.MeshLambertMaterial({color:'#f2f0e8'}),
     water:new T.MeshPhongMaterial({color:'#3aa6e0',shininess:90,specular:'#cfefff',transparent:true,opacity:.9,side:T.DoubleSide}),inst:new T.MeshPhongMaterial({vertexColors:true,shininess:22,specular:'#262626'}),
+    piek:new T.MeshLambertMaterial({vertexColors:true,fog:false}),
+    klinker:new T.MeshLambertMaterial({map:W.tex.klinker}),steen:new T.MeshLambertMaterial({map:W.tex.steen}),
     wolk:new T.MeshBasicMaterial({vertexColors:true,color:W.mood.cloud,transparent:true,opacity:.9,fog:false})};if(W.mood.rain)W.mat.asf.color.setScalar(.72)}
   /* bogen bij elk nieuw blok (niet bij elke stap van de FTP-test), een finishboog en hellingsborden */
   const segs=P.wo.segs,zc=z=>getComputedStyle(document.documentElement).getPropertyValue('--z'+z).trim()||'#888';
@@ -553,7 +643,8 @@ function buildChunk(ci){
   const geo=(pos,idx,col,uv)=>{const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));if(col)g.setAttribute('color',new T.Float32BufferAttribute(col,3));if(uv)g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();return g};
   const lam=M.lam;
   const OFF=[-95,-78,-64,-53,-44,-36,-29,-23,-18,-14,-10.5,-7.5,-5.6,-4.4,4.4,5.6,7.5,10.5,14,18,23,29,36,44,53,64,78,95];
-  const grass={polder:new T.Color('#79c24a'),heuvels:new T.Color('#6cb846'),bergen:new T.Color('#62a64a'),meer:new T.Color('#7cc552')};
+  const grass={polder:new T.Color('#79c24a'),heuvels:new T.Color('#6cb846'),bergen:new T.Color('#62a64a'),meer:new T.Color('#7cc552'),provence:new T.Color('#b4b263')};
+  const PFIELD=['#9a78d6','#e4c86a','#b3c262','#c9a868','#8f6ad0'].map(c=>new T.Color(c));
   const FIELD=['#8fd05a','#b0d860','#e6cf6a','#9a7a52','#72bd4a','#c6dc70','#a2cf52'].map(c=>new T.Color(c)),rock=new T.Color('#8f8a86'),snow=new T.Color('#f3f5f8'),sand=new T.Color('#d8c99a'),berm=new T.Color('#9a9a7a'),pave=new T.Color('#b4aa9c'),tmp=new T.Color();
     const rows=Math.ceil(Math.min(CH,C.L-a)/DS)+1,pos=[],col=[],uv=[],idx=[];
     for(let j=0;j<rows;j++){
@@ -566,6 +657,7 @@ function buildChunk(ci){
         const wx=p.x+nx*off,wz=p.z+nzv*off;pos.push(wx,y,wz);uv.push(wx/14,wz/14);
         tmp.setRGB(0,0,0);for(const k in mix)if(mix[k])tmp.r+=grass[k].r*mix[k],tmp.g+=grass[k].g*mix[k],tmp.b+=grass[k].b*mix[k];
         const ao=Math.abs(off);
+        if(ao>11&&mix.provence>.3){const pl=Math.floor((d+off*.3)/70)*29+Math.floor(off/24)*5+ci,f=PFIELD[Math.abs(Math.floor(Math.sin(pl*9.7)*1e4))%PFIELD.length];tmp.lerp(f,.5*mix.provence)}
         if(ao>11&&(mix.polder>.3||mix.heuvels>.3)){const pl=Math.floor((d+off*.35)/75)*31+Math.floor(off/26)*7+ci,f=FIELD[Math.abs(Math.floor(Math.sin(pl*12.99)*1e4))%FIELD.length];tmp.lerp(f,.5*(mix.polder+mix.heuvels*.6))}
         tmp.offsetHSL(0,0,nz(d*2,off*2)*.06+nz(d*.25,off*.25)*.05);
         const rel=y-p.y;if(rel<-.5&&ao>6)tmp.multiplyScalar(.9);
@@ -585,7 +677,7 @@ function buildChunk(ci){
       for(const off of[-4.6,-3.2,3.2,4.6]){ap.push(p.x+nx*off,p.y+(Math.abs(off)>4?-.06:0),p.z+nzv*off);au.push((off+3.2)/6.4,d/12)}
       if(j<rr-1){const q=j*4;for(let i=0;i<3;i++)ai.push(q+i,q+i+1,q+i+4,q+i+1,q+i+5,q+i+4)}
       const line=(o,w)=>{const n=lp.length/3;for(const pp of[p,roadAt(C,d+RS)])for(const s of[-w,w])lp.push(pp.x+Math.cos(pp.h)*(o+s),pp.y+.025,pp.z+Math.sin(pp.h)*(o+s));li.push(n,n+1,n+2,n+1,n+3,n+2)};
-      if(j<rr-1){line(-2.95,.07);line(2.95,.07);if(j%3===0)line(0,.06)}}
+      if(j<rr-1&&villageW(C,d)<.5){line(-2.95,.07);line(2.95,.07);if(j%3===0)line(0,.06)}}
     const am=new T.Mesh(geo(ap,ai,null,au),M.asf);am.receiveShadow=true;g.add(am);
     const lm=new T.Mesh(geo(lp,li),M.line);lm.receiveShadow=true;g.add(lm);
   /* water bij het meer */
@@ -632,17 +724,35 @@ function buildChunk(ci){
       if(r()<.35){const [x,y,z,cl]=at(sd*(7+r()*4));if(!cl)put('rotsblok',x,y-.6,z,.8+r()*1.4,r()*6,tint(.15,0),1+r()*1.2)}
       if(d%500<7){const [x,y,z,cl]=at(5.2);if(!cl)put('kmsteen',x,y,z,1,-p.h)}
     }
-    /* publiek langs steile klimmen */
-    if(!vil&&(ty==='bergen'||ty==='heuvels')&&(roadAt(C,d+10).y-p.y)/10>.05)for(const side of[-1,1])for(let i=0;i<3;i++){if(r()>.55)continue;
-      const o=side*(5.4+r()*2.4),dd=d+r()*7,q=roadAt(C,dd),[o2,ko]=clipOff(C,dd,q,innerOff(o,q.k));if(ko>=0)continue;
-      const x=q.x+Math.cos(q.h)*o2,z=q.z+Math.sin(q.h)*o2,y=landH(C,dd,o2,mix,q.y),ry=face(q.h,side)+(r()-.5)*.8,col=new T.Color().setHSL(r(),.55+r()*.3,.35+r()*.3),sc=.9+r()*.2;
-      put(r()<.6?'mens':'mens2',x,y,z,sc,ry,col);put('hoofd',x,y,z,sc,ry);if(r()<.18)put('vlag',x,y,z,sc,ry,new T.Color().setHSL(r(),.8,.5))}
+    /* publiek langs steile klimmen: in groepjes, twee rijen dik, het drukst vlak voor de top */
+    if(!vil&&(ty==='bergen'||ty==='heuvels'||ty==='provence')&&(roadAt(C,d+10).y-p.y)/10>.045){
+      const top=(roadAt(C,d+80).y-roadAt(C,d+40).y)/40<.025,dens=top?.95:Math.floor(d/35)%4===0?.25:.75;
+      for(const side of[-1,1])for(let row=0;row<(top?3:2);row++)for(let i=0;i<3;i++){if(r()>dens)continue;
+        const o=side*(5.3+row*1.15+r()*.6),dd=d+i*2.3+r()*1.2,q=roadAt(C,dd),[o2,ko]=clipOff(C,dd,q,innerOff(o,q.k));if(ko>=0)continue;
+        const x=q.x+Math.cos(q.h)*o2,z=q.z+Math.sin(q.h)*o2,y=landH(C,dd,o2,mix,q.y),ry=face(q.h,side)+(r()-.5)*.7,col=new T.Color().setHSL(r(),.55+r()*.3,.35+r()*.3),sc=.88+r()*.22;
+        put(r()<.6?'mens':'mens2',x,y,z,sc,ry,col);put('hoofd',x,y,z,sc,ry);if(r()<.15)put('vlag',x,y,z,sc,ry,new T.Color().setHSL(r(),.8,.5))}
+    }
+    /* Provence: platanenlanen, cipressen, olijfgaarden, lavendel en zonnebloemen */
+    if(ty==='provence'&&!vil){
+      if(Math.sin(d/400+C.ph)>.45&&d%14<7)for(const side of[-1,1]){const [x,y,z,cl]=at(side*6.3);if(!cl)tree('plataan',x,y,z,.95+r()*.15)}
+      if(r()<.25){const side=r()<.5?-1:1,[x,y,z,cl]=at(side*(9+r()*20));if(!cl)tree('cipres',x,y,z,.8+r()*.5)}
+      if(d%380<7&&r()<.8){const side=r()<.5?-1:1,kind=r()<.6?'lavendel':'zonnebloem';
+        for(let j=0;j<14;j++)for(let k=0;k<5;k++){const dd=d+k*10.6,q=roadAt(C,dd),o=side*(14+j*1.5),[o2,ko]=clipOff(C,dd,q,innerOff(o,q.k));if(ko>=0||Math.abs(o2-o)>1)continue;
+          put(kind,q.x+Math.cos(q.h)*o2,landH(C,dd,o2,mix,q.y),q.z+Math.sin(q.h)*o2,1,-q.h,tint(.08,.02))}}
+      if(d%520<7&&r()<.7){const side=r()<.5?-1:1;for(let i=0;i<4;i++)for(let j=0;j<3;j++){const dd=d+i*8,q=roadAt(C,dd),o=side*(13+j*7),[o2,ko]=clipOff(C,dd,q,innerOff(o,q.k));if(ko>=0)continue;tree('olijf',q.x+Math.cos(q.h)*o2,landH(C,dd,o2,mix,q.y),q.z+Math.sin(q.h)*o2,.9+r()*.3)}}
+      if(d%700<7&&r()<.7){const side=r()<.5?-1:1,[x,y,z,cl]=at(side*(18+r()*8));if(!cl){put('erf',x,y+.05,z,10,0);put(r()<.5?'mas':'mas2',x,y,z,1,face(p.h,side),tint(.12,.03));put('blob',x,y+.07,z,7,0);tree('cipres',x+nzv*7,y,z-nx*7,1);tree('olijf',x-nzv*8,y,z+nx*8,1)}}
+    }
+    /* Limburg: heggen boven op de holle weg, vakwerkhoeves */
+    if(ty==='heuvels'&&!vil){const hw=clamp((Math.sin(d/650+C.ph*2)-.55)/.2,0,1);if(hw>.5)for(const side of[-1,1]){const [x,y,z,cl]=at(side*6.6);if(!cl)put('heg',x,y,z,1,-p.h+Math.PI,tint(.1,.03),1.1)}}
+    /* Alpen: bergtoppen met sneeuw achter de wanden, houtstapels */
+    if(ty==='bergen'&&d%140<7)for(const side of[-1,1]){if(r()<.6){const o=side*(330+r()*200),x=p.x+nx*o,z=p.z+nzv*o,sc=110+r()*120;put('piek',x,p.y-30+r()*20,z,sc,r()*6,null,sc*(1.4+r()*.8))}}
+    if(ty==='bergen'&&!vil&&d%300<7&&r()<.6){const side=r()<.5?-1:1,[x,y,z,cl]=at(side*(8+r()*6));if(!cl)put('hout',x,y,z,1,-p.h)}
     /* bosrand of bomenrij achter de weg: dit sluit het beeld af */
     for(const side of[-1,1]){
       if(ty==='meer'&&side<0)continue;
       const rowOff=ty==='polder'?42+r()*6:30+r()*12,dense=ty==='polder'?.7:1;
       for(let i=0;i<(ty==='polder'?1:3);i++){if(r()>dense)continue;const o=side*(rowOff+i*9+r()*6),[x,y,z,cl]=at(o);if(cl)continue;
-        const u=r(),k=ty==='bergen'?(u<.85?'den':'berk'):ty==='polder'?(u<.5?'populier':u<.8?'boom':'eik'):(u<.3?'den':u<.5?'eik':u<.62?'berk':'boom');tree(k,x,y,z,(ty==='polder'?1:1.05)+r()*.5)}
+        const u=r(),k=ty==='bergen'?(u<.85?'den':'berk'):ty==='polder'?(u<.5?'populier':u<.8?'boom':'eik'):ty==='provence'?(u<.35?'cipres':u<.6?'olijf':u<.8?'plataan':'eik'):(u<.3?'den':u<.5?'eik':u<.62?'berk':'boom');tree(k,x,y,z,(ty==='polder'?1:1.05)+r()*.5)}
     }
     if(vil)continue;
     /* tussen weg en bosrand: weiden, akkers, losse bomen */
@@ -663,11 +773,11 @@ function buildChunk(ci){
     if(ty==='polder'&&!nearCanal(d)&&Math.floor(d/250)%3===0)for(const side of[-1,1]){if(r()<.75){const [x,y,z,cl]=at(side*(12.5+r()));if(!cl)tree('knotwilg',x,y-.3,z,.85+r()*.3)}}
     /* boerderij met erf, schuur, silo en trekker */
     if((ty==='polder'||ty==='heuvels')&&d%650<7&&r()<.75){const side=r()<.5?-1:1,o=side*(19+r()*6),[x,y,z,cl]=at(o);
-      if(!cl){put('erf',x,y+.06,z,13,0);put('boerderij',x,y,z,1,face(p.h,side),tint(.1,.02));put('blob',x,y+.07,z,10,0);
+      if(!cl){put('erf',x,y+.06,z,13,0);put(ty==='heuvels'?'vakhoeve':'boerderij',x,y,z,1,face(p.h,side),tint(.1,.02));put('blob',x,y+.07,z,10,0);
         const [x2,y2,z2,c2]=at(o+side*14);if(!c2){put('schuur',x2,y2,z2,1,face(p.h,side)+Math.PI/2);put('silo',x2+nzv*8,y2,z2-nx*8,1,0)}
         put('trekker',x-nzv*9,y,z+nx*9,1,r()*6);tree('eik',x+nzv*12,y,z-nx*12,1.1)}}
     /* buurtschap: een paar huizen vlak langs de weg */
-    if((ty==='polder'||ty==='heuvels'||ty==='bergen')&&d%800<7&&r()<.65){const side=r()<.5?-1:1,n=2+Math.floor(r()*3),list=ty==='bergen'?['chalet','wit']:['rood','wit','geel'];
+    if((ty==='polder'||ty==='heuvels'||ty==='bergen')&&d%800<7&&r()<.65&&!vil){const side=r()<.5?-1:1,n=2+Math.floor(r()*3),list=ty==='bergen'?['chalet','chalet2']:ty==='heuvels'?['vakwerk','mergel','wit']:['rood','wit','geel','trapgevel'];
       for(let i=0;i<n;i++){const dd=d+i*(11+r()*6),q=roadAt(C,dd),k=list[Math.floor(r()*list.length)],oo=side*(11+r()*4),[x,y,z,cl]=(()=>{const [o2,ko]=clipOff(C,dd,q,innerOff(oo,q.k));return ko>=0?[0,0,0,true]:[q.x+Math.cos(q.h)*o2,landH(C,dd,o2,landMix(C,dd),q.y),q.z+Math.sin(q.h)*o2,false]})();
         if(cl)continue;put('erf',x,y+.05,z,6,0);put(k,x,y,z,1,face(q.h,side),tint(.22,.08));put('blob',x,y+.07,z,5,0);if(r()<.5)tree(r()<.5?'eik':'berk',x+Math.cos(q.h)*side*-0+Math.sin(q.h)*7,y,z-Math.cos(q.h)*7,.9)}}
     /* boomgaard en kapelletje in de heuvels */
@@ -678,17 +788,22 @@ function buildChunk(ci){
     if(ty==='meer'&&d%700<7){const [x,y,z]=at(-19);put('steiger',x,p.y-1.9,z,1,face(p.h,1)+Math.PI);put('boot',x+Math.cos(p.h)*-10+nzv*3,p.y-1.9,z+Math.sin(p.h)*-10-nx*3,1,-p.h)}
     if(ty==='meer'&&d%500<7)for(let i=0;i<3;i++){const [x,y,z]=at(-21-r()*6);put('parasol',x+nzv*(i*5),y,z-nx*(i*5),1,0,new T.Color().setHSL(r(),.6,.6))}
     if(ty==='polder'&&d%900<7&&r()<.85){const side=r()<.5?-1:1,[x,y,z,cl]=at(side*(28+r()*10));if(!cl){const m=makeMill();m.position.set(x,y,z);m.rotation.y=-p.h;g.add(m);W.mills.push(m.userData.sails);put('blob',x,y+.05,z,5,0)}}
+    /* varens, paddenstoelen en boomstammen aan de bosrand; distels en keien in de berm */
+    if(!vil)for(const side of[-1,1]){const u=r();if(u>.45)continue;const o=side*(6.2+r()*12),[x,y,z,cl]=at(o);if(cl||(ty==='meer'&&o<-17))continue;
+      if(ty==='heuvels'||ty==='bergen'){if(u<.2)put('varen',x,y,z,.8+r()*.6,r()*6,tint(.15,.04));else if(u<.28)put('paddenstoel',x,y,z,1+r()*.6,r()*6);else if(u<.31)put('stam',x,y+.05,z,.8+r()*.4,-p.h+(r()-.5)*.6);else put('keien',x,y,z,.7+r(),r()*6,tint(.15,0))}
+      else if(ty==='provence'){if(u<.25)put('keien',x,y,z,.8+r(),r()*6,tint(.1,.02));else put('distel',x,y,z,1+r()*.5,r()*6)}
+      else{if(u<.25)put('distel',x,y,z,1+r()*.5,r()*6);else put('paddenstoel',x,y,z,.9,r()*6)}}
     /* rafelige wegrand en bermen: graspollen, bloemen en struiken */
     for(const side of[-1,1]){
       for(let i=0;i<3;i++){const o=side*(4.7+r()*1.2),[x,y,z,cl]=at(o);if(!cl&&r()<.8)put('pol',x,y,z,.5+r()*.6,r()*6,tint(.2,.06))}
       for(let i=0;i<2;i++){const u=r();if(u>.8)continue;const o=side*(6+r()*22),[x,y,z,cl]=at(o);if(cl||(ty==='meer'&&o<-17))continue;
         if(u<.35)put('pol',x,y,z,.7+r()*.6,r()*6,tint(.2,.06));else if(u<.6&&mix.bergen<.5)put('bloem',x,y,z,.8+r()*.5,r()*6);else{put('struik',x,y,z,.6+r()*.7,r()*6,tint());put('blob',x,y+.05,z,1.4,0)}}
     }
-    if(d%160<7&&r()<.4){const off=(r()-.5)*900;put('wolk',p.x+nx*off,p.y+120+r()*70,p.z+nzv*off,1+r(),r()*6)}
+    if(d%70<7&&r()<.6){const side=r()<.5?-1:1,off=side*(120+r()*380);put('wolk',p.x+nx*off,p.y+55+r()*70,p.z+nzv*off,1.2+r()*1.6,r()*6,null,(1.2+r()*1.6)*.75)}
   }
   /* dorpen: rijen huizen met dwarsstraten, een plein met kerk, terras en fontein, en mensen op straat */
-  const HUIS={polder:['rood','trapgevel','wit','rood','geel','groen','trapgevel'],heuvels:['groen','wit','geel','wit','rood'],meer:['wit','groen','geel','rood'],bergen:['chalet','chalet','groen','chalet']};
-  const W2={rood:6,wit:5.4,geel:8,rij:15,winkel:8,chalet:8,trapgevel:6.5,groen:6},D2={rood:8.5,wit:7.5,geel:9,rij:8.5,winkel:10,chalet:9,trapgevel:9,groen:8};
+  const HUIS={polder:['rood','trapgevel','wit','rood','geel','groen','trapgevel'],heuvels:['vakwerk','mergel','vakwerk','wit','mergel'],meer:['wit','groen','geel','rood'],bergen:['chalet','chalet2','chalet2','groen'],provence:['mas','mas2','mas','mas2']};
+  const W2={rood:6,wit:5.4,geel:8,rij:15,winkel:8,chalet:8,trapgevel:6.5,groen:6,vakwerk:7,mergel:6.5,chalet2:9,mas:9,mas2:7},D2={rood:8.5,wit:7.5,geel:9,rij:8.5,winkel:10,chalet:9,trapgevel:9,groen:8,vakwerk:9,mergel:8,chalet2:11.5,mas:8,mas2:7.5};
   const at2=(dd,oo)=>{const q=roadAt(C,dd),mix=landMix(C,dd);return [q.x+Math.cos(q.h)*oo,landH(C,dd,oo,mix,q.y),q.z+Math.sin(q.h)*oo,q]};
   const PEOPLE=['#d9534f','#3a6fb0','#f2c14e','#4c9a5f','#8e5bb5','#ef7d3c','#2b2b2b','#f4f4f4'];
   const walker=(x,y,z,ry)=>{const sc=.9+r()*.2;put('loper',x,y,z,sc,ry,new T.Color(PEOPLE[Math.floor(r()*PEOPLE.length)]));put('hoofd2',x,y,z,sc,ry)};
@@ -717,10 +832,10 @@ function buildChunk(ci){
     /* plein met kerk, fontein, terras, fietsen en bomen */
     if(v.d>=a&&v.d<a+CH){
       const [px,py,pz,q]=at2(v.d,ks*20.4),f=face(q.h,ks);put('plein',px,py+.03,pz,1,f);
-      const [kx,ky,kz]=at2(v.d,ks*42);put('kerk',kx,ky,kz,1,f);put('blob',kx,ky+.06,kz,11,0);
+      const [kx,ky,kz]=at2(v.d,ks*42);put(v.ty==='bergen'?'alpenkerk':'kerk',kx,ky,kz,1,f);put('blob',kx,ky+.06,kz,11,0);
       const [fx,fy,fz]=at2(v.d,ks*19);put('fontein',fx,fy+.05,fz,1,0);
       for(const dd of[v.d-12,v.d-8,v.d+8,v.d+12]){const [tx,ty,tz]=at2(dd,ks*(11+r()*3));put('terras',tx,ty+.05,tz,1,r()*6,new T.Color().setHSL([0,.08,.55,.33][Math.floor(r()*4)],.65,.55));if(r()<.7)walker(tx+.8,ty,tz,r()*6)}
-      for(const dd of[v.d-15,v.d+15])for(const o of[13,28]){const [bx,by,bz]=at2(dd,ks*o);tree('boom',bx,by,bz,.85)}
+      for(const dd of[v.d-15,v.d+15])for(const o of[13,28]){const [bx,by,bz]=at2(dd,ks*o);tree(v.ty==='provence'?'plataan':'boom',bx,by,bz,v.ty==='provence'?.75:.85)}
       for(let i=0;i<6;i++){const [cx,cy,cz,q2]=at2(v.d+10+i*.8,ks*8.4);put('fiets',cx,cy,cz,1,face(q2.h,ks)+Math.PI/2+.25,new T.Color(PEOPLE[i%PEOPLE.length]))}
       for(let i=0;i<7;i++){const [wx,wy,wz]=at2(v.d+(r()-.5)*30,ks*(14+r()*16));walker(wx,wy,wz,r()*6)}
       for(const dd of[v.d-6,v.d+4]){const [bx,by,bz,q3]=at2(dd,ks*30);put('bank',bx,by,bz,1,f)}
@@ -731,7 +846,30 @@ function buildChunk(ci){
       put('auto',q.x+Math.cos(q.h)*oo,landH(C,dd,oo,landMix(C,dd),q.y)+.05,q.z+Math.sin(q.h)*oo,1,-q.h+(side>0?0:Math.PI),new T.Color(['#d9d9d9','#1d1f22','#8a8f96','#b3262d','#1f4f8c','#f2f2f2','#3c5a3c','#5a5f66'][Math.floor(r()*8)]))}
     for(let dd=Math.max(v0,a);dd<Math.min(v1,a+CH);dd+=26){const side=Math.floor(dd/26)%2?1:-1,q=roadAt(C,dd),mix=landMix(C,dd),oo=side*6.6;put('lamp',q.x+Math.cos(q.h)*oo,landH(C,dd,oo,mix,q.y),q.z+Math.sin(q.h)*oo,1,face(q.h,-side))}
     if(v.d-40>=a&&v.d-40<a+CH){const q=roadAt(C,v.d-40),oo=6.6;put('bushok',q.x+Math.cos(q.h)*oo,landH(C,v.d-40,oo,landMix(C,v.d-40),q.y),q.z+Math.sin(q.h)*oo,1,face(q.h,-1))}
-    for(const [dd,txt] of[[v0-12,v.name],[v1+12,v.name]])if(dd>=a&&dd<a+CH){const sg=makePlace(txt,dd>v.d),q=roadAt(C,dd);sg.position.set(q.x+Math.cos(q.h)*5.4,q.y,q.z+Math.sin(q.h)*5.4);sg.rotation.y=-q.h;g.add(sg)}
+    for(const [dd,txt] of[[v0-12,v.name],[v1+12,v.name]])if(dd>=a&&dd<a+CH){const sg=makePlace(txt,dd>v.d,v.ty==='provence'||v.ty==='bergen'),q=roadAt(C,dd);sg.position.set(q.x+Math.cos(q.h)*5.4,q.y,q.z+Math.sin(q.h)*5.4);sg.rotation.y=-q.h;g.add(sg)}
+  }
+  /* klinkers in de dorpsstraat */
+  {const pos=[],uv=[],idx=[];let run=false;
+    for(let d=a;d<=Math.min(C.L-1,a+CH);d+=4){const vw=villageW(C,d);if(vw<.5){run=false;continue}
+      const p=roadAt(C,d),n0=pos.length/3;for(const o of[-3.25,3.25]){pos.push(p.x+Math.cos(p.h)*o,p.y+.012,p.z+Math.sin(p.h)*o);uv.push((o+3.25)/1.6,d/1.6)}
+      if(run)idx.push(n0-2,n0-1,n0,n0-1,n0+1,n0);run=true}
+    if(idx.length){const vv=C.villages.find(v=>v.d+v.len/2>a&&v.d-v.len/2<a+CH),m=new T.Mesh(geo(pos,idx,null,uv),vv&&(vv.ty==='provence'||vv.ty==='bergen')?M.steen:M.klinker);m.receiveShadow=true;g.add(m)}}
+  /* stoepen met tegels, stoepranden en paaltjes in de dorpen */
+  {const pos=[],uv=[],idx=[];
+    for(const side of[-1,1]){let run=false;
+      for(let d=a;d<=Math.min(C.L-1,a+CH);d+=4){const vw=villageW(C,d);if(vw<.6){run=false;continue}
+        const p=roadAt(C,d),n0=pos.length/3;for(const o of[3.47,7.2]){const oo=side*o;pos.push(p.x+Math.cos(p.h)*oo,p.y+.13,p.z+Math.sin(p.h)*oo);uv.push(o/1.2,d/1.2)}
+        if(run)idx.push(n0-2,n0-1,n0,n0-1,n0+1,n0);run=true}}
+    if(idx.length){const m=new T.Mesh(geo(pos,idx,null,uv),M.tegel);m.receiveShadow=true;g.add(m)}
+    for(let d=a;d<Math.min(C.L-1,a+CH);d+=2){if(villageW(C,d)<.6)continue;const p=roadAt(C,d);for(const side of[-1,1]){const oo=side*3.35;put('stoeprand',p.x+Math.cos(p.h)*oo,p.y,p.z+Math.sin(p.h)*oo,1,-p.h)}
+      if(d%6<2)for(const v of C.villages)if(Math.abs(d-v.d)<45&&Math.abs(d-v.d)>20)for(const side of[-1,1]){const oo=side*3.8;put('paaltje',p.x+Math.cos(p.h)*oo,p.y+.13,p.z+Math.sin(p.h)*oo,1,0)}}}
+  /* finish: dranghekken met publiek en spandoeken */
+  if(C.finish>a-130&&C.finish-120<a+CH){
+    for(let dd=Math.max(a,C.finish-120);dd<Math.min(a+CH,C.finish+30);dd+=2.5)for(const side of[-1,1]){const [x,y,z,q]=at2(dd,side*4.95);put('dranghek',x,y,z,1,-q.h);
+      for(let row=0;row<3;row++){if(r()<.25)continue;const [px,py,pz,q2]=at2(dd+r()*2,side*(5.6+row*.9+r()*.3)),ry=face(q2.h,side)+(r()-.5)*.6,col=new T.Color().setHSL(r(),.6,.35+r()*.3),sc=.88+r()*.2;
+        put(r()<.65?'mens':'mens2',px,py,pz,sc,ry,col);put('hoofd',px,py,pz,sc,ry);if(r()<.12)put('vlag',px,py,pz,sc,ry,new T.Color().setHSL(r(),.8,.5))}}
+    for(let dd=C.finish-118.75;dd<C.finish+30;dd+=2.5)if(dd>=a&&dd<a+CH)for(const side of[-1,1]){const sp=makeBanner(Math.floor(dd/7.5+(side>0?1:0))%2),q=roadAt(C,dd);
+      sp.position.set(q.x+Math.cos(q.h)*side*4.92,landH(C,dd,side*4.92,landMix(C,dd),q.y),q.z+Math.sin(q.h)*side*4.92);sp.rotation.y=-q.h+(side>0?-Math.PI/2:Math.PI/2);g.add(sp)}
   }
   /* bocht-waarschuwingen */
   for(let d=Math.max(80,a);d<Math.min(C.L-80,a+CH);d+=20){const k1=C.K[Math.round((d+70)/STEP)],k0=C.K[Math.round(d/STEP)];
@@ -743,12 +881,12 @@ function buildChunk(ci){
       const n0=pos.length/3;for(const o of[11.2,13.8]){const oo=innerOff(side*o,p.k);pos.push(p.x+Math.cos(p.h)*oo,p.y-1.05,p.z+Math.sin(p.h)*oo)}
       if(run)idx.push(n0-2,n0-1,n0,n0-1,n0+1,n0);run=true}}
     if(idx.length)g.add(new T.Mesh(geo(pos,idx),M.water));}
-  const Mx=new T.Matrix4(),CROWD=new Set(['mens','mens2','hoofd','vlag']),WIND=new Set(['boom','den','populier','struik','pol','bloem','riet','knotwilg','berk','eik','fruitboom']);
+  const Mx=new T.Matrix4(),CROWD=new Set(['mens','mens2','hoofd','vlag']),HOUSE=new Set(['rood','wit','geel','rij','winkel','trapgevel','groen','boerderij','chalet','chalet2','mas','mas2','vakwerk','mergel','vakhoeve','kerk','alpenkerk','schuur','huis','kapel','muur']),WIND=new Set(['varen','distel','boom','den','populier','struik','pol','bloem','riet','knotwilg','berk','eik','fruitboom']);
     for(const key in lists){
-    const L=lists[key],k=key,m=new T.InstancedMesh(W.G[k],k==='wolk'?M.wolk:k==='blob'?M.blob:WIND.has(k)?M.tree:CROWD.has(k)?M.crowd:M.inst,L.length);m.userData.shared=true;
+    const L=lists[key],k=key,m=new T.InstancedMesh(W.G[k],HOUSE.has(k)?M.house:k==='piek'?M.piek:k==='wolk'?M.wolk:k==='blob'?M.blob:WIND.has(k)?M.tree:CROWD.has(k)?M.crowd:M.inst,L.length);m.userData.shared=true;
     const wc=new T.Color(1,1,1),e=new T.Euler(),q=new T.Quaternion(),v=new T.Vector3(),sc=new T.Vector3();
     L.forEach(([x,y,z,s,ry,col,sy,tl],i)=>{e.set(tl||0,ry||0,(tl||0)*.7);q.setFromEuler(e);Mx.compose(v.set(x,y,z),q,sc.set(s,sy||s,s));m.setMatrixAt(i,Mx);m.setColorAt(i,col||wc)});
-    if(k==='blob')m.receiveShadow=false;else if(k!=='wolk'&&k!=='pol'&&k!=='bloem')m.castShadow=false;
+    if(k==='piek'||k==='wolk')m.userData.far=true;if(k==='piek')m.frustumCulled=false;if(k==='blob')m.receiveShadow=false;else if(k!=='wolk'&&k!=='pol'&&k!=='bloem')m.castShadow=false;
     m.computeBoundingSphere();if(k==='wolk')m.frustumCulled=false;g.add(m);
   }
   W.root.add(g);W.chunks.set(ci,g);
@@ -785,10 +923,10 @@ function worldFrame(t){
     lane(n.R,n.d,n.off,run?n.cad:0,W.vs*n.f,run&&slope(n.d)>8&&n.f>1);
   }
   /* camera achter de fietser */
-  const ahead=roadAt(C,d+18),back=d>=6.2?roadAt(C,d-6.2):(q=>({x:q.x-Math.sin(q.h)*(6.2-d),y:q.y,z:q.z+Math.cos(q.h)*(6.2-d),h:q.h}))(roadAt(C,0));
-  const cp=new T.Vector3(back.x+Math.cos(back.h)*.6,Math.max(back.y,p.y)+2.85+(run?Math.sin(t/260)*.025:0),back.z+Math.sin(back.h)*.6);
+  const CB=4.6,ahead=roadAt(C,d+20),back=d>=CB?roadAt(C,d-CB):(q=>({x:q.x-Math.sin(q.h)*(CB-d),y:q.y,z:q.z+Math.cos(q.h)*(CB-d),h:q.h}))(roadAt(C,0));
+  const cp=new T.Vector3(back.x+Math.cos(back.h)*1.35,Math.max(back.y,p.y)+1.95+(run?Math.sin(t/260)*.025:0),back.z+Math.sin(back.h)*.6);
   if(!W.camP)W.camP=cp.clone();else{W.camP.x=cp.x;W.camP.z=cp.z;W.camP.y=clamp(W.camP.y+(cp.y-W.camP.y)*Math.min(1,dt*3),cp.y-.4,cp.y+.4)}
-  W.cam.position.copy(W.camP);W.cam.lookAt(ahead.x,ahead.y+.2,ahead.z);
+  W.cam.position.copy(W.camP);W.cam.lookAt(ahead.x+Math.cos(ahead.h)*.5,ahead.y+1.1,ahead.z+Math.sin(ahead.h)*.5);
   /* zon, lucht en verre bergen reizen mee */
   const md=W.mood.dir;W.sun.position.set(p.x+md[0],p.y+md[1],p.z+md[2]);W.wind.value=t/1000;
   {const L=Math.hypot(...md)/1100;W.sunDisc.position.set(W.cam.position.x+md[0]/L,W.cam.position.y+md[1]/L,W.cam.position.z+md[2]/L)}
@@ -798,13 +936,17 @@ function worldFrame(t){
   const ci=Math.floor(d/CH);
   if(!W.chunks.has(ci))buildChunk(ci);else for(let c=ci+1;c<=ci+5;c++)if(!W.chunks.has(c)){buildChunk(c);break}
   for(const c of W.chunks.keys())if(c<ci-2||c>ci+7)dropChunk(c);
+  for(const [c,gr] of W.chunks){const near=c>=ci-1&&c<=ci+1;if(gr.userData.near!==near){gr.userData.near=near;for(const ch of gr.children)ch.visible=near||!!ch.userData.far}}
   W.lastD=d;worldHud(d);
   if(W.comp)W.comp.render(dt);else W.ren.render(W.scene,W.cam);
 }
 function worldHud(d){
   const g=P.game,el=id=>document.getElementById(id);if(!g)return;
   const set=(id,v)=>{const e=el(id);if(e&&e.textContent!==String(v))e.textContent=v};
-  set('p-km',nl((d/1000).toFixed(1))+' km');
+  set('p-km',nl((d/1000).toFixed(1)));
+  if(W&&W.C){const C=W.C,k=clamp(Math.round(d/STEP),0,C.N-1),sl=(roadAt(C,d+8).y-roadAt(C,d).y)/8*100,pw=dispPower()||0;
+    W.kmh=(W.kmh||0)+((P.mode==='run'&&!P.auto&&pw?speedFor(pw,sl)*3.6:0)-(W.kmh||0))*.08;set('p-spd',Math.round(W.kmh));set('p-hm',Math.round(C.UP[k]));
+    const ctl=el('p-ctl');if(ctl)ctl.classList.toggle('hide',P.mode==='run'&&now()-(W.uiT||0)>4000)}
   if(W&&W.C&&!P.free){
     /* aftellen in de laatste 3 seconden van een blok */
     const pos=Math.min(P.pos,P.total-1),i=segAt(pos),sg=P.wo.segs[i],rem=P.starts[i]+sg.d-P.pos,cd=el('p-cd');
@@ -835,6 +977,7 @@ function drawProfile(d){
     t=s0<=d+10?`Klim: nog ${s1-d>=1000?nl(((s1-d)/1000).toFixed(1))+' km':Math.round((s1-d)/10)*10+' m'} · ${nl(pct.toFixed(1))}%`:`Klim over ${Math.round((s0-d)/10)*10} m · ${len>=1000?nl((len/1000).toFixed(1))+' km':Math.round(len/10)*10+' m'} · ${nl(pct.toFixed(1))}%`}
     else t='Vlak';if(lab.textContent!==t)lab.textContent=t}
 }
+addEventListener('pointermove',()=>{if(W)W.uiT=now()});addEventListener('pointerdown',()=>{if(W)W.uiT=now()});
 /* wordt na elke renderPlayer aangeroepen */
 function worldSync(){
   if(P&&view3d()){if(!W)worldOpen();else if(!W.loading){W.el.hidden=false;worldHud(W.lastD||0)}}

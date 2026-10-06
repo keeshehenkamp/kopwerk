@@ -107,6 +107,7 @@ function paintPlayer(){
   const pos=Math.min(P.pos,P.total-1),i=segAt(pos),s=P.wo.segs[i],tgt=tgtAt(pos),pw=dispPower();
   const fh=now()-live.tH<5000,fp=now()-live.tP<3000;
   el('p-elapsed').textContent=clock(P.rec.p.length);
+  if(el('p-prog')){el('p-prog').style.width=Math.min(100,P.pos/P.total*100)+'%';const rs=el('p-rest');if(rs)rs.textContent=clock(Math.max(0,P.total-P.pos));if(!P.free)paintList(segAt(Math.min(P.pos,P.total-1)))}
   const rp=el('p-repeat');if(rp)rp.hidden=P.free||!(s.kind==='work'||s.kind==='rest');
   if(P.free){
     el('p-target').textContent='–';el('p-power').textContent=pw==null?'–':pw;
@@ -167,7 +168,21 @@ function playerHTML(){
       </div>`;
   const v3=view3d(),hud=v3&&P.game.on?`<div class="phud"><b id="p-pts">0</b><span>punten</span><span id="p-mult" class="pmult"></span><span id="p-stars" class="pstars">★ 0</span></div><div class="ppop" id="p-pop" hidden></div>`:'';
   const load=v3?'<div class="pload" id="p-load" hidden><span>Wereld laden</span><b><i></i></b></div><div class="pprof"><canvas id="p-prof" width="360" height="84"></canvas><span id="p-proft"></span></div><div class="pcd" id="p-cd" hidden></div>':'';
-  return `<div class="player${v3?' w3':''}">
+  if(v3)return `<div class="player w3">
+    <div class="zpow"><i class="zband" id="p-zone"></i><div class="zp1"><b id="p-power">–</b><i>W</i></div>
+      <div class="zp2"><span><b id="p-cad">–</b><i>rpm</i></span><span><b id="p-hr">–</b><i>bpm</i></span></div>
+      <div class="zgauge" aria-hidden="true"><span class="ok"></span><span class="mid"></span><span class="dot" id="p-dot"></span></div><span id="p-cadl" hidden></span></div>
+    <div class="zbar"><div class="zb1"><span><b id="p-spd">0</b><i>km/u</i></span><span><b id="p-km">0,0</b><i>km</i></span><span><b id="p-hm">0</b><i>m</i></span><span><b id="p-elapsed">0:00</b><i>/ ${clock(P.total)}${P.free?' +':''}</i></span></div>
+      <div class="zprog"><i id="p-prog"></i></div>
+      <div class="zb2"><span class="zname">${esc(w.name)}</span>${status}<span class="zbtns"><button class="btn small" data-act="view3d">Cijfers</button>${ready?'<button class="btn small" data-act="closePlayer">Sluiten</button>':''}</span></div></div>
+    <div class="zlist"><div class="zlh"><b>Schema</b><span>nog <b id="p-rest">${clock(P.total)}</b></span></div><div id="p-list"></div>
+      <div class="zcur"><span id="p-seg"></span><div class="zct"><span><b id="p-target">–</b><i>W</i></span><b id="p-left"></b></div><span id="p-next" class="znext"></span></div></div>
+    ${hud?`<div class="zside">${hud}</div>`:''}${load}
+    ${readyBox?`<div class="zready">${readyBox}</div>`:''}
+    <div class="zchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
+    <div class="pctl zctl" id="p-ctl">${ctl}</div>
+  </div>`;
+  return `<div class="player">
     <div class="pzone" id="p-zone"></div>
     <div class="ptop">
       <div><h2>${esc(w.name)}</h2>${status}${v3?' <span class="small" id="p-km"></span>':''}</div>
@@ -190,6 +205,14 @@ function playerHTML(){
     <div class="pchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
     <div class="pctl">${ctl}</div>
   </div>`;
+}
+/* 3D: schema als lijst, het huidige blok uitgelicht, sterren bij afgeronde blokken */
+function paintList(i){
+  const el=document.getElementById('p-list');if(!el)return;
+  const g=P.game||{},key=i+'|'+(g.stars?g.stars.length:0);if(el.dataset.k===key)return;el.dataset.k=key;
+  const segs=P.wo.segs,a=Math.max(0,i-2),b=Math.min(segs.length,a+8);
+  el.innerHTML=segs.slice(a,b).map((s,j)=>{const k=a+j,st=g.by&&g.by[k];
+    return `<div class="zrow${k===i?' on':''}${k<i?' done':''}"><i style="background:var(--z${zoneOf((s.a+s.b)/2)})"></i><span>${st!=null?'<em>'+'★'.repeat(st)+'</em>':''}${esc(s.label)}</span><b>${clock(s.d)}</b><b>${Math.round(s.a*P.ftp*P.bias)} W</b></div>`}).join('');
 }
 function renderPlayer(){if(!P)return;document.getElementById('app').innerHTML=playerHTML();P.drawn=-1;paintPlayer();worldSync()}
 function markRecords(ride){
