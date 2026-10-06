@@ -131,6 +131,8 @@ tr:last-child td{border:0}
 .rpe button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .verdict p+p{margin-top:8px}
 .verdict{max-width:70ch}
+.why summary{cursor:pointer;color:var(--muted);font-size:13.5px;width:max-content}
+.why summary:hover{color:var(--ink)}
 
 /* settings */
 .avail{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}

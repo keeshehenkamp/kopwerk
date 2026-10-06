@@ -57,6 +57,13 @@ function analyze(rec,ftp,laps,plannedSec,type){
     avgCad:cv.length?Math.round(avg(cv)):0,zones,best,score,decoup};
 }
 
+/* stap op de opbouwladder na een rit: terug bij te zwaar, omhoog als het goed ging */
+function progStep(r){
+  if(r.rpe>=9||(r.score!=null&&r.score<70))return -1;
+  if(r.rpe>=8||(r.score!=null&&r.score<85))return 0;
+  if(r.rpe<=5&&(r.score==null||r.score>=90))return 1;
+  return .5;
+}
 function ftpEstimate(r){
   if(r.sim)return 0;
   if(r.type==='ramptest')return r.best[60]?Math.round(r.best[60]*.75):0;
@@ -98,9 +105,9 @@ function verdict(r,ftp){
     if(r.decoup>5)out.push(`In de tweede helft leverde je ${nl(r.decoup)}% minder vermogen per hartslag dan in de eerste. Dat wijst op vermoeidheid, warmte of te weinig drinken.`);
     else if(r.decoup>-5)out.push('Je hartslag bleef in verhouding tot je vermogen stabiel. Deze duur en intensiteit kun je goed aan.');
   }
-  if(r.rpe!=null&&r.score!=null){
-    if(r.rpe>=9)out.push('Je vond dit erg zwaar. De volgende zware training is daarom een stap lichter.');
-    else if(r.rpe<=4&&r.score>=92&&TYPES[r.type]&&TYPES[r.type].hard)out.push('Dit ging je makkelijk af. De volgende zware training wordt een stap zwaarder.');
+  if(r.rpe!=null&&r.lvl&&LADDER[r.type]&&!r.sim){
+    const st=progStep(r);
+    out.push(st<0?'Dit was te zwaar. Deze training gaat de volgende keer een trede terug.':st===0?'Stevig, maar goed te doen. De volgende keer blijft deze training op dezelfde trede.':st<1?'Goed gedaan. De volgende keer wordt deze training iets zwaarder.':'Dit ging je makkelijk af. De volgende keer gaat deze training een trede omhoog.');
   }
   const e=ftpEstimate(r);
   if(e>ftp*1.02)out.push(`Je beste 20 minuten (${r.best[1200]} W) wijzen op een FTP van ongeveer ${e} W, hoger dan je ingestelde ${ftp} W.`);

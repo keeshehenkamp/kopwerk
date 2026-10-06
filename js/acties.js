@@ -93,10 +93,11 @@ const actions={
   rpe(d){
     const r=state.rides.find(x=>x.id===ui.rideId);if(!r)return;
     r.rpe=+d.n;
-    if(!r.adj&&!r.sim&&TYPES[r.type]&&TYPES[r.type].hard&&r.type!=='ramptest'){
+    /* je gevoel en de uitvoering bepalen de volgende trede van deze soort training */
+    if(!r.adj&&!r.sim&&LADDER[r.type]&&r.lvl){
       r.adj=true;
-      if(r.rpe>=9||(r.score!=null&&r.score<70))state.levelAdj=Math.max(-1,state.levelAdj-1);
-      else if(r.rpe<=4&&r.score!=null&&r.score>=92)state.levelAdj=Math.min(1,state.levelAdj+1);
+      state.prog=state.prog||{};
+      state.prog[r.type]=clamp(r.lvl+progStep(r),1,LADDER[r.type].steps.length);
     }
     save();render();
   },

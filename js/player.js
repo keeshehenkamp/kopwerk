@@ -110,7 +110,7 @@ function paintPlayer(){
   if(P.free){
     el('p-target').textContent='–';el('p-power').textContent=pw==null?'–':pw;
     el('p-cad').textContent=fp&&live.cad?Math.round(live.cad):'–';el('p-hr').textContent=fh&&live.hr?live.hr:'–';
-    el('p-seg').textContent='Vrij rijden';el('p-left').textContent=clock(P.freeSec);
+    el('p-cadl').textContent='Cadans';el('p-seg').textContent='Vrij rijden';el('p-left').textContent=clock(P.freeSec);
     el('p-next').textContent='Training afgerond. Rijd door zolang je wilt en stop wanneer je klaar bent.';
     el('p-zone').style.background='var(--z3)';el('p-dot').style.left='50%';
     el('p-cur').setAttribute('x1',1000);el('p-cur').setAttribute('x2',1000);
@@ -120,6 +120,7 @@ function paintPlayer(){
   el('p-target').textContent=tgt;
   el('p-power').textContent=pw==null?'–':pw;
   el('p-cad').textContent=fp&&live.cad?Math.round(live.cad):'–';
+  el('p-cadl').textContent=s.cad?`Cadans, doel ${s.cad}`:'Cadans';
   el('p-hr').textContent=fh&&live.hr?live.hr:'–';
   el('p-seg').textContent=s.label+(s.cad?` op ${s.cad} rpm`:'');
   el('p-left').textContent=clock(P.starts[i]+s.d-P.pos);
@@ -176,7 +177,7 @@ function playerHTML(){
       <div class="pnums">
         <div class="pnum"><label>Doel</label><b id="p-target">–</b><i>W</i></div>
         <div class="pnum big"><label>Vermogen</label><b id="p-power">–</b><i>W</i></div>
-        <div class="pnum"><label>Cadans</label><b id="p-cad">–</b><i>rpm</i></div>
+        <div class="pnum"><label id="p-cadl">Cadans</label><b id="p-cad">–</b><i>rpm</i></div>
         <div class="pnum"><label>Hartslag</label><b id="p-hr">–</b><i>bpm</i></div>
       </div>
       <div class="gauge" aria-hidden="true"><span class="ok"></span><span class="mid"></span><span class="dot" id="p-dot"></span></div>
@@ -197,7 +198,7 @@ function markRecords(ride){
 function makeRide(a){
   const an=analyze(a.rec,a.ftp,a.laps,a.planned||a.wo.sec,a.wo.type);
   const d=new Date(a.startTs||Date.now());
-  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,planned:a.planned||a.wo.sec,ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps},an);
+  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,planned:a.planned||a.wo.sec,ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps},an);
 }
 async function storeRide(a){
   const ride=makeRide(a);
