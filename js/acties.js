@@ -8,8 +8,10 @@ function setOverride(k,patch){
 }
 const actions={
   nav(d){ui.view=d.v;ui.modal=null;ui.confirm='';render();window.scrollTo(0,0)},
+  selDay(d){ui.selDay=d.iso;render()},
+  back(){ui.view=(ui.detail&&ui.detail.from)||'vandaag';render();window.scrollTo(0,0)},
   week(d){ui.weekOff=+d.d?ui.weekOff+(+d.d):0;render()},
-  openDay(d){ui.modal={kind:'day',iso:d.iso};render()},
+  openDay(d){ui.detail={kind:'day',iso:d.iso,from:tabOf(ui.view)};ui.view='training';render();window.scrollTo(0,0)},
   openAvail(d){ui.modal={kind:'avail',mon:d.mon};render()},
   saveWeek(d){
     const mon=parseISO(d.mon);
@@ -20,10 +22,10 @@ const actions={
     toast(n?`Week ${weekNo(mon)} staat klaar: ${n} ${n===1?'training':'trainingen'}.`:`Week ${weekNo(mon)} opgeslagen als rustweek.`);
   },
   resetWeek(){delete state.weeks[ui.modal.mon];ui.modal=null;save();render()},
-  openWo(d){ui.modal={kind:'wo',type:d.type,min:ui.lib.min,L:ui.lib.L};render()},
+  openWo(d){ui.detail={kind:'wo',type:d.type,min:ui.lib.min,L:ui.lib.L,from:'lib'};ui.view='training';render();window.scrollTo(0,0)},
   closeModal(){ui.modal=null;render()},
   veil(d,el,e){if(e.target===el){ui.modal=null;render()}},
-  startDay(d){ui.modal={kind:'day',iso:d.iso};const x=modalWo();if(x&&x.wo)openPlayer(x.wo)},
+  startDay(d){ui.detail={kind:'day',iso:d.iso,from:tabOf(ui.view)};const x=modalWo();if(x&&x.wo)openPlayer(x.wo)},
   startModal(){const x=modalWo();if(x&&x.wo)openPlayer(x.wo)},
   zwoModal(){const x=modalWo();if(x&&x.wo)saveZwo([{name:slug(x.wo.name),wo:x.wo}],slug(x.wo.name))},
   zwoWeek(){
@@ -32,8 +34,8 @@ const actions={
     if(!list.length)return toast('Deze week staat er niets gepland.');
     saveZwo(list,`kopwerk-week-${weekNo(mon)}`);
   },
-  ovMin(d,el){const m=+el.value,k=ui.modal.iso,x=modalWo(),b=x&&x.day?x.day.base:0;setOverride(k,m===0?{skip:b>0,minutes:null,type:null}:{skip:null,minutes:m===b?null:m})},
-  ovType(d,el){setOverride(ui.modal.iso,{type:el.value||null})},
+  ovMin(d,el){const m=+el.value,k=ui.detail.iso,x=modalWo(),b=x&&x.day?x.day.base:0;setOverride(k,m===0?{skip:b>0,minutes:null,type:null}:{skip:null,minutes:m===b?null:m})},
+  ovType(d,el){setOverride(ui.detail.iso,{type:el.value||null})},
   libMin(d,el){ui.lib.min=+el.value;render()},
   libL(d,el){ui.lib.L=+el.value;render()},
   resetAdj(){state.levelAdj=0;save();render()},
@@ -46,7 +48,7 @@ const actions={
     const old=state.event,keep=old&&old.profile&&old.name===(evn||'Evenement')&&old.date===evd?{profile:old.profile}:{};
     state.event=/^\d{4}-\d{2}-\d{2}$/.test(evd)?Object.assign({name:evn||'Evenement',date:evd},EVENTS[evk]?{kind:evk}:{},evkm?{km:clamp(evkm,20,400)}:{},keep):null;
     state.avail=DAYS.map((_,i)=>+g('s-a'+i).value);
-    if(!state.setup){state.setup=true;state.started=iso(new Date());state.planStart=iso(mondayOf(new Date()));state.weeks[state.planStart]=state.avail.slice();ui.view='schema'}
+    if(!state.setup){state.setup=true;state.started=iso(new Date());state.planStart=iso(mondayOf(new Date()));state.weeks[state.planStart]=state.avail.slice();ui.view='vandaag'}
     save();render();toast(state.avail.some(x=>x)?'Opgeslagen':'Opgeslagen. Je hebt nog geen trainingsdagen gekozen.');
   },
   openRide(d){ui.modal=null;openRide(d.id)},
@@ -130,7 +132,7 @@ const actions={
   async delRide(){
     if(ui.confirm!=='ride'){ui.confirm='ride';return render()}
     const id=ui.rideId;state.rides=state.rides.filter(r=>r.id!==id);save();await idb.del('s:'+id);
-    ui.confirm='';ui.view='analyse';ui.streams=null;render();
+    ui.confirm='';ui.view='ritten';ui.streams=null;render();
   },
   csv(){
     const r=state.rides.find(x=>x.id===ui.rideId),s=ui.streams;if(!r||!s)return;
@@ -158,7 +160,7 @@ const actions={
   },
   async wipe(){
     if(ui.confirm!=='wipe'){ui.confirm='wipe';return render()}
-    state=defaults();save();await idb.clear();ui.confirm='';ui.view='schema';ui.streams=null;ui.pending=null;render();
+    state=defaults();save();await idb.clear();ui.confirm='';ui.view='vandaag';ui.streams=null;ui.pending=null;render();
   },
   async pendSave(){const a=ui.pending;ui.pending=null;if(a){await storeRide(a);render()}},
   async pendDrop(){ui.pending=null;await idb.del('active');render()},
@@ -184,7 +186,7 @@ document.addEventListener('change',e=>{
   const a=actions[el.dataset.chg];if(a)a(el.dataset,el,e);
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&ui.modal&&!P){ui.modal=null;render()}
+  if(e.key==='Escape'&&!P){if(ui.modal){ui.modal=null;render()}else if(ui.view==='training')actions.back()}
   if(e.code==='Space'&&P&&P.mode!=='ready'&&!/^(BUTTON|SELECT|INPUT)$/.test(e.target.tagName)){e.preventDefault();actions.pause()}
 });
 window.addEventListener('beforeunload',e=>{if(P&&(P.mode==='run'||P.mode==='pause')){e.preventDefault();e.returnValue=''}});
