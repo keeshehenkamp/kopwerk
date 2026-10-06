@@ -76,15 +76,24 @@ function buildCourse(){
   const C={S,H,n,L,N,Y:Ys,zones,seed,ph:r()*6};
   /* bochten: polder lang rechtdoor met af en toe een scherpe bocht, heuvels en bergen slingerend */
   const X=new Float32Array(N),Z=new Float32Array(N),HD=new Float32Array(N),K=new Float32Array(N);
-  let hd=0,x=0,z=0,turn=0,amt=0,next=500;const ph=C.ph;
+  let hd=0,x=0,z=0,turn=0,amt=0,next=500,zig=null;const ph=C.ph;
   for(let k=0;k<N;k++){
-    const d=k*STEP,ty=zoneAt(C,d).ty;let kap;
-    if(ty==='polder'){
+    const d=k*STEP,ty=zoneAt(C,d).ty,gr=(Ys[Math.min(N-1,k+10)]-Ys[k])/40*100;let kap;
+    /* haarspeldbochten: op een steile klim in de bergen zigzagt de weg tegen de helling op */
+    if(!zig&&ty==='bergen'&&gr>4&&d>300)zig={a:hd-.35,tgt:hd,left:120+r()*120,arc:0,dk:0};
+    if(zig&&!zig.arc&&(ty!=='bergen'||gr<2.5))zig=null;
+    if(zig){
+      if(zig.arc>0){kap=zig.dk;zig.arc-=STEP;if(zig.arc<=0){zig.arc=0;zig.left=200+r()*160}}
+      else{
+        kap=clamp((zig.tgt-hd)*.03,-.02,.02)+Math.sin(d/90+ph)/900;zig.left-=STEP;
+        if(zig.left<=0){const nt=Math.abs(zig.tgt-(zig.a+.35))<.01?zig.a+Math.PI-.35:zig.a+.35;zig.dk=(nt-zig.tgt)/64;zig.arc=64;zig.tgt=nt}
+      }
+    }else if(ty==='polder'){
       kap=Math.sin(d/800+ph)/3000;
       if(d>=next){amt=(.7+r()*.7)*(hd>.2?-1:hd<-.2?1:(r()<.5?-1:1));turn=44;next=d+600+r()*900}
       if(turn>0){kap+=amt/44;turn-=STEP}
-    }else{const Rr=ty==='bergen'?120:ty==='heuvels'?190:300;kap=(.6*Math.sin(d/(Rr*1.8)+ph)+.4*Math.sin(d/(Rr*.8)+ph*2.3))/Rr}
-    kap-=hd*(ty==='bergen'?.002:.0012);
+      kap-=hd*.0012;
+    }else{const Rr=ty==='bergen'?120:ty==='heuvels'?190:300;kap=(.6*Math.sin(d/(Rr*1.8)+ph)+.4*Math.sin(d/(Rr*.8)+ph*2.3))/Rr-hd*(ty==='bergen'?.002:.0012)}
     X[k]=x;Z[k]=z;HD[k]=hd;K[k]=kap;
     x+=Math.sin(hd)*STEP;z-=Math.cos(hd)*STEP;hd+=kap*STEP;
   }
@@ -155,7 +164,7 @@ function propGeos(){
   G.brugwand=partsGeo([[new T.BoxGeometry(.5,2.6,2.1),'#9b5a43',M4(0,-1.3,0)]]);
   G.kerk=partsGeo([[new T.BoxGeometry(7,7,13),'#c9b9a3',M4(0,3.5,0)],[new T.CylinderGeometry(4.6,4.6,13.2,3,1),'#4a4d55',(()=>{const m=new T.Matrix4().makeRotationX(Math.PI/2);m.premultiply(new T.Matrix4().makeRotationZ(Math.PI/2));m.setPosition(0,8.6,0);m.scale(new T.Vector3(1,.55,1));return m})()],
     [new T.BoxGeometry(4,15,4),'#c9b9a3',M4(0,7.5,-7.5)],[new T.ConeGeometry(3,9,4),'#4a4d55',M4(0,19.5,-7.5,1,1,1,Math.PI/4)]]);
-  G.hek=partsGeo([[new T.BoxGeometry(.1,1.1,.1),'#7a5b3e',M4(0,.55,0)],[new T.BoxGeometry(.06,.1,3),'#8a6a4a',M4(0,.9,1.5)],[new T.BoxGeometry(.06,.1,3),'#8a6a4a',M4(0,.5,1.5)]]);
+  G.hek=partsGeo([[new T.BoxGeometry(.1,1.1,.1),'#7a5b3e',M4(0,.55,0)],[new T.BoxGeometry(.06,.1,7),'#8a6a4a',M4(0,.9,3.5)],[new T.BoxGeometry(.06,.1,7),'#8a6a4a',M4(0,.5,3.5)]]);
   G.baal=partsGeo([[new T.CylinderGeometry(.75,.75,1.3,10),'#d9c27a',(()=>{const m=new T.Matrix4().makeRotationZ(Math.PI/2);m.setPosition(0,.75,0);return m})()]]);
   return G;
 }
@@ -284,20 +293,20 @@ const innerOff=(off,k)=>{if(off*k<=0)return off;const lim=Math.max(8,.8/Math.abs
    het land wordt dan ingekort tot halverwege beide stukken weg. */
 function roadHash(C){
   const cell=200,m=new Map();
-  for(let k=0;k<C.N;k+=8){const key=Math.floor(C.X[k]/cell)*100003+Math.floor(C.Z[k]/cell);let a=m.get(key);if(!a)m.set(key,a=[]);a.push(k)}
+  for(let k=0;k<C.N;k+=3){const key=Math.floor(C.X[k]/cell)*100003+Math.floor(C.Z[k]/cell);let a=m.get(key);if(!a)m.set(key,a=[]);a.push(k)}
   C.hash=m;C.cell=cell;
 }
 function intrudes(C,d,x,z,ao){
-  const c=C.cell,r=Math.ceil(ao/c),cx=Math.floor(x/c),cz=Math.floor(z/c),lim=ao*ao*.81;
+  const c=C.cell,r=Math.ceil(ao/c),cx=Math.floor(x/c),cz=Math.floor(z/c),lim=ao*ao*.9;
   for(let i=-r;i<=r;i++)for(let j=-r;j<=r;j++){const a=C.hash.get((cx+i)*100003+cz+j);if(!a)continue;
-    for(const k of a){if(Math.abs(k*STEP-d)<20)continue;const dx=C.X[k]-x,dz=C.Z[k]-z;if(dx*dx+dz*dz<lim)return true}}
-  return false;
+    for(const k of a){if(Math.abs(k*STEP-d)<20)continue;const dx=C.X[k]-x,dz=C.Z[k]-z;if(dx*dx+dz*dz<lim)return k}}
+  return -1;
 }
 function clipOff(C,d,p,off){
   const nx=Math.cos(p.h),nz2=Math.sin(p.h),ao=Math.abs(off);
-  if(ao<15||!intrudes(C,d,p.x+nx*off,p.z+nz2*off,ao))return off;
-  let lo=0,hi=off;for(let i=0;i<5;i++){const m=(lo+hi)/2;if(intrudes(C,d,p.x+nx*m,p.z+nz2*m,Math.abs(m)))hi=m;else lo=m}
-  return lo;
+  let kk=ao<15?-1:intrudes(C,d,p.x+nx*off,p.z+nz2*off,ao);if(kk<0)return [off,-1];
+  let lo=0,hi=off;for(let i=0;i<8;i++){const m=(lo+hi)/2,k=intrudes(C,d,p.x+nx*m,p.z+nz2*m,Math.abs(m));if(k>=0){hi=m;kk=k}else lo=m}
+  return [lo,kk];
 }
 function worldBuild(){
   const T=T3;
@@ -313,8 +322,12 @@ function worldBuild(){
     const rows=Math.ceil(Math.min(CH,C.L-a)/DS)+1,pos=[],col=[],uv=[],idx=[];
     for(let j=0;j<rows;j++){
       const d=Math.min(C.L-1,a+j*DS),p=roadAt(C,d),mix=landMix(C,d),nx=Math.cos(p.h),nzv=Math.sin(p.h);
+      const bnd={'-1':clipOff(C,d,p,innerOff(-400,p.k)),'1':clipOff(C,d,p,innerOff(400,p.k))};
       for(const off0 of OFF){
-        const off=clipOff(C,d,p,innerOff(off0,p.k)),y=landH(C,d,off,mix,p.y),wx=p.x+nx*off,wz=p.z+nzv*off;pos.push(wx,y,wz);uv.push(wx/14,wz/14);
+        const [b,kb]=bnd[Math.sign(off0)],o1=innerOff(off0,p.k),off=Math.abs(o1)>Math.abs(b)?b:o1;
+        let y=landH(C,d,off,mix,p.y);
+        if(kb>=0){const t=Math.pow(Math.abs(off/b),2),mid=(p.y+C.Y[kb])/2+nz(d,off)*2;y=y*(1-t)+mid*t}
+        const wx=p.x+nx*off,wz=p.z+nzv*off;pos.push(wx,y,wz);uv.push(wx/14,wz/14);
         tmp.setRGB(0,0,0);for(const k in mix)if(mix[k])tmp.r+=grass[k].r*mix[k],tmp.g+=grass[k].g*mix[k],tmp.b+=grass[k].b*mix[k];
         tmp.offsetHSL(0,0,nz(d*2,off*2)*.06);
         const rel=y-p.y;if(mix.bergen>.3&&rel>35)tmp.lerp(rock,clamp((rel-35)/40,0,1));if(mix.bergen>.3&&rel>120)tmp.lerp(snow,clamp((rel-120)/30,0,1));
@@ -340,7 +353,7 @@ function worldBuild(){
   for(const zn of C.zones)if(zn.ty==='meer'){
     const pos=[],idx=[];let j=0;
     for(let d=Math.max(0,zn.a-350);d<=Math.min(C.L-1,zn.b+350);d+=16,j++){const p=roadAt(C,d),nx=Math.cos(p.h),nzv=Math.sin(p.h);
-      for(const o0 of[-20,-400]){const o=clipOff(C,d,p,innerOff(o0,p.k));pos.push(p.x+nx*o,p.y-1.9,p.z+nzv*o)}
+      for(const o0 of[-20,-400]){const o=clipOff(C,d,p,innerOff(o0,p.k))[0];pos.push(p.x+nx*o,p.y-1.9,p.z+nzv*o)}
       if(j)idx.push((j-1)*2,(j-1)*2+1,j*2,(j-1)*2+1,j*2+1,j*2)}
     root.add(new T.Mesh(geo(pos,idx),water));
   }
@@ -358,14 +371,14 @@ function worldBuild(){
   let fence=0;
   for(let d=20;d<C.L-20;d+=7){
     const p=roadAt(C,d),mix=landMix(C,d),zn=zoneAt(C,d),ty=zn.ty,nx=Math.cos(p.h),nzv=Math.sin(p.h);
-    const at=o=>{const oo=clipOff(C,d,p,innerOff(o,p.k));return [p.x+nx*oo,landH(C,d,oo,mix,p.y),p.z+nzv*oo,Math.abs(oo-o)>2]};
+    const at=o=>{const [oo,ko]=clipOff(C,d,p,innerOff(o,p.k));if(ko>=0)return [0,0,0,true];return [p.x+nx*oo,landH(C,d,oo,mix,p.y),p.z+nzv*oo,Math.abs(oo-o)>2]};
     if(d%42<7&&!nearCanal(d))for(const o of[-4.9,4.9]){const [x,y,z]=at(o);put('paal',x,y,z,1,-p.h)}
     if(ty==='heuvels'){if(fence<=0&&r()<.02)fence=30;if(fence>0){fence--;if(d%3<7)for(const o of[-6.5]){const [x,y,z]=at(o);put('hek',x,y,z,1,-p.h+Math.PI)}}}
     for(const side of[-1,1]){
       if(r()>.55)continue;
       const off=side*(8+Math.pow(r(),1.6)*170),[x,y,z,clipped]=at(off),u=r();if(clipped)continue;
       if(ty==='meer'&&off<-20){if(u<.04&&Math.abs(off)>60)put('boot',x,p.y-1.9,z,1,r()*6);else if(Math.abs(off)<30&&u<.5)put('riet',x,y,z,.8+r()*.6,r()*6);continue}
-      if(ty==='polder'){if(Math.abs(off)<16&&u<.35&&!nearCanal(d)){const [a1,b1,c1]=at(side*16);put('populier',a1,b1,c1,.9+r()*.3,0)}else if(u<.06)put('koe',x,y,z,1,r()*6);else if(u<.08)put(r()<.5?'huis':'schuur',x,y,z,1,-p.h+(r()<.5?0:Math.PI/2));else if(u<.11)put('baal',x,y,z,1,r()*6);else if(u<.18)put('boom',x,y,z,.7+r()*.5,r()*6)}
+      if(ty==='polder'){if(Math.abs(off)<16&&u<.35&&!nearCanal(d)){const [a1,b1,c1,cl]=at(side*16);if(!cl)put('populier',a1,b1,c1,.9+r()*.3,0)}else if(u<.06)put('koe',x,y,z,1,r()*6);else if(u<.08)put(r()<.5?'huis':'schuur',x,y,z,1,-p.h+(r()<.5?0:Math.PI/2));else if(u<.11)put('baal',x,y,z,1,r()*6);else if(u<.18)put('boom',x,y,z,.7+r()*.5,r()*6)}
       else if(ty==='heuvels'){if(u<.42)put('boom',x,y,z,.7+r()*.6,r()*6);else if(u<.47)put('huis',x,y,z,1,-p.h+r()*.4);else if(u<.52)put('koe',x,y,z,1,r()*6);else if(u<.55)put('baal',x,y,z,1,r()*6);else if(u<.59)put('den',x,y,z,.8+r()*.4,0)}
       else if(ty==='bergen'){if(u<.55)put('den',x,y,z,.8+r()*.7,r()*6);else if(u<.68)put('rots',x,y,z,.6+r()*1.4,r()*6)}
       else if(u<.3)put('boom',x,y,z,.7+r()*.5,r()*6);else if(u<.36)put('huis',x,y,z,1,-p.h);
@@ -422,7 +435,7 @@ function worldFrame(t){
   /* camera achter de fietser */
   const back=roadAt(C,Math.max(0,d-6)),ahead=roadAt(C,d+18);
   const cp=new T.Vector3(back.x+Math.cos(back.h)*.6,Math.max(back.y,p.y)+2.9,back.z+Math.sin(back.h)*.6);
-  if(!W.camP)W.camP=cp.clone();else{W.camP.x=cp.x;W.camP.z=cp.z;W.camP.y+=(cp.y-W.camP.y)*Math.min(1,dt*3)}
+  if(!W.camP)W.camP=cp.clone();else{W.camP.x=cp.x;W.camP.z=cp.z;W.camP.y=clamp(W.camP.y+(cp.y-W.camP.y)*Math.min(1,dt*3),cp.y-.4,cp.y+.4)}
   W.cam.position.copy(W.camP);W.cam.lookAt(ahead.x,ahead.y+.2,ahead.z);
   /* zon, lucht en verre bergen reizen mee */
   W.sun.position.set(p.x-50,p.y+110,p.z+35);W.sun.target.position.set(p.x,p.y,p.z);
