@@ -270,6 +270,7 @@ tr:last-child td{border:0}
 /* 3D-rit: de wereld ligt achter de player, de cijfers staan op donkere panelen erboven */
 #world{position:fixed;inset:0;z-index:29;background:#a9d6f2}
 #world canvas{display:block;width:100%;height:100%}
+#world::after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 55%,rgba(20,10,0,.28) 100%)}
 .player.w3{background:transparent;--ink:#fff;--muted:rgba(255,255,255,.72);--surface:rgba(16,20,28,.72);--line:rgba(255,255,255,.18);--sunk:rgba(255,255,255,.16);--bg:#10141c;color:#fff}
 .w3 .ptop{background:linear-gradient(rgba(10,13,20,.5),rgba(10,13,20,0));text-shadow:0 1px 8px rgba(0,0,0,.5)}
 .w3 .pctl{backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
