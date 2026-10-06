@@ -122,13 +122,13 @@ const nz=(a,b)=>Math.sin(a*.013+b*.021)*.5+Math.sin(a*.031-b*.017+1.7)*.3+Math.s
 /* Hoogte van het land naast de weg (off = meters naar rechts). Het land klimt met de weg mee;
    in heuvels en bergen ligt de weg tegen een helling: aan de ene kant omhoog, aan de andere kant het dal in. */
 function landH(C,d,off,mix,ry){
-  const ao=Math.abs(off),near=clamp((ao-4.4)/26,0,1),n=nz(d,off),sd=clamp(Math.sin(d/1300+C.ph)*3,-1,1);
-  const side=Math.tanh(off/140)*140*sd;
+  const ao=Math.abs(off),near=clamp((ao-4.4)/20,0,1),n=nz(d,off),sd=clamp(Math.sin(d/1300+C.ph)*3,-1,1);
+  const side=Math.tanh(off/60)*60*sd,wall=t=>Math.pow(clamp((ao-t)/45,0,1),1.5);
   let h=0;
-  if(mix.polder){const c=canalAt(C,d);h+=mix.polder*(-.6*near+(ao>11&&ao<14?-1.2:0)+(c!=null&&ao>4.2?-2.6*clamp((7-Math.abs(c))/2,0,1):0))}
-  h+=mix.heuvels*(near*(side*.2+5+8*n)+near*near*Math.max(0,ao-60)*.06);
-  h+=mix.bergen*(near*(side*.45+4+6*n)+Math.pow(clamp((ao-40)/120,0,1),1.4)*85*(.65+.35*n));
-  h+=mix.meer*(off<0?(ao>20?-2.6-near*2.5:-.4*near):near*(3+4*n));
+  if(mix.polder){const c=canalAt(C,d);h+=mix.polder*(-.6*near+(ao>11&&ao<14?-1.2:0)+(c!=null&&ao>4.2?-2.6*clamp((7-Math.abs(c))/2,0,1):0)+wall(60)*4)}
+  h+=mix.heuvels*(near*(side*.25+3+5*n)+wall(35)*38*(.7+.3*n));
+  h+=mix.bergen*(near*(side*.5+3+4*n)+wall(22)*80*(.6+.4*n));
+  h+=mix.meer*(off<0?(ao>20?-2.6-near*2.5:-.4*near):near*(2+3*n)+wall(40)*30);
   return ry+h-(ao<4.4?.08:.2);
 }
 
@@ -169,6 +169,7 @@ function propGeos(){
   G.pol=partsGeo([0,1,2,3,4,5].map(i=>[new T.ConeGeometry(.07,.5+i%3*.18,3),i%2?'#5f9a3a':'#78ad48',(()=>{const m=new T.Matrix4().makeRotationZ((i-2.5)*.18);m.setPosition(Math.cos(i*1.1)*.12,.25,Math.sin(i*1.1)*.12);return m})()]));
   G.bloem=partsGeo([...[0,1,2,3,4,5,6].map(i=>[new T.ConeGeometry(.02,.35,3),'#5f9a3a',M4(Math.cos(i*.9)*.25,.17,Math.sin(i*.9)*.25)]),
     ...[0,1,2,3,4,5,6].map(i=>[new T.IcosahedronGeometry(.06,0),['#f4d03f','#ffffff','#c86dd7','#f08a24','#e04848'][i%5],M4(Math.cos(i*.9)*.25,.37,Math.sin(i*.9)*.25)])]);
+  G.blob=new T.CircleGeometry(1,12).rotateX(-Math.PI/2);
   G.struik=partsGeo([[new T.IcosahedronGeometry(.8,0),'#3f7d34',M4(0,.5,0)],[new T.IcosahedronGeometry(.6,0),'#4d8f3d',M4(.5,.45,.2)],[new T.IcosahedronGeometry(.5,0),'#468638',M4(-.4,.4,-.2)]]);
   return G;
 }
@@ -259,7 +260,7 @@ function poseRider(R,dt,cad,spd,stand){
 }
 
 /* ---------- wereld opbouwen ---------- */
-const SKY_TOP='#4f97d6',SKY_HOR='#cfe3f1';
+const SKY_TOP='#3f86cc',SKY_HOR='#c8dcec';
 async function worldOpen(){
   if(W){W.el.hidden=false;return}
   W={loading:true};
@@ -268,10 +269,10 @@ async function worldOpen(){
   const T=T3,el=document.createElement('div');el.id='world';document.body.appendChild(el);
   let ren;try{ren=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'})}catch(e){el.remove();W=null;setView3d(false);toast('Deze browser kan geen 3D tonen. Je ziet nu de cijfers.');return renderPlayer()}
   const small=Math.min(innerWidth,innerHeight)<600;
-  ren.setPixelRatio(Math.min(devicePixelRatio||1,1.5));ren.shadowMap.enabled=true;ren.shadowMap.type=T.PCFSoftShadowMap;el.appendChild(ren.domElement);
-  const scene=new T.Scene();scene.background=new T.Color(SKY_HOR);scene.fog=new T.Fog(SKY_HOR,60,300);
-  scene.add(new T.HemisphereLight('#eaf4ff','#5f6f3c',1.35));
-  const sun=new T.DirectionalLight('#fff1d6',2.6);sun.castShadow=true;sun.shadow.mapSize.set(small?1024:2048,small?1024:2048);
+  ren.setPixelRatio(Math.min(devicePixelRatio||1,1.5));ren.toneMapping=T.ACESFilmicToneMapping;ren.toneMappingExposure=1.25;ren.shadowMap.enabled=true;ren.shadowMap.type=T.PCFSoftShadowMap;el.appendChild(ren.domElement);
+  const scene=new T.Scene();scene.background=new T.Color(SKY_HOR);scene.fog=new T.Fog(SKY_HOR,35,240);
+  scene.add(new T.HemisphereLight('#dceaff','#4d5a32',1.5));
+  const sun=new T.DirectionalLight('#ffe2b8',3.2);sun.castShadow=true;sun.shadow.mapSize.set(small?1024:2048,small?1024:2048);
   Object.assign(sun.shadow.camera,{left:-30,right:30,top:30,bottom:-30,near:1,far:260});sun.shadow.bias=-.0006;sun.shadow.normalBias=.03;
   scene.add(sun,sun.target);
   const cam=new T.PerspectiveCamera(60,1,.3,2200);
@@ -288,19 +289,31 @@ async function worldOpen(){
     const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setIndex(idx);
     const m=new T.Mesh(g,new T.MeshBasicMaterial({color:col,fog:false,side:T.DoubleSide,depthWrite:false}));m.renderOrder=-1;ring.add(m)}
   scene.add(ring);
-  W={el,ren,scene,cam,sun,sky,ring,G:propGeos(),root:null,C:null,total:-1,me:makeRider('#FF6A2B',false),pace:makeRider('#3D8BD4',true),vs:0,
+  const glow=canvasTex(256,256,(c,w,h)=>{const g=c.createRadialGradient(128,128,0,128,128,128);g.addColorStop(0,'rgba(255,252,235,1)');g.addColorStop(.12,'rgba(255,246,215,1)');g.addColorStop(.22,'rgba(255,230,180,.45)');g.addColorStop(1,'rgba(255,220,170,0)');c.fillStyle=g;c.fillRect(0,0,w,h)});
+  const sunDisc=new T.Sprite(new T.SpriteMaterial({map:glow,fog:false,depthWrite:false,transparent:true,toneMapped:false}));sunDisc.scale.set(520,520,1);sunDisc.renderOrder=-1;scene.add(sunDisc);
+  W={el,ren,scene,cam,sun,sky,ring,sunDisc,wind:{value:0},G:propGeos(),root:null,C:null,total:-1,me:makeRider('#FF6A2B',false),pace:makeRider('#3D8BD4',true),vs:0,
      npcs:[['#E04848','#f2f2f2'],['#2EAA6E','#1d222b'],['#F4D03F','#1d222b'],['#9B5DE5','#f2f2f2'],['#f2f2f2','#c22']].map(([j,f])=>({R:makeRider(j,false,f),d:null,f:1,off:2.25,cad:82+Math.random()*14})),
      disp:0,extra:0,gap:2,last:performance.now(),camP:null,mills:[],raf:0,tex:worldTextures()};
   for(const R of[W.me,W.pace,...W.npcs.map(n=>n.R)]){R.g.traverse(o=>{if(o.isMesh)o.castShadow=true});scene.add(R.g)}
   const fit=()=>{const w=innerWidth,h=innerHeight;ren.setSize(w,h);cam.aspect=w/h;cam.fov=w<h?72:58;cam.setViewOffset(w,h,0,Math.round(h*(w<h?.12:.2)),w,h);cam.updateProjectionMatrix()};
   W.fit=fit;addEventListener('resize',fit);fit();
-  worldBuild();W.raf=requestAnimationFrame(worldFrame);
+  worldBuild();
+  /* eerst een paar kilometer klaarzetten, met een laadbalk; de rest volgt tijdens het fietsen */
+  const bar=()=>document.getElementById('p-load'),n=6;
+  for(let ci=0;ci<n;ci++){if(!W||!P)return;buildChunk(ci);const b=bar();if(b){b.hidden=false;b.querySelector('i').style.width=Math.round((ci+1)/n*100)+'%'}await new Promise(r=>setTimeout(r,0))}
+  const b=bar();if(b)b.hidden=true;W.ready=true;
+  W.raf=requestAnimationFrame(worldFrame);
 }
 /* fijne korrel op asfalt en gras, zodat vlakken niet egaal ogen */
 function worldTextures(){
   const T=T3,noise=(n,base,spread,dots)=>canvasTex(n,n,(c,w,h)=>{c.fillStyle=base;c.fillRect(0,0,w,h);
     for(let i=0;i<dots;i++){const v=Math.round(128+(Math.random()-.5)*spread);c.fillStyle=`rgba(${v},${v},${v},.35)`;c.fillRect(Math.random()*w,Math.random()*h,1+Math.random()*2,1+Math.random()*2)}});
-  const asf=noise(256,"#6b6f75",70,7000),gras=noise(128,'#ffffff',120,2600);
+  const gras=noise(128,'#ffffff',120,2600);
+  const asf=canvasTex(256,512,(c,w,h)=>{c.fillStyle='#62666c';c.fillRect(0,0,w,h);
+    for(let i=0;i<9000;i++){const v=Math.round(100+Math.random()*60);c.fillStyle=`rgba(${v},${v},${v+4},.4)`;c.fillRect(Math.random()*w,Math.random()*h,1+Math.random()*2,1+Math.random()*2)}
+    c.fillStyle='rgba(30,32,36,.1)';for(const x of[.22,.66])c.fillRect(x*w,0,.12*w,h);
+    for(let i=0;i<3;i++){c.fillStyle=Math.random()<.5?'rgba(45,47,52,.22)':'rgba(150,150,150,.12)';c.fillRect(Math.random()*w*.8,Math.random()*h,15+Math.random()*50,20+Math.random()*60)}
+    c.strokeStyle='rgba(30,30,34,.3)';c.lineWidth=.8;for(let i=0;i<4;i++){let x=Math.random()*w,y=Math.random()*h;c.beginPath();c.moveTo(x,y);for(let j=0;j<6;j++){x+=(Math.random()-.5)*30;y+=Math.random()*25;c.lineTo(x,y)}c.stroke()}});
   for(const t of[asf,gras]){t.wrapS=t.wrapT=T.RepeatWrapping;t.colorSpace=T.NoColorSpace}
   gras.colorSpace=T.SRGBColorSpace;asf.colorSpace=T.SRGBColorSpace;
   return {asf,gras};
@@ -335,9 +348,12 @@ function worldBuild(){
   const T=T3;
   if(W.root){for(const ci of [...W.chunks.keys()])dropChunk(ci);W.root.traverse(o=>{if(o.geometry&&!o.userData.shared)o.geometry.dispose();if(o.material)[].concat(o.material).forEach(m=>{if(m.map&&m.map!==W.tex.asf&&m.map!==W.tex.gras)m.map.dispose();m.dispose()})});W.scene.remove(W.root)}
   const C=buildCourse(),root=new T.Group();roadHash(C);W.C=C;W.root=root;W.total=P.total;W.segN=P.wo.segs.length;W.mills=[];W.chunks=new Map();
-  if(!W.mat)W.mat={lam:new T.MeshLambertMaterial({vertexColors:true,flatShading:true,map:W.tex.gras}),asf:new T.MeshLambertMaterial({map:W.tex.asf}),line:new T.MeshLambertMaterial({color:'#f2f0e8'}),
+  if(!W.mat){const tree=new T.MeshLambertMaterial({vertexColors:true,flatShading:true});
+    tree.onBeforeCompile=sh=>{sh.uniforms.uT=W.wind;sh.vertexShader='uniform float uT;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nfloat sw=max(0.,position.y-.8)*.035;vec4 ip=instanceMatrix*vec4(0.,0.,0.,1.);transformed.x+=sin(uT*1.6+ip.x*.15+ip.z*.1)*sw;transformed.z+=cos(uT*1.3+ip.z*.15)*sw*.6;')};
+    W.mat={tree,blob:new T.MeshBasicMaterial({color:'#000',transparent:true,opacity:.22,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}),
+    lam:new T.MeshLambertMaterial({vertexColors:true,map:W.tex.gras}),asf:new T.MeshLambertMaterial({map:W.tex.asf}),line:new T.MeshLambertMaterial({color:'#f2f0e8'}),
     water:new T.MeshLambertMaterial({color:'#4b97c5',transparent:true,opacity:.9,side:T.DoubleSide}),inst:new T.MeshLambertMaterial({vertexColors:true,flatShading:true}),
-    wolk:new T.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.9,fog:false})};
+    wolk:new T.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.9,fog:false})}}
   /* een dorp met kerk in elk polder- en heuvelstuk */
   const r=rng(C.seed+1);C.villages=[];
   for(const zn of C.zones)if(zn.ty==='polder'||zn.ty==='heuvels'){const d=zn.a+(zn.b-zn.a)*(.35+r()*.3),k=C.K[Math.round(d/STEP)];C.villages.push({d,off:(k>0?-1:1)*(70+r()*40)})}
@@ -351,7 +367,7 @@ function worldBuild(){
       sg.position.set(p.x+Math.cos(p.h)*5.4,p.y,p.z+Math.sin(p.h)*5.4);sg.rotation.y=-p.h;root.add(sg)}});
   arch(makeArch('#20242c','FINISH',true),distAt(C,P.total));
   W.scene.add(root);
-  for(let ci=0;ci<3;ci++)buildChunk(ci);
+  if(W.ready){const c=Math.floor((W.lastD||0)/CH);for(let ci=Math.max(0,c-1);ci<=c+2;ci++)buildChunk(ci)}
 }
 /* De wereld wordt per kilometer opgebouwd: alleen de stukken rond de fietser staan klaar. */
 const CH=1000,DS=8;
@@ -365,21 +381,24 @@ function buildChunk(ci){
   const g=new T.Group(),r=rng(C.seed+ci*7919+3);
   const geo=(pos,idx,col,uv)=>{const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));if(col)g.setAttribute('color',new T.Float32BufferAttribute(col,3));if(uv)g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();return g};
   const lam=M.lam;
-  const OFF=[-160,-120,-90,-68,-50,-37,-27,-19,-13,-8.5,-6,-4.4,4.4,6,8.5,13,19,27,37,50,68,90,120,160];
+  const OFF=[-95,-78,-64,-53,-44,-36,-29,-23,-18,-14,-10.5,-7.5,-5.6,-4.4,4.4,5.6,7.5,10.5,14,18,23,29,36,44,53,64,78,95];
   const grass={polder:new T.Color('#7db04c'),heuvels:new T.Color('#69a243'),bergen:new T.Color('#5c8e46'),meer:new T.Color('#77ab55')};
-  const rock=new T.Color('#8f8a86'),snow=new T.Color('#f3f5f8'),sand=new T.Color('#d8c99a'),berm=new T.Color('#9a9a7a'),tmp=new T.Color();
+  const FIELD=['#8fbf55','#a9c75c','#cdbb68','#857252','#6fa548','#b8cc6c','#9bbd4f'].map(c=>new T.Color(c)),rock=new T.Color('#8f8a86'),snow=new T.Color('#f3f5f8'),sand=new T.Color('#d8c99a'),berm=new T.Color('#9a9a7a'),tmp=new T.Color();
     const rows=Math.ceil(Math.min(CH,C.L-a)/DS)+1,pos=[],col=[],uv=[],idx=[];
     for(let j=0;j<rows;j++){
       const d=Math.min(C.L-1,a+j*DS),p=roadAt(C,d),mix=landMix(C,d),nx=Math.cos(p.h),nzv=Math.sin(p.h);
-      const bnd={'-1':clipOff(C,d,p,innerOff(-160,p.k)),'1':clipOff(C,d,p,innerOff(160,p.k))};
+      const bnd={'-1':clipOff(C,d,p,innerOff(-95,p.k)),'1':clipOff(C,d,p,innerOff(95,p.k))};
       for(const off0 of OFF){
         const [b,kb]=bnd[Math.sign(off0)],o1=innerOff(off0,p.k),off=Math.abs(o1)>Math.abs(b)?b:o1;
         let y=landH(C,d,off,mix,p.y);
         if(kb>=0){const t=Math.pow(Math.abs(off/b),2),mid=(p.y+C.Y[kb])/2+nz(d,off)*2;y=y*(1-t)+mid*t}
         const wx=p.x+nx*off,wz=p.z+nzv*off;pos.push(wx,y,wz);uv.push(wx/14,wz/14);
         tmp.setRGB(0,0,0);for(const k in mix)if(mix[k])tmp.r+=grass[k].r*mix[k],tmp.g+=grass[k].g*mix[k],tmp.b+=grass[k].b*mix[k];
-        tmp.offsetHSL(0,0,nz(d*2,off*2)*.06);
-        const rel=y-p.y;if(mix.bergen>.3&&rel>35)tmp.lerp(rock,clamp((rel-35)/40,0,1));if(mix.bergen>.3&&rel>120)tmp.lerp(snow,clamp((rel-120)/30,0,1));
+        const ao=Math.abs(off);
+        if(ao>11&&(mix.polder>.3||mix.heuvels>.3)){const pl=Math.floor((d+off*.35)/75)*31+Math.floor(off/26)*7+ci,f=FIELD[Math.abs(Math.floor(Math.sin(pl*12.99)*1e4))%FIELD.length];tmp.lerp(f,.5*(mix.polder+mix.heuvels*.6))}
+        tmp.offsetHSL(0,0,nz(d*2,off*2)*.06+nz(d*.25,off*.25)*.05);
+        const rel=y-p.y;if(rel<-.5&&ao>6)tmp.multiplyScalar(.9);
+        if(mix.bergen>.3&&rel>12)tmp.lerp(rock,clamp((rel-12)/22,0,.9));if(mix.bergen>.3&&rel>70)tmp.lerp(snow,clamp((rel-70)/12,0,1));
         if(mix.meer>.3&&off<-15&&off>-30)tmp.lerp(sand,.7);
         if(Math.abs(off0)<5)tmp.lerp(berm,.55);
         col.push(tmp.r,tmp.g,tmp.b);
@@ -391,7 +410,7 @@ function buildChunk(ci){
     /* weg: asfalt met kantstrepen en middenstreep */
     const ap=[],au=[],ai=[],lp=[],li=[],RS=4,rr=Math.ceil(Math.min(CH,C.L-a)/RS)+1;
     for(let j=0;j<rr;j++){const d=Math.min(C.L-1,a+j*RS),p=roadAt(C,d),nx=Math.cos(p.h),nzv=Math.sin(p.h);
-      for(const off of[-4.6,-3.2,3.2,4.6]){ap.push(p.x+nx*off,p.y+(Math.abs(off)>4?-.06:0),p.z+nzv*off);au.push((off+4.6)/2.4,d/9)}
+      for(const off of[-4.6,-3.2,3.2,4.6]){ap.push(p.x+nx*off,p.y+(Math.abs(off)>4?-.06:0),p.z+nzv*off);au.push((off+3.2)/6.4,d/12)}
       if(j<rr-1){const q=j*4;for(let i=0;i<3;i++)ai.push(q+i,q+i+1,q+i+4,q+i+1,q+i+5,q+i+4)}
       const line=(o,w)=>{const n=lp.length/3;for(const pp of[p,roadAt(C,d+RS)])for(const s of[-w,w])lp.push(pp.x+Math.cos(pp.h)*(o+s),pp.y+.025,pp.z+Math.sin(pp.h)*(o+s));li.push(n,n+1,n+2,n+1,n+3,n+2)};
       if(j<rr-1){line(-2.95,.07);line(2.95,.07);if(j%3===0)line(0,.06)}}
@@ -401,12 +420,12 @@ function buildChunk(ci){
   for(const zn of C.zones)if(zn.ty==='meer'&&zn.b+60>a&&zn.a-60<a+CH){
     const pos=[],idx=[];let j=0;
     for(let d=Math.max(a,zn.a-60);d<=Math.min(C.L-1,zn.b+60,a+CH);d+=16,j++){const p=roadAt(C,d),nx=Math.cos(p.h),nzv=Math.sin(p.h);
-      for(const o0 of[-20,-160]){const o=clipOff(C,d,p,innerOff(o0,p.k))[0];pos.push(p.x+nx*o,p.y-1.9,p.z+nzv*o)}
+      for(const o0 of[-20,-420]){const o=clipOff(C,d,p,innerOff(o0,p.k))[0];pos.push(p.x+nx*o,p.y-1.9,p.z+nzv*o)}
       if(j)idx.push((j-1)*2,(j-1)*2+1,j*2,(j-1)*2+1,j*2+1,j*2)}
     if(idx.length)g.add(new T.Mesh(geo(pos,idx),M.water));
   }
   /* kanalen met een brug */
-  const lists={};const put=(k,x,y,z,s,ry)=>{(lists[k]=lists[k]||[]).push([x,y,z,s,ry])};
+  const lists={};const put=(k,x,y,z,s,ry,col,sy,tl)=>{(lists[k]=lists[k]||[]).push([x,y,z,s,ry,col,sy,tl])};
   for(const dc of C.canals)if(dc>=a&&dc<a+CH){
     const p=roadAt(C,dc),nx=Math.cos(p.h),nzv=Math.sin(p.h),wm=new T.Mesh(new T.PlaneGeometry(200,12),M.water);
     wm.rotation.set(-Math.PI/2,-p.h,0,'YXZ');
@@ -416,25 +435,41 @@ function buildChunk(ci){
   }
   /* bomen, huizen, koeien, molens, paaltjes */
   const nearCanal=d=>canalAt(C,d)!=null;
+  /* boom met eigen maat, kleur en scheefstand, plus een zachte schaduwvlek eronder */
+  const tint=(l,h)=>{const c=new T.Color(1,1,1);c.offsetHSL((r()-.5)*(h||.04),(r()-.5)*.15,(r()-.5)*(l||.18));return c};
+  const tree=(k,x,y,z,s)=>{put(k,x,y,z,s,r()*6,tint(),s*(.85+r()*.35),(r()-.5)*.08);put('blob',x,y+.05,z,s*(k==='populier'?1.4:2.2),0)};
   let fence=0;
   for(let d=Math.max(20,a);d<Math.min(C.L-20,a+CH);d+=7){
     const p=roadAt(C,d),mix=landMix(C,d),zn=zoneAt(C,d),ty=zn.ty,nx=Math.cos(p.h),nzv=Math.sin(p.h);
     const at=o=>{const [oo,ko]=clipOff(C,d,p,innerOff(o,p.k));if(ko>=0)return [0,0,0,true];return [p.x+nx*oo,landH(C,d,oo,mix,p.y),p.z+nzv*oo,Math.abs(oo-o)>2]};
-    if(d%42<7&&!nearCanal(d))for(const o of[-4.9,4.9]){const [x,y,z]=at(o);put('paal',x,y,z,1,-p.h)}
-    if(ty==='heuvels'){if(fence<=0&&r()<.02)fence=30;if(fence>0){fence--;if(d%3<7)for(const o of[-6.5]){const [x,y,z]=at(o);put('hek',x,y,z,1,-p.h+Math.PI)}}}
+    if(d%42<7&&!nearCanal(d))for(const o of[-4.9,4.9]){const [x,y,z,cl]=at(o);if(!cl)put('paal',x,y,z,1,-p.h)}
+    if(ty!=='bergen'){if(fence<=0&&r()<.03)fence=20+r()*30;if(fence>0){fence--;const o=ty==='meer'?7:(r()<.5?-7:7);const [x,y,z,cl]=at(o);if(!cl)put('hek',x,y,z,1,-p.h+Math.PI)}}
+    /* bosrand of bomenrij achter de weg: dit sluit het beeld af */
     for(const side of[-1,1]){
-      if(r()>.55)continue;
-      const off=side*(8+Math.pow(r(),1.6)*130),[x,y,z,clipped]=at(off),u=r();if(clipped)continue;
-      if(ty==='meer'&&off<-20){if(u<.05&&Math.abs(off)>45)put('boot',x,p.y-1.9,z,1,r()*6);else if(Math.abs(off)<30&&u<.5)put('riet',x,y,z,.8+r()*.6,r()*6);continue}
-      if(ty==='polder'){if(Math.abs(off)<16&&u<.35&&!nearCanal(d)){const [a1,b1,c1,cl]=at(side*16);if(!cl)put('populier',a1,b1,c1,.9+r()*.3,0)}else if(u<.06)put('koe',x,y,z,1,r()*6);else if(u<.08)put(r()<.5?'huis':'schuur',x,y,z,1,-p.h+(r()<.5?0:Math.PI/2));else if(u<.11)put('baal',x,y,z,1,r()*6);else if(u<.18)put('boom',x,y,z,.7+r()*.5,r()*6)}
-      else if(ty==='heuvels'){if(u<.42)put('boom',x,y,z,.7+r()*.6,r()*6);else if(u<.47)put('huis',x,y,z,1,-p.h+r()*.4);else if(u<.52)put('koe',x,y,z,1,r()*6);else if(u<.55)put('baal',x,y,z,1,r()*6);else if(u<.59)put('den',x,y,z,.8+r()*.4,0)}
-      else if(ty==='bergen'){if(u<.55)put('den',x,y,z,.8+r()*.7,r()*6);else if(u<.68)put('rots',x,y,z,.6+r()*1.4,r()*6)}
-      else if(u<.3)put('boom',x,y,z,.7+r()*.5,r()*6);else if(u<.36)put('huis',x,y,z,1,-p.h);
+      if(ty==='meer'&&side<0)continue;
+      const rowOff=ty==='polder'?42+r()*6:30+r()*12,dense=ty==='polder'?.7:1;
+      for(let i=0;i<(ty==='polder'?1:3);i++){if(r()>dense)continue;const o=side*(rowOff+i*9+r()*6),[x,y,z,cl]=at(o);if(cl)continue;
+        const k=ty==='bergen'?'den':ty==='polder'?(r()<.6?'populier':'boom'):(r()<.35?'den':'boom');tree(k,x,y,z,(ty==='polder'?1:1.1)+r()*.5)}
     }
-    if(ty==='polder'&&d%900<7&&r()<.85){const side=r()<.5?-1:1,[x,y,z,cl]=at(side*(45+r()*80));if(!cl){const m=makeMill();m.position.set(x,y,z);m.rotation.y=-p.h;g.add(m);W.mills.push(m.userData.sails)}}
-    /* vlak langs de weg: graspollen, bloemen en struiken */
-    for(const side of[-1,1])for(let i=0;i<2;i++){const u=r();if(u>.75)continue;const o=side*(5.6+r()*24),[x,y,z,cl]=at(o);if(cl||(ty==='meer'&&o<-17))continue;
-      if(u<.4)put('pol',x,y,z,.7+r()*.6,r()*6);else if(u<.6&&mix.bergen<.5)put('bloem',x,y,z,.8+r()*.5,r()*6);else put('struik',x,y,z,.6+r()*.7,r()*6)}
+    /* tussen weg en bosrand: weiden, akkers, losse bomen en boerderijen */
+    for(const side of[-1,1]){
+      if(r()>.5)continue;
+      const off=side*(9+r()*26),[x,y,z,cl]=at(off),u=r();if(cl)continue;
+      if(ty==='meer'&&off<-18){if(u<.08)put('boot',p.x+nx*side*(40+r()*80),p.y-1.9,p.z+nzv*side*(40+r()*80),1,r()*6);else if(off>-30&&u<.6)put('riet',x,y,z,.8+r()*.6,r()*6);continue}
+      if(ty==='polder'){if(u<.08)put('koe',x,y,z,1,r()*6);else if(u<.11)put('baal',x,y,z,1,r()*6);else if(u<.2&&!nearCanal(d))tree('boom',x,y,z,.7+r()*.4)}
+      else if(ty==='heuvels'){if(u<.25)tree('boom',x,y,z,.7+r()*.5);else if(u<.3)put('koe',x,y,z,1,r()*6);else if(u<.33)put('baal',x,y,z,1,r()*6)}
+      else if(ty==='bergen'){if(u<.3)tree('den',x,y,z,.7+r()*.6);else if(u<.5)put('rots',x,y,z,.5+r()*1.2,r()*6,tint(.2,0))}
+      else if(u<.2)tree('boom',x,y,z,.7+r()*.5);
+    }
+    if((ty==='polder'||ty==='heuvels')&&d%600<7&&r()<.7){const side=r()<.5?-1:1,o=side*(16+r()*10),[x,y,z,cl]=at(o);
+      if(!cl){put(r()<.6?'huis':'schuur',x,y,z,1,-p.h+(r()<.5?0:Math.PI/2),tint(.12,.02));put('blob',x,y+.05,z,5.5,0);const [x2,y2,z2,c2]=at(o+side*9);if(!c2){put('schuur',x2,y2,z2,.9,-p.h+Math.PI/2);put('blob',x2,y2+.05,z2,6,0)}}}
+    if(ty==='polder'&&d%900<7&&r()<.85){const side=r()<.5?-1:1,[x,y,z,cl]=at(side*(28+r()*10));if(!cl){const m=makeMill();m.position.set(x,y,z);m.rotation.y=-p.h;g.add(m);W.mills.push(m.userData.sails);put('blob',x,y+.05,z,5,0)}}
+    /* rafelige wegrand en bermen: graspollen, bloemen en struiken */
+    for(const side of[-1,1]){
+      for(let i=0;i<3;i++){const o=side*(4.7+r()*1.2),[x,y,z,cl]=at(o);if(!cl&&r()<.8)put('pol',x,y,z,.5+r()*.6,r()*6,tint(.2,.06))}
+      for(let i=0;i<2;i++){const u=r();if(u>.8)continue;const o=side*(6+r()*22),[x,y,z,cl]=at(o);if(cl||(ty==='meer'&&o<-17))continue;
+        if(u<.35)put('pol',x,y,z,.7+r()*.6,r()*6,tint(.2,.06));else if(u<.6&&mix.bergen<.5)put('bloem',x,y,z,.8+r()*.5,r()*6);else{put('struik',x,y,z,.6+r()*.7,r()*6,tint());put('blob',x,y+.05,z,1.4,0)}}
+    }
     if(d%160<7&&r()<.4){const off=(r()-.5)*900;put('wolk',p.x+nx*off,p.y+120+r()*70,p.z+nzv*off,1+r(),r()*6)}
   }
   for(const v of C.villages)if(v.d>=a&&v.d<a+CH){
@@ -444,10 +479,12 @@ function buildChunk(ci){
     for(let i=0;i<11;i++){const a=r()*Math.PI*2,rad=16+r()*36,dd=d+Math.cos(a)*rad,oo=cOff+Math.sin(a)*rad;if(Math.abs(oo)<12)continue;
       const q=roadAt(C,dd),x=q.x+Math.cos(q.h)*oo,z=q.z+Math.sin(q.h)*oo;put('huis',x,landH(C,dd,oo,mix,q.y),z,.9+r()*.3,-p.h+Math.round(r()*4)*Math.PI/2)}
   }
-  const Mx=new T.Matrix4();
+  const Mx=new T.Matrix4(),WIND=new Set(['boom','den','populier','struik','pol','bloem','riet']);
     for(const key in lists){
-    const L=lists[key],k=key,m=new T.InstancedMesh(W.G[k],k==='wolk'?M.wolk:M.inst,L.length);m.userData.shared=true;
-    L.forEach(([x,y,z,s,ry],i)=>m.setMatrixAt(i,M4(x,y,z,s,s,s,ry)));
+    const L=lists[key],k=key,m=new T.InstancedMesh(W.G[k],k==='wolk'?M.wolk:k==='blob'?M.blob:WIND.has(k)?M.tree:M.inst,L.length);m.userData.shared=true;
+    const wc=new T.Color(1,1,1),e=new T.Euler(),q=new T.Quaternion(),v=new T.Vector3(),sc=new T.Vector3();
+    L.forEach(([x,y,z,s,ry,col,sy,tl],i)=>{e.set(tl||0,ry||0,(tl||0)*.7);q.setFromEuler(e);Mx.compose(v.set(x,y,z),q,sc.set(s,sy||s,s));m.setMatrixAt(i,Mx);m.setColorAt(i,col||wc)});
+    if(k==='blob')m.receiveShadow=false;else if(k!=='wolk'&&k!=='pol'&&k!=='bloem')m.castShadow=false;
     m.computeBoundingSphere();if(k==='wolk')m.frustumCulled=false;g.add(m);
   }
   W.root.add(g);W.chunks.set(ci,g);
@@ -484,17 +521,17 @@ function worldFrame(t){
     lane(n.R,n.d,n.off,run?n.cad:0,W.vs*n.f,run&&slope(n.d)>8&&n.f>1);
   }
   /* camera achter de fietser */
-  const back=roadAt(C,Math.max(0,d-6)),ahead=roadAt(C,d+18);
-  const cp=new T.Vector3(back.x+Math.cos(back.h)*.6,Math.max(back.y,p.y)+2.9,back.z+Math.sin(back.h)*.6);
+  const back=roadAt(C,Math.max(0,d-6.2)),ahead=roadAt(C,d+18);
+  const cp=new T.Vector3(back.x+Math.cos(back.h)*.6,Math.max(back.y,p.y)+2.85+(run?Math.sin(t/260)*.025:0),back.z+Math.sin(back.h)*.6);
   if(!W.camP)W.camP=cp.clone();else{W.camP.x=cp.x;W.camP.z=cp.z;W.camP.y=clamp(W.camP.y+(cp.y-W.camP.y)*Math.min(1,dt*3),cp.y-.4,cp.y+.4)}
   W.cam.position.copy(W.camP);W.cam.lookAt(ahead.x,ahead.y+.2,ahead.z);
   /* zon, lucht en verre bergen reizen mee */
-  W.sun.position.set(p.x-50,p.y+110,p.z+35);W.sun.target.position.set(p.x,p.y,p.z);
+  W.sun.position.set(p.x-70,p.y+75,p.z-120);W.wind.value=t/1000;W.sunDisc.position.set(W.cam.position.x-560,W.cam.position.y+600,W.cam.position.z-960);W.sun.target.position.set(p.x,p.y,p.z);
   W.sky.position.copy(W.cam.position);W.ring.position.set(W.cam.position.x,p.y,W.cam.position.z);
   for(const s of W.mills)s.rotation.z+=dt*.6;
   const ci=Math.floor(d/CH);
-  if(!W.chunks.has(ci))buildChunk(ci);else for(let c=ci+1;c<=ci+3;c++)if(!W.chunks.has(c)){buildChunk(c);break}
-  for(const c of W.chunks.keys())if(c<ci-2||c>ci+5)dropChunk(c);
+  if(!W.chunks.has(ci))buildChunk(ci);else for(let c=ci+1;c<=ci+5;c++)if(!W.chunks.has(c)){buildChunk(c);break}
+  for(const c of W.chunks.keys())if(c<ci-2||c>ci+7)dropChunk(c);
   W.lastD=d;worldHud(d);
   W.ren.render(W.scene,W.cam);
 }

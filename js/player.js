@@ -166,6 +166,7 @@ function playerHTML(){
         <button class="btn warn" data-act="stop">${P.stopArm?'Klik nog eens om te stoppen':'Stoppen en opslaan'}</button>
       </div>`;
   const v3=view3d(),hud=v3&&P.game.on?`<div class="phud"><b id="p-pts">0</b><span>punten</span><span id="p-mult" class="pmult"></span><span id="p-stars" class="pstars">★ 0</span></div><div class="ppop" id="p-pop" hidden></div>`:'';
+  const load=v3?'<div class="pload" id="p-load" hidden><span>Wereld laden</span><b><i></i></b></div>':'';
   return `<div class="player${v3?' w3':''}">
     <div class="pzone" id="p-zone"></div>
     <div class="ptop">
@@ -173,7 +174,7 @@ function playerHTML(){
       <div class="pclock"><span id="p-elapsed" style="color:var(--ink);font-size:34px;font-weight:600">0:00</span><span> / ${clock(P.total)}${P.free?' +':''}</span></div>
       <div class="row"><button class="btn" data-act="view3d">${v3?'Cijfers':'3D'}</button>${ready?'<button class="btn" data-act="closePlayer">Sluiten</button>':''}</div>
     </div>
-    ${hud}
+    ${hud}${load}
     <div class="pmain">
       ${readyBox}
       <div class="pseg"><span id="p-seg"></span><span id="p-left"></span></div>

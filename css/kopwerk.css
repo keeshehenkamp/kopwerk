@@ -286,6 +286,9 @@ tr:last-child td{border:0}
 .phud .pmult{color:var(--z4);font-weight:700;font-size:18px;min-height:22px}
 .phud .pstars{color:#FFD43B;font-weight:800;font-size:22px}
 .ppop{position:absolute;left:50%;top:32%;transform:translate(-50%,-50%);font-size:clamp(56px,9vw,110px);color:#FFD43B;letter-spacing:.08em;text-shadow:0 3px 18px rgba(0,0,0,.5);animation:pop .5s ease-out;pointer-events:none}
+.pload{position:absolute;left:50%;top:40%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;font-weight:700;text-shadow:0 1px 6px rgba(0,0,0,.5)}
+.pload[hidden]{display:none}
+.pload b{display:block;width:200px;height:8px;border-radius:4px;background:rgba(255,255,255,.25);overflow:hidden}.pload i{display:block;height:100%;width:0;background:#fff;transition:width .2s}
 @keyframes pop{from{transform:translate(-50%,-50%) scale(.4);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
 @media (max-width:900px){.ptop{flex-wrap:wrap;gap:4px 12px;padding-top:10px;padding-bottom:10px}.ptop>div:first-child{flex:1 1 100%}.ptop h2{font-size:21px}.pclock{font-size:26px}.pclock span{font-size:17px}#p-elapsed{font-size:26px!important}
 .phud{right:16px;top:118px}.phud b{font-size:30px}.phud .pmult{font-size:15px}.w3 .pnums{grid-template-columns:1fr 1fr 1fr;gap:4px 12px;padding:8px 14px}.w3 .pnum.big{grid-column:1/-1}.w3 .pnum b{font-size:clamp(26px,8vw,44px)}.w3 .pnum.big b{font-size:clamp(48px,15vw,80px)}.w3 .pchart{display:none}}
