@@ -128,10 +128,15 @@ const actions={
     }catch(e){toast(aiError(e))}
     ui.aiBusy=false;render();
   },
+  syncLogin(){syncLogin()},
+  syncLogout(){syncLogout()},
+  stravaConnect(){stravaConnect()},
+  stravaFetch(){stravaFetch(true)},
+  stravaOff(){delete state.strava;save();render();toast('Strava is ontkoppeld.')},
   setFtp(d){state.profile.ftp=+d.w;save();render();toast(`FTP is nu ${d.w} W. Alle trainingen zijn daarop aangepast.`)},
   async delRide(){
     if(ui.confirm!=='ride'){ui.confirm='ride';return render()}
-    const id=ui.rideId;state.rides=state.rides.filter(r=>r.id!==id);save();await idb.del('s:'+id);
+    const id=ui.rideId;state.rides=state.rides.filter(r=>r.id!==id);state.deleted=(state.deleted||[]).concat(id);save();await idb.del('s:'+id);
     ui.confirm='';ui.view='ritten';ui.streams=null;render();
   },
   csv(){
@@ -142,7 +147,7 @@ const actions={
   },
   async backup(){
     const streams={};for(const r of state.rides){const s=await idb.get('s:'+r.id);if(s)streams[r.id]=s}
-    saveFile(`kopwerk-backup-${iso(new Date())}.json`,JSON.stringify({app:'kopwerk',v:1,state,streams}));
+    saveFile(`kopwerk-backup-${iso(new Date())}.json`,JSON.stringify({app:'kopwerk',v:1,state:Object.assign({},state,{strava:undefined}),streams}));
   },
   restore(d,el){
     const f=el.files&&el.files[0];if(!f)return;
@@ -151,7 +156,7 @@ const actions={
       try{
         const o=JSON.parse(rd.result);
         if(!o||o.app!=='kopwerk'||!o.state||!Array.isArray(o.state.rides)||!o.state.profile)throw 0;
-        state=Object.assign(defaults(),o.state);save();
+        state=Object.assign(defaults(),o.state,{strava:state.strava});save();
         for(const[id,s]of Object.entries(o.streams||{}))if(s&&Array.isArray(s.p))await idb.put('s:'+id,s);
         ui.streams=null;render();toast('Back-up teruggezet.');
       }catch(e){toast('Dit bestand is geen back-up van Kopwerk.')}
@@ -204,4 +209,7 @@ window.addEventListener('beforeunload',e=>{if(P&&(P.mode==='run'||P.mode==='paus
     if(ch){save();if(!P)render()}
   }catch(e){}
   try{const a=await idb.get('active');if(a&&a.rec&&a.rec.p&&a.rec.p.length>=60&&a.wo){ui.pending=a;if(!P)render()}}catch(e){}
+  /* koppelingen: inloggen (synchroniseert vanzelf), terugkomst van Strava, en elk uur nieuwe Strava-ritten */
+  fbInit().catch(()=>{});
+  if(stravaReady()&&!(await stravaCallback())&&state.strava&&Date.now()-(state.strava.checked||0)>36e5)stravaFetch(false);
 })();

@@ -250,7 +250,7 @@ function addModal(){
 }
 function rittenView(){
   const rides=[...state.rides].sort((a,b)=>b.ts-a.ts);
-  const head=`<div class="head"><div><h1>Ritten</h1></div><button class="btn" data-act="openAdd">Buitenrit toevoegen</button></div>`;
+  const head=`<div class="head"><div><h1>Ritten</h1></div><div class="row">${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Buitenrit toevoegen</button></div></div>`;
   if(!rides.length)return `${head}<div class="card stack"><h2>Nog geen ritten</h2><p class="muted" style="max-width:60ch">Na elke training zie je hier je vermogen per blok, tijd per zone, je records en hoe je conditie zich ontwikkelt. Ritten die je buiten rijdt kun je toevoegen, zodat je belasting klopt.</p></div>`;
   const today=new Date(),f=fitness(state.rides,today,84),mon=mondayOf(today);
   const bars=[];let mx=1;
@@ -347,10 +347,19 @@ function aiCard(){
     <div class="row"><input type="password" id="ai-key" autocomplete="off" spellcheck="false" placeholder="${k?'Ingesteld, eindigt op '+esc(k.slice(-4)):'sk-ant-...'}" style="flex:1;min-width:200px;max-width:420px">
     <button class="btn" data-act="aiSaveKey">Opslaan</button>${k?'<button class="btn warn" data-act="aiDelKey">Wissen</button>':''}</div></div>`;
 }
+function linkCard(){
+  if(!CONFIG.firebase&&!stravaReady())return '';
+  const u=syncInfo.user,s=state.strava;
+  const sync=!CONFIG.firebase?'':u?`<div class="li"><span class="w"><b>Synchronisatie aan</b><span>${esc(u.email)}${syncInfo.err?' · '+syncInfo.err:syncInfo.at?' · bijgewerkt om '+pad(new Date(syncInfo.at).getHours())+':'+pad(new Date(syncInfo.at).getMinutes()):''}</span></span><button class="btn small" data-act="syncLogout">Uitloggen</button></div>`
+    :`<div class="li"><span class="w"><b>Synchronisatie</b><span>Log in met Google om je schema en ritten op al je apparaten te hebben.</span></span><button class="btn small" data-act="syncLogin">Inloggen met Google</button></div>`;
+  const str=!stravaReady()?'':s?`<div class="li"><span class="w"><b>Strava gekoppeld${s.name?' · '+esc(s.name):''}</b><span>Nieuwe ritten komen vanzelf binnen${s.checked?', laatst gekeken om '+pad(new Date(s.checked).getHours())+':'+pad(new Date(s.checked).getMinutes()):''}.</span></span><span class="row"><button class="btn small" data-act="stravaFetch">Nu ophalen</button><button class="btn small warn" data-act="stravaOff">Ontkoppelen</button></span></div>`
+    :`<div class="li"><span class="w"><b>Strava</b><span>Haal je buitenritten automatisch op.</span></span><button class="btn small" data-act="stravaConnect">Koppel Strava</button></div>`;
+  return `<div class="card"><h2 style="margin-bottom:6px">Koppelingen</h2><div class="list">${sync}${str}</div></div>`;
+}
 function profielView(){
   if(!state.setup)return setupView();
   return `<div class="head"><div><h1>Profiel</h1></div></div>
-    <div class="stack">${settingsForm(false)}${profileCard()}${aiCard()}
+    <div class="stack">${settingsForm(false)}${profileCard()}${linkCard()}${aiCard()}
     <div class="card stack"><div><h2>Je gegevens</h2><p class="small muted" style="margin-top:4px;max-width:66ch">Alles staat in deze browser, op dit apparaat. Maak af en toe een back-up, zeker voordat je browsergegevens wist of van computer wisselt.</p></div>
       <div class="row"><button class="btn" data-act="backup">Back-up downloaden</button><label class="btn" style="cursor:pointer">Back-up terugzetten<input type="file" accept=".json,application/json" data-chg="restore" style="position:absolute;opacity:0;width:1px;height:1px"></label>
       <button class="btn warn" data-act="wipe">${ui.confirm==='wipe'?'Klik nog eens om alles te wissen':'Alles wissen'}</button></div></div></div>`;
@@ -382,7 +391,7 @@ function render(){
 }
 async function openRide(id){
   ui.view='ride';ui.rideId=id;ui.confirm='';
-  if(!ui.streams||ui.streams.id!==id){ui.streams=null;render();const rec=await idb.get('s:'+id);if(rec&&ui.rideId===id){ui.streams={id,rec};render()}}
+  if(!ui.streams||ui.streams.id!==id){ui.streams=null;render();const rec=await idb.get('s:'+id)||await syncGetStream(id);if(rec&&ui.rideId===id){ui.streams={id,rec};render()}}
   else render();
   window.scrollTo(0,0);
 }

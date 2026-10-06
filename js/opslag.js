@@ -5,7 +5,9 @@ const defaults=()=>({v:1,setup:false,profile:{ftp:200,weight:75,goal:'ftp',sound
 let state=defaults();
 const ui={view:'vandaag',selDay:null,detail:null,weekOff:0,rideId:null,lib:{min:60,L:1},modal:null,streams:null,showCad:false,saveFail:false,bleMsg:'',pending:null,confirm:''};
 function load(){try{const r=localStorage.getItem(KEY);if(r){const o=JSON.parse(r);if(o&&o.v===1)state=Object.assign(defaults(),o)}}catch(e){ui.saveFail=true}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(state));ui.saveFail=false}catch(e){ui.saveFail=true}}
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(state));ui.saveFail=false}catch(e){ui.saveFail=true}}
+/* elke wijziging krijgt een tijdstip, zodat de synchronisatie weet welke kant het nieuwst is */
+function save(){state.updatedAt=Date.now();saveLocal();if(typeof syncSoon==='function')syncSoon()}
 
 const idb={db:null,mem:new Map(),
   open(){return new Promise(res=>{try{const r=indexedDB.open('kopwerk',1);r.onupgradeneeded=()=>r.result.createObjectStore('streams');r.onsuccess=()=>{idb.db=r.result;res()};r.onerror=()=>res();r.onblocked=()=>res()}catch(e){res()}})},
