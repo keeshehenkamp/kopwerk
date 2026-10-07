@@ -440,6 +440,7 @@ function modalHTML(){
 function render(){
   const app=document.getElementById('app');
   if(P){renderPlayer();document.getElementById('modal').innerHTML='';return}
+  if(W)worldClose();
   const views={vandaag:vandaagView,kalender:kalenderView,schema:kalenderView,ritten:kalenderView,prestaties:prestatiesView,voortgang:voortgangView,analyse:voortgangView,ride:rideView,lib:libView,profiel:profielView,settings:profielView,training:trainingView};
   const v=views[ui.view]||vandaagView;
   app.innerHTML=shell(v());

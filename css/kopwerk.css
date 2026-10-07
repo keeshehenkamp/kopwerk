@@ -237,7 +237,9 @@ tr:last-child td{border:0}
 .ptop h2{font-size:26px;font-weight:800}
 .pclock{font-weight:700;font-size:34px;font-variant-numeric:tabular-nums}
 .pclock span{color:var(--muted);font-weight:500;font-size:22px}
-.pmain{flex:1;display:flex;flex-direction:column;justify-content:center;gap:2vh;padding:0 26px;min-height:0}
+.pmain{flex:1;display:flex;flex-direction:column;justify-content:flex-start;gap:2vh;padding:0 26px;min-height:0;overflow-y:auto}
+/* midden zolang het past, scrollen als het niet past (justify-content:center snijdt de bovenkant weg) */
+.pmain>:first-child{margin-top:auto}.pmain>:last-child{margin-bottom:auto}
 .pseg{display:flex;justify-content:space-between;align-items:baseline;gap:16px;font-weight:700;font-size:clamp(22px,3.2vw,40px);line-height:1.1}
 .pseg span:last-child{font-variant-numeric:tabular-nums}
 .pnums{display:grid;grid-template-columns:1fr 1.5fr 1fr 1fr;gap:12px;align-items:end}
@@ -314,7 +316,7 @@ tr:last-child td{border:0}
 .w3 .zbar{position:absolute;left:50%;transform:translateX(-50%);top:16px;background:rgba(255,255,255,.96);color:#18181B;border-radius:10px;padding:8px 18px 8px;min-width:540px;box-shadow:0 4px 18px rgba(0,0,0,.2)}
 .w3 .zb1{display:flex;gap:26px;justify-content:space-between}.w3 .zb1 b{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--acc)}.w3 .zb1 span:last-child b{color:#151922}.w3 .zb1 i{color:#6b7280}
 .w3 .zprog{height:7px;background:#e3e6ea;border-radius:4px;margin:6px 0;overflow:hidden}.w3 .zprog i{display:block;height:100%;width:0;background:var(--acc);transition:width .5s}
-.w3 .zb2{display:flex;align-items:center;gap:10px;font-size:13px;color:#4b5563}.w3 .zb2 .zname{font-weight:800;color:#151922}.w3 .zbtns{margin-left:auto;display:flex;gap:6px}
+.w3 .zb2{display:flex;align-items:center;gap:10px;font-size:13px;color:#4b5563}.w3 .zb2 .zname{font-weight:800;color:#151922}.w3 .zb2 .muted{color:#4b5563}.w3 .zbtns{margin-left:auto;display:flex;gap:6px}
 .w3 .zb2 .badge{background:#eef0f3;color:#4b5563}.w3 .zb2 .btn{background:#151922;color:#fff;border-color:#151922}
 .w3 .zlist{position:absolute;left:16px;top:178px;width:260px;background:rgba(255,255,255,.96);color:#18181B;border-radius:10px;overflow:hidden;font-size:13px;box-shadow:0 4px 18px rgba(0,0,0,.2)}
 .w3 .zlh{display:flex;justify-content:space-between;padding:8px 12px;font-size:13px;color:#4b5563}.w3 .zlh b{color:#151922}
@@ -330,14 +332,19 @@ tr:last-child td{border:0}
 .w3 .zchart svg{width:100%;height:100%;display:block}.w3 .zchart polygon{stroke:#fff;stroke-width:1;vector-effect:non-scaling-stroke;opacity:.85}
 .w3 .zchart polyline{fill:none;stroke:#151922;stroke-width:1.6;vector-effect:non-scaling-stroke}.w3 .zchart line{stroke:#151922;stroke-width:2;vector-effect:non-scaling-stroke}
 .w3 .zctl{position:absolute;left:50%;transform:translateX(-50%);bottom:70px;background:rgba(16,20,28,.72);border-radius:10px;padding:8px 12px;transition:opacity .4s;width:auto;flex-wrap:nowrap}
-.w3 .zctl.hide{opacity:0;pointer-events:none}.w3 .zctl .row{flex-wrap:nowrap;gap:8px}.w3 .zctl{display:flex;gap:14px}.w3 .zctl .btn.big{padding:9px 18px;font-size:15px}
+.w3 .zctl.hide{opacity:0;pointer-events:none}.w3 .zctl:empty{display:none}.w3 .zctl .row{flex-wrap:nowrap;gap:8px}.w3 .zctl{display:flex;gap:14px}.w3 .zctl .btn.big{padding:9px 18px;font-size:15px}
 .w3 .zready{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);width:min(640px,92vw)}
 @media (max-width:900px){
-  .w3 .zbar{left:8px;right:8px;transform:none;min-width:0;top:8px;padding:6px 10px}.w3 .zb1{gap:8px}.w3 .zb1 b{font-size:19px}.w3 .zb1 i{font-size:11px}.w3 .zb2{font-size:11px;flex-wrap:wrap}
+  .w3 .zbar{left:8px;right:8px;transform:none;min-width:0;top:8px;padding:6px 10px}.w3 .zb1{gap:8px}.w3 .zb1 b{font-size:19px}.w3 .zb1 i{font-size:11px}.w3 .zb2{font-size:11px;flex-wrap:nowrap;gap:8px}.w3 .zb2>span:not(.zbtns){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.w3 .zbtns{flex:none}
   .w3 .zpow{left:8px;top:104px;min-width:0;padding:8px 12px 8px 14px}.w3 .zp1 b{font-size:42px}.w3 .zp2 b{font-size:18px}.w3 .zp2{gap:10px}
   .w3 .zlist{top:auto;bottom:66px;left:8px;width:180px}.w3 #p-list,.w3 .zlh{display:none}.w3 .zct b{font-size:26px}
   .w3 .zside{top:104px;right:8px}.w3 .pprof{right:8px;top:200px;width:150px}.w3 .zchart{left:8px;right:8px;bottom:8px;height:36px}
-  .w3 .zctl{bottom:auto;top:50%;flex-wrap:wrap;justify-content:center;border-radius:16px;width:90vw}
+  /* bediening als paneel onderin, zodat de fietser vrij blijft; knoppen lopen door over meerdere regels */
+  .w3 .zctl{top:auto;bottom:calc(8px + env(safe-area-inset-bottom,0px));left:8px;right:8px;transform:none;width:auto;flex-direction:column;align-items:stretch;gap:8px;padding:10px;border-radius:14px;background:rgba(16,20,28,.95)}
+  .w3 .zctl .row{flex-wrap:wrap;justify-content:center}.w3 .zctl .row+.row .btn{flex:1 1 30%;padding:10px 8px;font-size:14px}.w3 .zctl .row .badge{flex:1 1 100%;text-align:center}
+  .pexp{display:none}
+  /* voor de start staan er nog geen cijfers: dan alleen het startpaneel en het verloop */
+  .player.isready .pmain>:not(.pready){display:none}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 /* melding tijdens de rit: hartslag hoger dan normaal */

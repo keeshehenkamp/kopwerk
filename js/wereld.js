@@ -736,13 +736,39 @@ function decorMix(mix){
   const bd=W.ring.userData.bd,ws=Object.keys(bd).map(k=>[k,mix[k]||0]).sort((a,b)=>b[1]-a[1]);
   ws.forEach(([k,w],i)=>{const m=bd[k];m.visible=i===0||w>.01;m.material.opacity=i===0?1:Math.min(1,w*2);m.renderOrder=i===0?-1:-.9})
 }
+/* Laden kan op een telefoon misgaan (te weinig geheugen, trage verbinding). Dan nooit een leeg blauw scherm laten staan:
+   alles opruimen en verder met alleen cijfers. De reden staat in de melding. */
 async function worldOpen(){
-  if(W){W.el.hidden=false;return}
-  W={loading:true};
-  try{T3=T3||await import('three')}catch(e){W=null;setView3d(false);toast('De 3D-weergave kon niet laden. Je ziet nu de cijfers.');return renderPlayer()}
-  if(!P){W=null;return}
-  const T=T3,el=document.createElement('div');el.id='world';document.body.appendChild(el);
-  let ren;try{ren=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'})}catch(e){el.remove();W=null;setView3d(false);toast('Deze browser kan geen 3D tonen. Je ziet nu de cijfers.');return renderPlayer()}
+  if(W)return;
+  const tok={loading:true};W=tok;
+  const dog=()=>{if(tok.ready)return;if(W!==tok)return worldDrop(tok);if(document.hidden)return setTimeout(dog,5000);worldFail(tok,new Error('laden duurde te lang'))};
+  setTimeout(dog,25000);
+  try{await worldLoad(tok)}catch(e){console.error(e);worldFail(tok,e)}
+}
+function worldFail(tok,e){
+  const cur=W===tok;worldDrop(tok);if(!cur)return;
+  W=null;setView3d(false);
+  const why=String(e&&e.message||e||'').slice(0,80);
+  toast(`De 3D-wereld lukte niet op dit toestel${why?` (${why})`:''}. Je rijdt verder met alleen cijfers.`);
+  if(P)renderPlayer();
+}
+/* alles van een (half) geladen wereld vrijgeven; mag vaker worden aangeroepen */
+function worldDrop(w){
+  try{cancelAnimationFrame(w.raf);if(w.fit)removeEventListener('resize',w.fit);
+    if(w.scene)w.scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)[].concat(o.material).forEach(m=>{if(m.map)m.map.dispose();m.dispose()})});
+    if(w.ren){w.ren.dispose();w.ren.forceContextLoss()}}catch(e){}
+  if(w.el)w.el.remove();w.el=w.ren=w.scene=null;
+}
+async function worldLoad(tok){
+  /* afgebroken (player dicht of wereld gesloten): opruimen wat er al staat */
+  const gone=()=>{if(W===tok&&P)return false;worldDrop(tok);if(W===tok)W=null;return true};
+  T3=T3||await import('three');
+  if(gone())return;
+  const T=T3,el=document.createElement('div');el.id='world';el.hidden=!view3d();document.body.appendChild(el);tok.el=el;
+  const ren=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});tok.ren=ren;
+  /* valt het beeld weg (de telefoon neemt het geheugen terug) en komt het binnen een paar seconden niet terug, dan verder met de cijfers */
+  ren.domElement.addEventListener('webglcontextlost',()=>{tok.lost=now();const chk=()=>{if(W!==tok||!tok.lost)return;if(document.hidden)tok.lost=now();if(now()-tok.lost<4000)return setTimeout(chk,1000);worldFail(tok,new Error('het beeld viel weg'))};setTimeout(chk,1000)});
+  ren.domElement.addEventListener('webglcontextrestored',()=>{tok.lost=0});
   const small=Math.min(innerWidth,innerHeight)<600,MO=pickMood();
   /* laptop: scherp tot 2x; zakt de beeldsnelheid, dan gaat dit vanzelf omlaag (zie worldFrame) */
   ren.setPixelRatio(Math.min(devicePixelRatio||1,small?1.25:2));ANISO=small?4:ren.capabilities.getMaxAnisotropy();ren.toneMapping=T.NeutralToneMapping;ren.toneMappingExposure=MO.exp*.8;ren.shadowMap.enabled=true;ren.shadowMap.type=small?T.PCFSoftShadowMap:T.PCFShadowMap;el.appendChild(ren.domElement);
@@ -779,18 +805,20 @@ async function worldOpen(){
   let comp=null;
   if(!small){try{const [{EffectComposer},{RenderPass},{UnrealBloomPass},{OutputPass}]=await Promise.all(['postprocessing/EffectComposer.js','postprocessing/RenderPass.js','postprocessing/UnrealBloomPass.js','postprocessing/OutputPass.js'].map(f=>import('three/addons/'+f)));
     comp=new EffectComposer(ren,new T.WebGLRenderTarget(innerWidth,innerHeight,{type:T.HalfFloatType,samples:4}));comp.addPass(new RenderPass(scene,cam));comp.addPass(new UnrealBloomPass(new T.Vector2(innerWidth,innerHeight),.3,.5,.9));comp.addPass(new OutputPass())}catch(e){comp=null}}
-  if(!P){el.remove();ren.dispose();W=null;return}
-  W={el,ren,scene,cam,sun,sky,ring,clouds,sunDisc,mood:MO,rain,lite:small,comp,wind:{value:0},G:propGeos(),root:null,C:null,total:-1,me:makeRider(KITS.me,false),pace:makeRider(KITS.pace,true),vs:0,
+  if(gone())return;
+  Object.assign(tok,{el,ren,scene,cam,sun,sky,ring,clouds,sunDisc,mood:MO,rain,lite:small,comp,wind:{value:0},G:propGeos(),root:null,C:null,total:-1,me:makeRider(KITS.me,false),pace:makeRider(KITS.pace,true),vs:0,
      npcs:[KITS.rood,KITS.groen,KITS.geel,KITS.paars,KITS.bollen].slice(0,small?3:5).map(kt=>({R:makeRider(kt,false),d:null,f:1,off:2.25,cad:82+Math.random()*14})),
-     disp:0,extra:0,gap:2,last:performance.now(),camP:null,mills:[],raf:0,tex:worldTextures(small)};
+     disp:0,extra:0,gap:2,last:performance.now(),camP:null,mills:[],raf:0,tex:worldTextures(small)});
+  delete tok.loading;
   for(const R of[W.me,W.pace,...W.npcs.map(n=>n.R)]){R.g.traverse(o=>{if(o.isMesh)o.castShadow=true});scene.add(R.g)}
   const fit=()=>{const w=innerWidth,h=innerHeight;ren.setSize(w,h);if(comp)comp.setSize(w,h);cam.aspect=w/h;cam.fov=w<h?70:55;cam.setViewOffset(w,h,0,Math.round(h*(w<h?.04:.02)),w,h);cam.updateProjectionMatrix()};
   W.fit=fit;addEventListener('resize',fit);fit();
   worldBuild();
   /* eerst een paar kilometer klaarzetten, met een laadbalk; de rest volgt tijdens het fietsen */
-  const bar=()=>document.getElementById('p-load'),n=6;
-  for(let ci=0;ci<n;ci++){if(!W||!P)return;buildChunk(ci);const b=bar();if(b){b.hidden=false;b.querySelector('i').style.width=Math.round((ci+1)/n*100)+'%'}await new Promise(r=>setTimeout(r,0))}
-  const b=bar();if(b)b.hidden=true;W.ready=true;
+  const bar=()=>document.getElementById('p-load'),n=small?4:6;
+  for(let ci=0;ci<n;ci++){if(gone())return;buildChunk(ci);const b=bar();if(b){b.hidden=false;b.querySelector('i').style.width=Math.round((ci+1)/n*100)+'%'}await new Promise(r=>setTimeout(r,0))}
+  if(gone())return;
+  const b=bar();if(b)b.hidden=true;W.ready=true;el.hidden=!view3d();
   if(P.wo.type==='demo'&&P.mode==='ready'){P.speed=6;startRide(true)}
   W.raf=requestAnimationFrame(worldFrame);
 }
@@ -833,9 +861,7 @@ function peakGeo(MO,seed){
   g.setAttribute('color',new T.Float32BufferAttribute(cl,3));return g;
 }
 function worldClose(){
-  if(!W||W.loading)return;cancelAnimationFrame(W.raf);removeEventListener('resize',W.fit);
-  W.scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)[].concat(o.material).forEach(m=>{if(m.map)m.map.dispose();m.dispose()})});
-  W.ren.dispose();W.el.remove();W=null;
+  if(!W)return;const w=W;W=null;worldDrop(w);
 }
 /* binnenkant van een bocht: het land niet verder laten reiken dan de straal, anders schuift het over zichzelf */
 const innerOff=(off,k)=>{if(off*k<=0)return off;const lim=Math.max(8,.8/Math.abs(k));return Math.sign(off)*lim*Math.tanh(Math.abs(off)/lim)};
@@ -1262,6 +1288,10 @@ function worldFrame(t){
   W.raf=requestAnimationFrame(worldFrame);
   if(!P){return worldClose()}
   if(W.el.hidden)return;
+  /* één fout beeld mag de rit niet stilzetten; blijft het misgaan, dan verder met de cijfers */
+  const w=W;try{worldStep(t);w.errs=0}catch(e){console.error(e);w.errs=(w.errs||0)+1;if(w.errs>=10)worldFail(w,e)}
+}
+function worldStep(t){
   if(P.total!==W.total||P.wo.segs.length!==W.segN)worldBuild();
   const dt=Math.min(.1,(t-W.last)/1000);W.last=t;const C=W.C,T=T3;
   /* haalt de laptop geen ~42 beelden per seconde, dan iets minder scherp tekenen */
@@ -1302,8 +1332,10 @@ function worldFrame(t){
   W.sky.position.copy(W.cam.position);W.ring.position.set(W.cam.position.x,p.y,W.cam.position.z);W.clouds.position.copy(W.cam.position);const mixNow=landMix(C,d);decorMix(mixNow);
   for(const s of W.mills)s.rotation.z+=dt*.6;
   const ci=Math.floor(d/CH);
-  if(!W.chunks.has(ci))buildChunk(ci);else for(let c=ci+1;c<=ci+5;c++)if(!W.chunks.has(c)){buildChunk(c);break}
-  for(const c of W.chunks.keys())if(c<ci-2||c>ci+7)dropChunk(c);
+  /* telefoon: minder kilometers vooruit klaarzetten, dat scheelt geheugen */
+  const fwd=W.lite?3:5;
+  if(!W.chunks.has(ci))buildChunk(ci);else for(let c=ci+1;c<=ci+fwd;c++)if(!W.chunks.has(c)){buildChunk(c);break}
+  for(const c of W.chunks.keys())if(c<ci-2||c>ci+fwd+2)dropChunk(c);
   /* verre bergtoppen alleen in de Alpen; ze komen geleidelijk op als je de Alpen in rijdt */
   const alps=(mixNow.bergen||0)>.35;W.mat.piek.opacity=clamp(((mixNow.bergen||0)-.35)*5,0,1);
   for(const [c,gr] of W.chunks){const near=c>=ci-1&&c<=ci+1,vis=near+'/'+alps;if(gr.userData.vis!==vis){gr.userData.vis=vis;for(const ch of gr.children)ch.visible=ch.userData.far?alps:near}}
@@ -1355,6 +1387,7 @@ function drawProfile(d){
 addEventListener('pointermove',()=>{if(W)W.uiT=now()});addEventListener('pointerdown',()=>{if(W)W.uiT=now()});
 /* wordt na elke renderPlayer aangeroepen */
 function worldSync(){
-  if(P&&view3d()){if(!W)worldOpen();else if(!W.loading){W.el.hidden=false;worldHud(W.lastD||0)}}
-  else if(W&&!W.loading)W.el.hidden=true;
+  if(!P)return worldClose();
+  if(view3d()){if(!W)worldOpen();else if(!W.loading){W.el.hidden=false;worldHud(W.lastD||0)}}
+  else if(W&&W.el)W.el.hidden=true;
 }

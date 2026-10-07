@@ -146,7 +146,7 @@ function paintPlayer(){
   if(P.drawn!==P.tr.length){P.drawn=P.tr.length;el('p-trace').setAttribute('points',P.trace)}
 }
 function playerHTML(){
-  const w=P.wo,ready=P.mode==='ready',run=P.mode==='run',pause=P.mode==='pause';
+  const w=P.wo,ready=P.mode==='ready',run=P.mode==='run',pause=P.mode==='pause',v3=view3d();
   let x=0;
   const polys=w.segs.map(s=>{const x0=x/P.total*1000,x1=(x+s.d)/P.total*1000;x+=s.d;const y0=100-s.a/P.maxI*100,y1=100-s.b/P.maxI*100;
     return `<polygon${x1-x0<8?' class="n"':''} points="${x0.toFixed(1)},100 ${x0.toFixed(1)},${y0.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},100" fill="var(--z${zoneOf((s.a+s.b)/2)})"/>`}).join('');
@@ -155,6 +155,9 @@ function playerHTML(){
   const status=P.sim?'<span class="badge">Demo zonder trainer</span>':`<span class="small muted">${tr}${hr?' &nbsp; '+hr:''}</span>`;
   const readyBox=ready?`<div class="pready stack">
       <div><h3>Koppel je trainer en begin</h3><p class="muted small" style="margin-top:4px">Sluit Zwift en andere fietsapps eerst af: de meeste trainers accepteren één Bluetooth-verbinding tegelijk.</p></div>
+      <div class="row small muted">Rijden met
+        <span class="seg" role="group" aria-label="Weergave"><button class="btn small" data-act="view" data-v="3d" aria-pressed="${v3}">3D-wereld</button><button class="btn small" data-act="view" data-v="cijfers" aria-pressed="${!v3}">Alleen cijfers</button></span>
+      </div>
       <div class="row">
         <button class="btn" data-act="connect">${ble.on?'Andere trainer koppelen':'Trainer koppelen'}</button>
         <button class="btn" data-act="connectHr">${ble.hrOn?'Andere hartslagmeter koppelen':'Hartslagmeter koppelen'}</button>
@@ -177,7 +180,7 @@ function playerHTML(){
         ${P.free?'':`<button class="btn" data-act="repeat" id="p-repeat" hidden>Blok herhalen</button><button class="btn" data-act="skip">Volgend blok</button><button class="btn" data-act="extend">+5 min uitrijden</button>`}
         <button class="btn warn" data-act="stop">${P.stopArm?'Klik nog eens om te stoppen':'Stoppen en opslaan'}</button>
       </div>`;
-  const v3=view3d(),hud=v3&&P.game.on?`<div class="phud"><b id="p-pts">0</b><span>punten</span><span id="p-mult" class="pmult"></span><span id="p-stars" class="pstars">★ 0</span></div><div class="ppop" id="p-pop" hidden></div>`:'';
+  const hud=v3&&P.game.on?`<div class="phud"><b id="p-pts">0</b><span>punten</span><span id="p-mult" class="pmult"></span><span id="p-stars" class="pstars">★ 0</span></div><div class="ppop" id="p-pop" hidden></div>`:'';
   const load=v3?'<div class="pload" id="p-load" hidden><span>Wereld laden</span><b><i></i></b></div><div class="pprof"><canvas id="p-prof" width="360" height="84"></canvas><span id="p-proft"></span></div><div class="pcd" id="p-cd" hidden></div>':'';
   if(v3)return `<div class="player w3">
     <div class="zpow"><i class="zband" id="p-zone"></i><div class="zp1"><b id="p-power">–</b><i>W</i></div>
@@ -185,7 +188,7 @@ function playerHTML(){
       <div class="zgauge" aria-hidden="true"><span class="ok"></span><span class="mid"></span><span class="dot" id="p-dot"></span></div><span id="p-cadl" hidden></span></div>
     <div class="zbar"><div class="zb1"><span><b id="p-spd">0</b><i>km/u</i></span><span><b id="p-km">0,0</b><i>km</i></span><span><b id="p-hm">0</b><i>m</i></span><span><b id="p-elapsed">0:00</b><i>/ ${clock(P.total)}${P.free?' +':''}</i></span></div>
       <div class="zprog"><i id="p-prog"></i></div>
-      <div class="zb2"><span class="zname">${esc(w.name)}</span>${status}<span class="zbtns"><button class="btn small" data-act="view3d">Cijfers</button>${ready?'<button class="btn small" data-act="closePlayer">Sluiten</button>':''}</span></div></div>
+      <div class="zb2"><span class="zname">${esc(w.name)}</span>${status}<span class="zbtns"><button class="btn small" data-act="view3d">Alleen cijfers</button>${ready?'<button class="btn small" data-act="closePlayer">Sluiten</button>':''}</span></div></div>
     <div class="zlist"><div class="zlh"><b>Schema</b><span>nog <b id="p-rest">${clock(P.total)}</b></span></div><div id="p-list"></div>
       <div class="zcur"><span id="p-seg"></span><div class="zct"><span><b id="p-target">–</b><i>W</i></span><b id="p-left"></b></div><span id="p-next" class="znext"></span></div></div>
     ${hud?`<div class="zside">${hud}</div>`:''}${load}
@@ -194,12 +197,12 @@ function playerHTML(){
     <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>
     <div class="pctl zctl" id="p-ctl">${ctl}</div>
   </div>`;
-  return `<div class="player">
+  return `<div class="player${ready?' isready':''}">
     <div class="pzone" id="p-zone"></div>
     <div class="ptop">
       <div><h2>${esc(w.name)}</h2>${status}${v3?' <span class="small" id="p-km"></span>':''}</div>
       <div class="pclock"><span id="p-elapsed" style="color:var(--ink);font-size:34px;font-weight:600">0:00</span><span> / ${clock(P.total)}${P.free?' +':''}</span></div>
-      <div class="row"><button class="btn" data-act="view3d">${v3?'Cijfers':'3D'}</button>${ready?'<button class="btn" data-act="closePlayer">Sluiten</button>':''}</div>
+      <div class="row"><button class="btn" data-act="view3d">3D-wereld</button>${ready?'<button class="btn" data-act="closePlayer">Sluiten</button>':''}</div>
     </div>
     ${hud}${load}
     <div class="pmain">
@@ -212,7 +215,7 @@ function playerHTML(){
         <div class="pnum"><label>Hartslag</label><b id="p-hr">–</b><i>bpm</i></div>
       </div>
       <div class="gauge" aria-hidden="true"><span class="ok"></span><span class="mid"></span><span class="dot" id="p-dot"></span></div>
-      <div class="pnext"><span id="p-next"></span><span>Balk: je vermogen ten opzichte van het doel, van −20% tot +20%</span></div>
+      <div class="pnext"><span id="p-next"></span><span class="pexp">Balk: je vermogen ten opzichte van het doel, van −20% tot +20%</span></div>
     </div>
     <div class="pchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
     <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>

@@ -206,6 +206,7 @@ const actions={
   goSim(){const s=document.getElementById('simspeed');P.speed=s?+s.value:1;startRide(true)},
   demo(){startDemo()},
   view3d(){setView3d(!view3d());renderPlayer()},
+  view(d){setView3d(d.v==='3d');renderPlayer()},
   closePlayer(){if(P){clearInterval(P.timer);P=null;render()}},
   pause(){if(!P)return;if(P.mode==='run')P.mode='pause';else if(P.mode==='pause'){P.mode='run';P.last=now();P.sent=-1}P.stopArm=false;renderPlayer()},
   skip(){if(!P||P.mode==='ready')return;const i=segAt(P.pos);if(i>=P.wo.segs.length-1)return finishRide();P.pos=P.starts[i+1];P.sent=-1;paintPlayer()},
