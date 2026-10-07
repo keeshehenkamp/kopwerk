@@ -96,7 +96,7 @@ function kalenderView(){
     <div class="card"><div class="row spread" style="margin-bottom:12px"><h2>${title}</h2>
       <div class="wnav"><button class="btn icon" data-act="calNav" data-d="-1" aria-label="Vorige maand">‹</button>${ui.calOff?'<button class="btn" data-act="calNav" data-d="0">Vandaag</button>':''}<button class="btn icon" data-act="calNav" data-d="1" aria-label="Volgende maand">›</button></div></div>
       <div class="cal"><div class="cal-w cal-h">${DAYS.map(x=>`<span>${x}</span>`).join('')}</div>${rows}</div></div>
-    <div style="margin-top:22px">${weekDetail()}</div>`;
+    ${phaseStrip(today)?`<div style="margin-top:16px">${phaseStrip(today)}</div>`:''}`;
 }
 
 /* ---------- Prestaties: vermogenscurve, vermogen na werk en records ---------- */

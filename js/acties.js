@@ -17,25 +17,20 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(get
 function logFtp(w){const d=iso(new Date()),l=state.ftpLog||(state.ftpLog=[]),x=l.find(e=>e.d===d);if(x)x.w=w;else l.push({d,w})}
 const actions={
   nav(d){ui.view=d.v;ui.modal=null;ui.confirm='';ui.draft=null;render();window.scrollTo(0,0)},
-  selDay(d){ui.selDay=d.iso;render()},
   back(){ui.view=(ui.detail&&ui.detail.from)||'vandaag';render();window.scrollTo(0,0)},
   week(d){ui.weekOff=+d.d?ui.weekOff+(+d.d):0;render()},
   openDay(d){ui.detail={kind:'day',iso:d.iso,from:tabOf(ui.view)};ui.view='training';render();window.scrollTo(0,0)},
-  /* je tijd per dag */
-  avWeek(d){ui.avNext=d.n==='1';ui.avSel=null;render()},
+  /* je tijd per dag: dag kiezen, wiel bewaart zodra het stilstaat */
+  avOpen(){ui.avOpen=!ui.avOpen;ui.avSel=ui.avOpen?ui.avSel:null;render()},
   avDay(d){const i=+d.i;ui.avSel=ui.avSel&&ui.avSel.k===d.k&&ui.avSel.i===i?null:{k:d.k,i};avRefresh(d.k)},
-  avSet(d){
+  wheelTo(d,el){const w=el.closest('.wheel');if(w)w.scrollTo({top:+d.i*WROW,behavior:'smooth'})},
+  avPick(d){
     const k=d.k,sel=ui.avSel;if(!sel||sel.k!==k)return;const m=+d.m,i=sel.i;
-    if(k==='setup')ui.setupAvail[i]=m;
-    else{
-      const w=avWeek(k);if(w.lock[i])return;w.mins[i]=m;state.weeks[k]=w.mins.slice();
-      /* de week is nu de bron; losse aanpassingen per dag vervallen */
-      const mon=parseISO(k);for(let j=0;j<7;j++){const kk=iso(addDays(mon,j)),o=state.overrides[kk];if(o){delete o.minutes;delete o.skip;if(!Object.keys(o).length)delete state.overrides[kk]}}
-      save();
-    }
-    /* door naar de volgende dag die je nog kunt aanpassen */
-    const w2=avWeek(k);let n=i+1;while(n<7&&w2.lock[n])n++;ui.avSel=n<7?{k,i:n}:null;
-    if(k==='setup')avRefresh(k);else render();
+    if(k==='setup'){ui.setupAvail[i]=m;const t=document.querySelector('.aved[data-k="setup"] .avtot'),tot=ui.setupAvail.reduce((x,y)=>x+y,0);if(t)t.textContent=tot?durTxt(tot)+' beschikbaar':'Nog geen tijd gekozen';return}
+    const w=avWeek(k);if(w.lock[i])return;w.mins[i]=m;state.weeks[k]=w.mins.slice();
+    /* de week is nu de bron; losse aanpassingen per dag vervallen */
+    const mon=parseISO(k);for(let j=0;j<7;j++){const kk=iso(addDays(mon,j)),o=state.overrides[kk];if(o){delete o.minutes;delete o.skip;if(!Object.keys(o).length)delete state.overrides[kk]}}
+    save();render();
   },
   /* training niet gedaan, met een reden */
   openMissed(d){ui.modal={kind:'missed',iso:d.iso};render()},
@@ -65,7 +60,6 @@ const actions={
     if(!list.length)return toast('Deze week staat er niets gepland.');
     saveZwo(list,`kopwerk-week-${weekNo(mon)}`);
   },
-  ovMin(d){const m=+d.m,k=ui.detail.iso,x=modalWo(),b=x&&x.day?x.day.base:0;setOverride(k,m===0?{skip:b>0,minutes:null,type:null}:{skip:null,minutes:m===b?null:m})},
   ovType(d,el){setOverride(ui.detail.iso,{type:el.value||null})},
   libMin(d,el){ui.lib.min=+el.value;render()},
   libL(d,el){ui.lib.L=+el.value;render()},
