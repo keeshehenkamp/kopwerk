@@ -74,7 +74,7 @@ const actions={
     const old=state.event,keep=old&&old.profile&&old.name===(evn||'Evenement')&&old.date===evd?{profile:old.profile}:{};
     state.event=/^\d{4}-\d{2}-\d{2}$/.test(evd)?Object.assign({name:evn||'Evenement',date:evd},EVENTS[evk]?{kind:evk}:{},evkm?{km:clamp(evkm,20,400)}:{},keep):null;
     if(g('s-a0'))state.avail=DAYS.map((_,i)=>+g('s-a'+i).value);
-    if(!state.setup){state.setup=true;state.started=iso(new Date());state.planStart=iso(mondayOf(new Date()));state.weeks[state.planStart]=state.avail.slice();ui.view='vandaag'}
+    if(!state.setup){state.setup=true;state.started=iso(new Date());if(g('s-ftp').value.trim())state.ftpGiven=state.started;state.planStart=iso(mondayOf(new Date()));state.weeks[state.planStart]=state.avail.slice();ui.view='vandaag'}
     save();render();toast(state.avail.some(x=>x)?'Opgeslagen':'Opgeslagen. Je hebt nog geen trainingsdagen gekozen.');
   },
   openRide(d){ui.modal=null;openRide(d.id)},
@@ -102,7 +102,7 @@ const actions={
         if(state.rides.some(x=>x.id===ride.id)){ui.modal=null;render();return toast('Deze rit staat er al in.')}
         if(r.hasP)learnHr(r.rec,ftp);markRecords(ride);state.rides.push(ride);save();
         await idb.put('s:'+ride.id,r.rec);
-        ui.modal=null;ui.streams={id:ride.id,rec:r.rec};ui.view='ride';ui.rideId=ride.id;render();window.scrollTo(0,0);
+        ui.modal=null;ui.rideFrom=tabOf(ui.view);ui.streams={id:ride.id,rec:r.rec};ui.view='ride';ui.rideId=ride.id;render();window.scrollTo(0,0);
         if(!r.hasP)toast('Geen vermogen in dit bestand: de belasting is geschat.');
       }catch(e){toast('Dit bestand kon niet worden gelezen. Gebruik een .fit- of .tcx-bestand van een rit.')}
     };
@@ -122,9 +122,11 @@ const actions={
   rpe(d){
     const r=state.rides.find(x=>x.id===ui.rideId);if(!r)return;
     r.rpe=+d.n;
-    /* je gevoel en de uitvoering bepalen de volgende trede van deze soort training */
-    if(!r.adj&&!r.sim&&LADDER[r.type]&&r.lvl){
-      r.adj=true;
+    /* je gevoel en de uitvoering bepalen de volgende trede van deze soort training;
+       pas je je antwoord aan, dan telt het nieuwe zolang er nog geen nieuwere rit van deze soort is beoordeeld */
+    const later=state.rides.some(x=>x!==r&&!x.sim&&x.type===r.type&&x.ts>r.ts&&x.rpe!=null);
+    if(!r.sim&&LADDER[r.type]&&r.lvl&&(!r.adj||(r.rpeAdj&&!later))){
+      r.adj=true;r.rpeAdj=true;
       state.prog=state.prog||{};
       state.prog[r.type]=clamp(r.lvl+progStep(r),1,LADDER[r.type].steps.length);
     }
@@ -167,7 +169,7 @@ const actions={
   async delRide(){
     if(ui.confirm!=='ride'){ui.confirm='ride';return render()}
     const id=ui.rideId;state.rides=state.rides.filter(r=>r.id!==id);state.deleted=(state.deleted||[]).concat(id);save();await idb.del('s:'+id);
-    ui.confirm='';ui.view='kalender';ui.streams=null;render();
+    ui.confirm='';ui.view=ui.rideFrom||'kalender';ui.streams=null;render();
   },
   csv(){
     const r=state.rides.find(x=>x.id===ui.rideId),s=ui.streams;if(!r||!s)return;

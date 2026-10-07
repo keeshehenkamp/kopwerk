@@ -33,7 +33,14 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 
 - localStorage-sleutel `kopwerk.ai`: de Claude API-sleutel, los van de state zodat hij niet in back-ups komt. Het onderzochte evenement staat in `event.profile`.
 
+- `ftpGiven`: de dag waarop je bij de start zelf een FTP invulde. De coach telt dat als test, dus de eerste FTP-test komt pas na zes weken. Ritten krijgen `rpeAdj` als hun trede uit je gevoel komt; pas je je gevoel later aan, dan rekent de coach die trede opnieuw uit (zolang er geen nieuwere rit van die soort is beoordeeld).
+- Van demo-ritten (`sim`) bewaart de app alleen de laatste. Ze tellen niet mee in het schema, de kalender of je beste ritten.
+
 Verander deze namen of het formaat niet zonder migratie, anders zijn bestaande gegevens niet meer leesbaar. Alle opslag loopt via `js/opslag.js`. Daar kan later ook synchronisatie op aansluiten.
+
+## Als app op je telefoon
+
+`manifest.webmanifest` en de iconen in `icons/` maken dat je Kopwerk via "Zet op beginscherm" als losse app kunt openen, zonder browserbalken. Let op: op een iPhone heeft die app een eigen opslag, los van Safari. Neem je gegevens mee met een back-up (Profiel, Je gegevens: downloaden in Safari, terugzetten in de app) of door in te loggen met Google (Profiel, Koppelingen).
 
 ## Lokaal testen
 

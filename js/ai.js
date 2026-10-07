@@ -14,8 +14,8 @@ async function aiGetClient(){
   return aiClient;
 }
 function aiError(e){
-  if(e&&e.message==='nokey')return 'Vul eerst je Claude-sleutel in bij Instellingen.';
-  if(aiLib&&e instanceof aiLib.AuthenticationError)return 'Claude herkent de sleutel niet. Controleer hem bij Instellingen.';
+  if(e&&e.message==='nokey')return 'Vul eerst je Claude-sleutel in bij Profiel.';
+  if(aiLib&&e instanceof aiLib.AuthenticationError)return 'Claude herkent de sleutel niet. Controleer hem bij Profiel.';
   if(aiLib&&e instanceof aiLib.PermissionDeniedError)return 'Deze sleutel mag Claude niet gebruiken. Kijk op console.anthropic.com of je tegoed en rechten in orde zijn.';
   if(aiLib&&e instanceof aiLib.RateLimitError)return 'Claude is even te druk of je limiet is bereikt. Probeer het later opnieuw.';
   if(aiLib&&e instanceof aiLib.BadRequestError)return 'Claude kon de vraag niet verwerken. Is er nog tegoed op je account? ('+(e.message||'').slice(0,120)+')';

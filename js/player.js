@@ -36,9 +36,14 @@ function startRide(sim){
   try{audio=audio||new (window.AudioContext||window.webkitAudioContext)()}catch(e){}
   P.sim=!!sim;P.mode='run';P.startTs=Date.now();P.last=now();P.sent=-1;
   if(P.sim){P.simP=tgtAt(0)}
-  try{if(navigator.wakeLock)navigator.wakeLock.request('screen').then(w=>{wake=w}).catch(()=>{})}catch(e){}
+  keepAwake();
   renderPlayer();
 }
+/* scherm aan houden; de telefoon laat dat los als je even naar een andere app gaat, dus bij terugkomen opnieuw vragen */
+function keepAwake(){
+  try{if(navigator.wakeLock&&!wake)navigator.wakeLock.request('screen').then(w=>{wake=w;w.addEventListener('release',()=>{if(wake===w)wake=null})}).catch(()=>{})}catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&P&&(P.mode==='run'||P.mode==='pause'))keepAwake()});
 function enterSeg(i){
   P.si=i;const s=P.wo.segs[i];
   P.laps.push({l:s.label,k:s.kind,c:s.cad||0,s:P.rec.p.length});
@@ -244,10 +249,12 @@ function makeRide(a){
 async function storeRide(a){
   const ride=makeRide(a);if(!a.sim)learnHr(a.rec,a.ftp);
   state.rides=state.rides.filter(r=>r.id!==ride.id);
+  /* van demo's bewaren we alleen de laatste */
+  if(a.sim){const old=state.rides.filter(r=>r.sim);for(const r of old)await idb.del('s:'+r.id);state.rides=state.rides.filter(r=>!r.sim);state.deleted=(state.deleted||[]).concat(old.map(r=>r.id))}
   markRecords(ride);
   state.rides.push(ride);save();
   await idb.put('s:'+ride.id,a.rec);await idb.del('active');
-  ui.streams={id:ride.id,rec:a.rec};ui.view='ride';ui.rideId=ride.id;
+  ui.rideFrom=tabOf(ui.view);ui.streams={id:ride.id,rec:a.rec};ui.view='ride';ui.rideId=ride.id;
 }
 async function finishRide(){
   if(!P||P.mode==='done')return;

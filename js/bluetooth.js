@@ -3,6 +3,7 @@
 const live={power:null,cad:null,hr:null,tP:0,tH:0,hist:[]};
 const ble={dev:null,cp:null,queue:Promise.resolve(),name:'',on:false,hrDev:null,hrName:'',hrOn:false,crank:null,busy:false};
 const now=()=>performance.now();
+const NO_BLE='Deze browser ondersteunt geen Bluetooth. Gebruik Chrome of Edge op je laptop, of op een iPhone de app Bluefy.';
 function onPower(w,cad){
   const t=now();live.power=Math.max(0,w);live.tP=t;
   if(cad!=null)live.cad=cad;
@@ -72,7 +73,7 @@ function bleError(e){
   return 'Koppelen is niet gelukt. Controleer of de trainer aan staat en niet met Zwift of een andere app verbonden is, en probeer het opnieuw.';
 }
 async function connectTrainer(){
-  if(!navigator.bluetooth){ui.bleMsg='Deze browser ondersteunt geen Bluetooth. Gebruik Chrome of Edge op je laptop.';return renderPlayer()}
+  if(!navigator.bluetooth){ui.bleMsg=NO_BLE;return renderPlayer()}
   if(ble.busy)return;ble.busy=true;ui.bleMsg='';
   try{
     const dev=await navigator.bluetooth.requestDevice({
@@ -99,7 +100,7 @@ async function onTrainerLost(){
   renderPlayer();
 }
 async function connectHr(){
-  if(!navigator.bluetooth){ui.bleMsg='Deze browser ondersteunt geen Bluetooth. Gebruik Chrome of Edge op je laptop.';return renderPlayer()}
+  if(!navigator.bluetooth){ui.bleMsg=NO_BLE;return renderPlayer()}
   ui.bleMsg='';
   try{
     const dev=await navigator.bluetooth.requestDevice({filters:[{services:[0x180d]}]});

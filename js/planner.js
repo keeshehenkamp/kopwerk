@@ -263,7 +263,8 @@ function planWeek(st,monday,today){
     }
     /* FTP-test: in de eerste week en daarna elke zes weken, in een rustige week zodat je fris bent */
     if(tk&&thisWeek>=0&&!['peak','taper','event'].includes(ctx.kind)){
-      const tests=rides.filter(r=>!r.sim&&r.type==='ramptest').map(r=>r.date).sort(),last=tests[tests.length-1];
+      /* een FTP die je bij de start zelf opgaf, telt als test */
+      const tests=rides.filter(r=>!r.sim&&r.type==='ramptest').map(r=>r.date).concat(st.ftpGiven?[st.ftpGiven]:[]).sort(),last=tests[tests.length-1];
       /* na twee weken of langer ziek of geblesseerd: opnieuw testen zodra je weer zwaar mag trainen */
       const brk=(st.healthLog||[]).some(h=>h.to&&dayDiff(parseISO(h.from),parseISO(h.to))>=13&&(!last||last<h.to)&&iso(monday)>h.to)&&!hw.some(x=>x&&x.cap!=null);
       const due=brk||(last?dayDiff(parseISO(last),addDays(monday,6))>=42&&(rec||ctx.kind==='base'):(rec||iso(monday)===st.planStart));

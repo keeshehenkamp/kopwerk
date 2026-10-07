@@ -116,7 +116,7 @@ function prestatiesView(){
     ${any?`<div class="scroll"><table><thead><tr><th>Duur</th><th>Fris</th><th>Na 1.000 kJ</th><th>Na 2.000 kJ</th></tr></thead><tbody>
       ${KJ_DUR.map(([w,t])=>`<tr><td>${t}</td><td>${fresh[w]?fresh[w].w+' W':'–'}</td><td>${cell(1000,w)}</td><td>${cell(2000,w)}</td></tr>`).join('')}</tbody></table></div>`
       :`<p class="small muted">Nog geen rit boven 1.000 kJ in deze periode.</p>`}</div>`;
-  const top=state.rides.filter(r=>r.game&&(!cut||r.date>=cut)).sort((a,b)=>b.game.pts-a.game.pts).slice(0,5);
+  const top=state.rides.filter(r=>r.game&&!r.sim&&(!cut||r.date>=cut)).sort((a,b)=>b.game.pts-a.game.pts).slice(0,5);
   const best=top.length?`<div class="card"><h3 style="margin-bottom:6px">Je beste ritten</h3><div class="list">${top.map((r,i)=>{const d=new Date(r.ts);
     return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${i+1}</b></span><span class="w"><b>${esc(r.name)}</b><span>${d.getDate()} ${MONTHS[d.getMonth()]} · ★ ${r.game.stars}/${r.game.max}</span></span><span class="r">${r.game.pts.toLocaleString('nl-NL')}</span></button>`}).join('')}</div></div>`:'';
   return `${head}<div class="stack">${chips}${recordsCard(sel,lbl)||''}${best?`<div class="cols">${dur}${best}</div>`:dur}</div>`;

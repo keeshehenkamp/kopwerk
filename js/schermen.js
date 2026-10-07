@@ -3,7 +3,8 @@
 const MINS=[0,30,45,60,75,90,120,150,180,240];
 const sel=(attrs,opts,val)=>`<select ${attrs}>${opts.map(([v,t])=>`<option value="${v}"${String(v)===String(val)?' selected':''}>${t}</option>`).join('')}</select>`;
 const watts=f=>Math.round(f*state.profile.ftp);
-const rideOn=k=>{const l=state.rides.filter(r=>r.date===k);return l.length?l[l.length-1]:null};
+/* gereden op dag k; een demo telt niet, die zou de echte training van die dag verbergen */
+const rideOn=k=>{const l=state.rides.filter(r=>r.date===k&&!r.sim);return l.length?l[l.length-1]:null};
 const weekSum=p=>{let m=0,t=0;for(const d of p.days)if(d.wo){m+=d.wo.minutes;t+=d.wo.tss}return{m,t}};
 const logo='<svg width="26" height="20" viewBox="0 0 26 20" aria-hidden="true"><rect x="0" y="12" width="5" height="8" rx="1" fill="var(--z2)"/><rect x="7" y="7" width="5" height="13" rx="1" fill="var(--z3)"/><rect x="14" y="0" width="5" height="20" rx="1" fill="var(--z5)"/><rect x="21" y="9" width="5" height="11" rx="1" fill="var(--z1)"/></svg>';
 const ICON={
@@ -16,7 +17,7 @@ const ICON={
 const TABS=[['vandaag','Home'],['kalender','Kalender'],['prestaties','Prestaties'],['voortgang','Voortgang'],['profiel','Profiel']];
 ICON.kalender=ICON.schema;ICON.prestaties=ICON.lib;ICON.voortgang=ICON.ritten;
 const TAB_OF={ride:'kalender',schema:'kalender',ritten:'kalender',lib:'kalender',analyse:'voortgang',settings:'profiel'};
-const tabOf=v=>v==='training'?TAB_OF[(ui.detail&&ui.detail.from)||'vandaag']||(ui.detail&&ui.detail.from)||'vandaag':TAB_OF[v]||v;
+const tabOf=v=>v==='training'?TAB_OF[(ui.detail&&ui.detail.from)||'vandaag']||(ui.detail&&ui.detail.from)||'vandaag':v==='ride'?ui.rideFrom||'kalender':TAB_OF[v]||v;
 const dayShort=d=>`${DAYS[dow(d)]} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}`;
 /* zwaarste blok van een training, voor het gekleurde stipje */
 const woZone=w=>{let f=0;for(const s of w.segs)if(s.d>=30)f=Math.max(f,(s.a+s.b)/2);return zoneOf(f||.5)};
@@ -25,7 +26,7 @@ const metaOf=w=>`${durTxt(w.minutes)} · ${w.tss} TSS${w.lvl?` · trede ${w.lvl}
 
 function shell(body){
   const cur=tabOf(ui.view);
-  return `<aside class="side"><div class="brand">${logo}Kopwerk</div>
+  return `<aside class="side${state.setup?'':' off'}"><div class="brand">${logo}Kopwerk</div>
     <nav class="tabs" aria-label="Hoofdmenu">${TABS.map(([k,t])=>`<button data-act="nav" data-v="${k}"${cur===k?' aria-current="page"':''}>${ICON[k]}<span>${t}</span></button>`).join('')}</nav>
     <div class="ftp"><div>FTP <b>${state.profile.ftp}</b> W</div><button class="link small" data-act="themeToggle" style="margin-top:10px">${isDark()?'Lichte weergave':'Donkere weergave'}</button></div></aside>
     <main class="main">${ui.saveFail?'<p class="notice small" style="margin-bottom:14px">Opslaan lukt niet in deze browser. Je gegevens blijven staan tot je de pagina sluit; maak een back-up via Profiel.</p>':''}${body}</main>`;
@@ -334,12 +335,13 @@ function rideView(){
       ${rows.map(l=>`<tr><td><span class="zchip"><i style="background:var(--z${zoneOf(l.t/r.ftp)})"></i>${esc(l.label)}</span></td><td>${clock(l.d)}</td><td>${l.t} W</td><td>${l.p} W</td><td style="color:${Math.abs(l.dev)>6?'var(--z6)':'inherit'}">${Math.abs(l.dev)<.05?'0,0':(l.dev>0?'+':'')+nl(l.dev.toFixed(1))}%</td><td>${l.cad||'–'}</td><td>${l.hr||'–'}</td></tr>`).join('')}
       </tbody></table></div></div>`;
   }
-  return `<button class="back" data-act="nav" data-v="kalender">‹ Kalender</button>
+  const from=TABS.find(t=>t[0]===tabOf('ride'))||TABS[1];
+  return `<button class="back" data-act="nav" data-v="${from[0]}">‹ ${from[1]}</button>
     <div class="head"><div><h1>${esc(r.name)}${r.sim?' <span class="badge" style="vertical-align:middle">Demo</span>':''}</h1><p>${dateLong(d)} ${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}</p></div>${ftpBtn}</div>
     <div class="stack">
     ${awardsOf(r).length?`<div class="awards">${awardsOf(r).map(([i,t])=>`<span><b>${i}</b>${esc(t)}</span>`).join('')}</div>`:''}
     ${r.prs&&r.prs.length?`<p class="notice" style="border-color:var(--z5)"><b style="font-weight:600">Nieuw record.</b> ${r.prs.map(x=>`${x.t}: ${x.w} W, was ${x.old} W`).join('. ')}.</p>`:''}
-    ${r.rpe==null?rpe:''}
+    ${r.rpe==null&&!r.sim?rpe:''}
     <div class="stats">
       <div><b>${clock(r.dur)}</b><span>${outdoor?'Duur':'Gepland '+clock(r.planned)}</span></div>
       ${r.score!=null?`<div><b>${r.score}<small>/100</small></b><span>Uitvoering</span></div>`:''}
@@ -357,7 +359,7 @@ function rideView(){
     <div class="cols"><div class="card"><h3 style="margin-bottom:10px">Tijd per zone</h3>${zones}</div>
       <div class="card"><h3 style="margin-bottom:8px">Beste inspanningen</h3><table><tbody>${best||'<tr><td class="muted">Geen vermogensgegevens.</td></tr>'}</tbody></table></div></div>
     ${hz}${laps}
-    ${r.rpe!=null?rpe:''}
+    ${r.rpe!=null&&!r.sim?rpe:''}
     <div class="row">${rec?'<button class="btn" data-act="csv">Download meetgegevens</button>':''}<button class="btn warn" data-act="delRide">${ui.confirm==='ride'?'Klik nog eens om te verwijderen':'Rit verwijderen'}</button></div></div>`;
 }
 
@@ -447,6 +449,7 @@ function render(){
   if(ui.view==='ride')bindChart();
 }
 async function openRide(id){
+  if(ui.view!=='ride')ui.rideFrom=tabOf(ui.view);
   ui.view='ride';ui.rideId=id;ui.confirm='';
   if(!ui.streams||ui.streams.id!==id){ui.streams=null;render();const rec=await idb.get('s:'+id)||await syncGetStream(id);if(rec&&ui.rideId===id){ui.streams={id,rec};render()}}
   else render();

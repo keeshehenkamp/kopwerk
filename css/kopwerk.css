@@ -61,11 +61,12 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 /* navigatie: onderin op de telefoon, links op de laptop */
 .side{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
 .brand,.side .ftp{display:none}
+.side.off{display:none}
 .tabs{display:flex;justify-content:space-around;height:var(--tabbar)}
 .tabs button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:0;color:var(--muted);font-size:11px;font-weight:600}
 .tabs svg{width:23px;height:23px}
 .tabs button[aria-current="page"]{color:var(--acc)}
-.main{max-width:1180px;margin:0 auto;padding:18px 16px calc(var(--tabbar) + 30px + env(safe-area-inset-bottom,0px))}
+.main{max-width:1180px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(var(--tabbar) + 30px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px))}
 .head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:6px 2px 16px}
 .head p{color:var(--muted);font-size:14px;margin-top:3px}
 .back{background:none;border:0;padding:4px 0;color:var(--muted);font-weight:600;font-size:15px;margin-bottom:6px}
@@ -80,6 +81,7 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
   .side .ftp{display:block;margin-top:auto;padding:0 12px;font-size:14px;color:var(--muted)}
   .side .ftp b{color:var(--ink);font-size:20px}
   .main{margin-left:var(--side);padding:30px 40px 60px;max-width:calc(1180px + var(--side))}
+  .side.off+.main{margin-left:auto;max-width:900px}
   h1{font-size:30px}
 }
 
@@ -233,7 +235,7 @@ tr:last-child td{border:0}
 .modal{background:var(--surface);border:1px solid var(--edge);border-radius:12px;width:min(720px,100%);padding:24px}
 
 /* player */
-.player{position:fixed;inset:0;background:var(--bg);z-index:30;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.player{position:fixed;inset:0;background:var(--bg);z-index:30;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
 .pzone{height:8px;background:var(--z1);transition:background .4s}
 .ptop{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 26px}
 .ptop h2{font-size:26px;font-weight:800}
@@ -275,7 +277,8 @@ tr:last-child td{border:0}
 #world{position:fixed;inset:0;z-index:29;background:#a9d6f2}
 #world canvas{display:block;width:100%;height:100%}
 #world::after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 55%,rgba(20,10,0,.28) 100%)}
-.player.w3{background:transparent;--ink:#fff;--muted:rgba(255,255,255,.72);--surface:rgba(16,20,28,.72);--line:rgba(255,255,255,.18);--sunk:rgba(255,255,255,.16);--bg:#10141c;color:#fff}
+/* de vakken staan los gepositioneerd; daarom schuift het hele vlak binnen de veilige rand van het scherm */
+.player.w3{inset:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);padding:0;background:transparent;--ink:#fff;--muted:rgba(255,255,255,.72);--surface:rgba(16,20,28,.72);--line:rgba(255,255,255,.18);--sunk:rgba(255,255,255,.16);--bg:#10141c;color:#fff}
 .w3 .ptop{text-shadow:0 1px 8px rgba(0,0,0,.5)}
 .w3 .pctl{background:rgba(10,13,20,.6)}
 .w3 .pmain{justify-content:flex-end;padding-bottom:10px;gap:8px}
@@ -338,11 +341,11 @@ tr:last-child td{border:0}
 .w3 .zready{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);width:min(640px,92vw)}
 @media (max-width:900px){
   .w3 .zbar{left:8px;right:8px;transform:none;min-width:0;top:8px;padding:6px 10px}.w3 .zb1{gap:8px}.w3 .zb1 b{font-size:19px}.w3 .zb1 i{font-size:11px}.w3 .zb2{font-size:11px;flex-wrap:nowrap;gap:8px}.w3 .zb2>span:not(.zbtns){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.w3 .zbtns{flex:none}
-  .w3 .zpow{left:8px;top:104px;min-width:0;padding:8px 12px 8px 14px}.w3 .zp1 b{font-size:42px}.w3 .zp2 b{font-size:18px}.w3 .zp2{gap:10px}
+  .w3 .zpow{left:8px;top:112px;min-width:0;padding:8px 12px 8px 14px}.w3 .zp1 b{font-size:42px}.w3 .zp2 b{font-size:18px}.w3 .zp2{gap:10px}
   .w3 .zlist{top:auto;bottom:66px;left:8px;width:180px}.w3 #p-list,.w3 .zlh{display:none}.w3 .zct b{font-size:26px}
-  .w3 .zside{top:104px;right:8px}.w3 .pprof{right:8px;top:226px;width:150px}.w3 .zchart{left:8px;right:8px;bottom:8px;height:36px}
+  .w3 .zside{top:112px;right:8px}.w3 .pprof{right:8px;top:234px;width:150px}.w3 .zchart{left:8px;right:8px;bottom:8px;height:36px}
   /* bediening als paneel onderin, zodat de fietser vrij blijft; knoppen lopen door over meerdere regels */
-  .w3 .zctl{top:auto;bottom:calc(8px + env(safe-area-inset-bottom,0px));left:8px;right:8px;transform:none;width:auto;flex-direction:column;align-items:stretch;gap:8px;padding:10px;border-radius:14px;background:rgba(16,20,28,.95)}
+  .w3 .zctl{top:auto;bottom:8px;left:8px;right:8px;transform:none;width:auto;flex-direction:column;align-items:stretch;gap:8px;padding:10px;border-radius:14px;background:rgba(16,20,28,.95)}
   .w3 .zctl .row{flex-wrap:wrap;justify-content:center}.w3 .zctl .row+.row .btn{flex:1 1 30%;padding:10px 8px;font-size:14px}.w3 .zctl .row .badge{flex:1 1 100%;text-align:center}
   /* voor de start staan er nog geen cijfers: dan alleen het startpaneel en het verloop */
   .player.isready .pmain>:not(.pready){display:none}
