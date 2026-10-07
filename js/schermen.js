@@ -315,7 +315,7 @@ function rideView(){
   const mark=r.type==='ramptest'&&est?`<div class="grade"><b>${est}</b><span>W FTP</span></div>`:c!=null?`<div class="grade ${c>=7.5?'hi':c>=5.5?'mid':'lo'}"><b>${nl(c.toFixed(1))}</b><span>cijfer</span></div>`:'';
   const hero=v.length||mark?`<div class="card hero">${mark}<div class="herotxt"><p>${esc(v[0]||'')}</p>${v.slice(1).map(t=>`<p class="small muted">${esc(t)}</p>`).join('')}${ftpBtn?`<div style="margin-top:12px">${ftpBtn}</div>`:''}</div></div>`:'';
   const keys=`<div class="keys">
-      <div><span>Duur</span><b>${clock(r.dur)}</b>${!outdoor&&r.planned&&Math.abs(r.planned-r.dur)>30?`<small>van ${clock(r.planned)}</small>`:''}</div>
+      <div><span>Duur</span><b>${clock(r.dur)}</b>${r.dist?`<small>${nl((r.dist/1000).toFixed(1))} km</small>`:!outdoor&&r.planned&&Math.abs(r.planned-r.dur)>30?`<small>van ${clock(r.planned)}</small>`:''}</div>
       <div><span>Gemiddeld</span><b>${r.avgP||'–'}<i>W</i></b>${r.np?`<small>genormaliseerd ${r.np} W</small>`:''}</div>
       <div><span>Hartslag</span><b>${r.avgHr||'–'}<i>${r.avgHr?'bpm':''}</i></b>${r.maxHr?`<small>max ${r.maxHr}</small>`:''}</div>
       <div><span>Belasting</span><b>${r.tss}<i>TSS</i></b></div></div>`;

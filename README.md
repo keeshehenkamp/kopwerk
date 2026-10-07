@@ -19,7 +19,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 | `js/opslag.js` | Opslag in de browser |
 | `js/bluetooth.js` | Trainer en hartslagmeter via Web Bluetooth |
 | `js/player.js` | De workout player en de demo-modus |
-| `js/wereld.js` | 3D-rit (three.js): weg uit de trainingsblokken, landschappen met dorpen, publiek, weer en tijd van de dag, hoogteprofiel, tempomaker, punten en sterren, productdemo |
+| `js/wereld.js` | 3D-rit (three.js): routes als rondjes met een eigen hoogteprofiel (`ROUTES`), snelheid uit vermogen, gewicht en helling, landschappen met dorpen en herkenningspunten, publiek, weer en tijd van de dag, tempomaker, punten en sterren, productdemo. Een kilometer wereld wordt in stapjes van een paar ms opgebouwd (`chunkJob`), zodat het beeld niet hapert |
 | `js/grafieken.js` | Grafieken |
 | `models/kenney.bin`, `models/kenney.json` | 46 gratis 3D-modellen van [Kenney](https://kenney.nl) (CC0): bomen, struiken, rotsen, hout, bloemen en auto's, met ingebakken natuurlijke kleuren. Opnieuw maken met `python3 tools/kenney.py <map met uitgepakte Kenney-pakketten>` (Nature Kit en Car Kit) |
 | `js/ai.js` | AI-coach: Claude onderzoekt het evenement (route, hoogtemeters, hellingen); richtvermogen per helling |
@@ -44,6 +44,10 @@ Verander deze namen of het formaat niet zonder migratie, anders zijn bestaande g
 ## Laptop en telefoon
 
 Rijden met je trainer kan alleen in een browser met Web Bluetooth: Chrome of Edge op je laptop (of Chrome op Android). Op een telefoon of tablet zonder Bluetooth, zoals een iPhone, toont de app geen startknoppen: daar plan je, pas je je tijd aan en kijk je je ritten terug. Log op beide in met Google, dan zie je overal hetzelfde.
+
+## Routes
+
+Een route in `ROUTES` (js/wereld.js) is een ronde van een heel aantal kilometers: landschappen (`zones`, in km) en klimmen (`klim`: begin km, lengte km, gemiddeld %). Na elke klim volgt vanzelf een afdaling, zodat de ronde op dezelfde hoogte sluit. De gekozen route staat per apparaat in localStorage (`kopwerk.route`). Zonder ERG, en bij vrij rijden na de training, stuurt de app de helling van de route naar de trainer.
 
 ## Als app op je telefoon
 

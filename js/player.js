@@ -66,6 +66,8 @@ function stepSecond(){
   }
   const fresh=now()-live.tP<3000,fh=now()-live.tH<5000;
   P.rec.p.push(fresh&&live.power!=null?Math.round(live.power):0);
+  /* afstand op een vlakke weg; in de 3D-wereld telt de route met zijn hellingen (W.dist) */
+  {const w=P.rec.p[P.rec.p.length-1];P.dist=(P.dist||0)+(w?speedFor(w,0):0)}
   P.rec.hr.push(fh&&live.hr?live.hr:0);
   P.rec.cad.push(fresh&&live.cad?Math.round(live.cad):0);
   P.rec.tgt.push(tgt);
@@ -142,6 +144,7 @@ function paintPlayer(){
   el('p-seg').textContent=s.label+(s.cad?` op ${s.cad} rpm`:'');
   el('p-left').textContent=clock(P.starts[i]+s.d-P.pos);
   const nx=P.wo.segs[i+1];
+  const sk=el('p-sk');if(sk)sk.textContent=`${Math.round((pw?speedFor(pw,0):0)*3.6)} km/u · ${nl(((P.dist||0)/1000).toFixed(1))} km`;
   el('p-next').textContent=nx?`Hierna: ${nx.label}, ${clock(nx.d)} op ${Math.round(nx.a*P.ftp*P.bias)} W`:'Laatste blok';
   el('p-zone').style.background=`var(--z${zoneOf(fracAt(i,pos))})`;
   const dev=pw==null||!tgt?0:clamp((pw/tgt-1)*100,-20,20);
@@ -160,6 +163,7 @@ function playerHTML(){
   const status=P.sim?'<span class="badge">Demo zonder trainer</span>':`<span class="small muted">${tr}${hr?' &nbsp; '+hr:''}</span>`;
   const readyBox=ready?`<div class="pready stack">
       <div class="seg" role="group" aria-label="Weergave"><button class="btn small" data-act="view" data-v="3d" aria-pressed="${v3}">3D-wereld</button><button class="btn small" data-act="view" data-v="cijfers" aria-pressed="${!v3}">Alleen cijfers</button></div>
+      ${v3?(()=>{const rp=routeProfile(routeId());return `<div class="rpick"><select id="p-route" data-chg="route" aria-label="Route">${ROUTES.map(x=>{const q=routeProfile(x.id);return `<option value="${x.id}"${x.id===routeId()?' selected':''}>${esc(x.name)} · ${q.km} km · ${q.hm} hm</option>`}).join('')}</select>${rp.svg}</div>`})():''}
       ${navigator.bluetooth?`<div class="row">
         <button class="btn" data-act="connect">${ble.on?'Andere trainer':'Trainer koppelen'}</button>
         <button class="btn" data-act="connectHr">${ble.hrOn?'Andere hartslagmeter':'Hartslagmeter koppelen'}</button>
@@ -174,7 +178,7 @@ function playerHTML(){
         <button class="btn icon" data-act="bias" data-d="-0.05" aria-label="Lichter">−</button>
         <span class="num" style="font-size:22px;min-width:58px;text-align:center">${Math.round(P.bias*100)}%</span>
         <button class="btn icon" data-act="bias" data-d="0.05" aria-label="Zwaarder">+</button>
-        ${ble.cp&&!P.sim?`${P.free?'<span class="small muted">Helling</span>':`<button class="btn" data-act="erg">${P.erg?'ERG aan':'ERG uit'}</button>`}${P.erg?'':`<button class="btn icon" data-act="grade" data-d="-1" aria-label="Minder helling">−</button><span class="num" style="font-size:20px">${P.grade}%</span><button class="btn icon" data-act="grade" data-d="1" aria-label="Meer helling">+</button>`}`:''}
+        ${ble.cp&&!P.sim?`${P.free?(v3?'':'<span class="small muted">Helling</span>'):`<button class="btn" data-act="erg">${P.erg?'ERG aan':'ERG uit'}</button>`}${P.erg||v3?'':`<button class="btn icon" data-act="grade" data-d="-1" aria-label="Minder helling">−</button><span class="num" style="font-size:20px">${P.grade}%</span><button class="btn icon" data-act="grade" data-d="1" aria-label="Meer helling">+</button>`}`:''}
       </div>
       <div class="row">
         ${P.auto?'<span class="badge">Gepauzeerd: begin met trappen</span>':''}
@@ -217,7 +221,7 @@ function playerHTML(){
         <div class="pnum"><label>Hartslag</label><b id="p-hr">–</b><i>bpm</i></div>
       </div>
       <div class="gauge" aria-hidden="true"><span class="ok"></span><span class="mid"></span><span class="dot" id="p-dot"></span></div>
-      <div class="pnext"><span id="p-next"></span></div>
+      <div class="pnext"><span id="p-next"></span><span id="p-sk"></span></div>
     </div>
     <div class="pchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
     <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>
@@ -244,7 +248,8 @@ function makeRide(a){
   const an=analyze(a.rec,a.ftp,a.laps,a.planned||a.wo.sec,a.wo.type);
   const d=new Date(a.startTs||Date.now());
   const hrOff=a.sim?null:hrOffset(a.rec,a.ftp),perf=typeof meetSummary==='function'?meetSummary():null;
-  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,planned:a.planned||a.wo.sec,ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game),kjb:a.sim?{}:kjBests(a.rec.p)},hrOff!=null?{hrOff}:{},perf?{perf}:{},an);
+  const dist=Math.round(typeof W!=='undefined'&&W&&W.dist?W.dist:a.dist||0);
+  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),dist,date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,planned:a.planned||a.wo.sec,ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game),kjb:a.sim?{}:kjBests(a.rec.p)},hrOff!=null?{hrOff}:{},perf?{perf}:{},an);
 }
 async function storeRide(a){
   const ride=makeRide(a);if(!a.sim)learnHr(a.rec,a.ftp);

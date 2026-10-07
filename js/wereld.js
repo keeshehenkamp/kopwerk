@@ -45,104 +45,102 @@ function speedFor(w,g){
   for(let k=0;k<40;k++){const mid=(lo+hi)/2;if(f(mid)>0)hi=mid;else lo=mid}
   return clamp(lo,1,25);
 }
-const gradeFor=s=>{const f=(s.a+s.b)/2;if(f<.8)return 0;return clamp((f-.7)*22,2,9)+(s.cad&&s.cad<70?2:0)};
 const STEP=4;
 function rng(seed){let x=seed|0||1;return()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return((x>>>0)%100000)/100000}}
-function buildCourse(){
-  const ftp=P.ftp,segs=P.wo.segs,n=Math.ceil(P.total)+1;
-  const S=new Float32Array(n+1),H=new Float32Array(n+1);let s=0,h=0;
-  for(let t=0;t<=n;t++){
-    S[t]=s;H[t]=h;
-    const i=Math.min(segs.length-1,segAt(Math.min(t,P.total-1))),sg=segs[i];
-    let g=gradeFor(sg);if(!g&&h>6)g=-3.5;
-    const v=speedFor(fracAt(i,Math.min(t,P.total-1))*ftp,g);
-    s+=v;h=Math.max(0,h+v*g/100);
-  }
-  const L=s+12000,N=Math.ceil(L/STEP)+2,Y=new Float32Array(N);
-  for(let k=0,t=0;k<N;k++){
-    const d=k*STEP;while(t<n&&S[t+1]<d)t++;
-    if(d>=S[n])Y[k]=Math.max(0,H[n]-(d-S[n])*.03);
-    else{const f=S[t+1]>S[t]?clamp((d-S[t])/(S[t+1]-S[t]),0,1):0;Y[k]=H[t]+(H[t+1]-H[t])*f}
-  }
-  /* hoogte afvlakken zodat de overgang naar een klim niet hoekig is */
-  const Ys=new Float32Array(N),R=8;let acc=0;
-  for(let k=0;k<N;k++){acc+=Y[k];if(k>=2*R+1)acc-=Y[k-2*R-1];const lo=Math.max(0,k-2*R);Ys[Math.max(0,k-R)]=acc/(k-lo+1)}
-  for(let k=N-R;k<N;k++)Ys[k]=Y[k];
-  const yAt=d=>Ys[clamp(Math.round(d/STEP),0,N-1)],UP=new Float32Array(N);for(let k=1;k<N;k++)UP[k]=UP[k-1]+Math.max(0,Ys[k]-Ys[k-1]);
-  /* landschappen van 4 tot 5 km; stukken met veel klimmen worden heuvels of bergen, de rest wisselt per rit */
-  const seed=[...(P.wo.name+P.startTs)].reduce((a,c)=>a*31+c.charCodeAt(0)|0,7),r=rng(seed);
-  const zones=[];let zd=0,bag=[],last='';
-  while(zd<L){
-    const len=2500+r()*4500;let up=0,steep=0;
-    for(let d=zd;d<zd+len&&d<L-40;d+=40){const g=(yAt(d+40)-yAt(d))/40*100;if(g>2.5){up+=40;if(g>5)steep+=40}}
-    let ty;
-    /* demo: warming-up in de polder, tempo in de Provence, de klim in Limburg, haarspeldbochten en finish in de Alpen */
-    if(P.wo.type==='demo'){const at=i=>S[Math.min(n,P.starts[i]||0)],B=[at(1)+200,at(2)-80,at(4)-120,Math.max(at(4)+2500,s+600)],zi=zones.length;
-      ty=['polder','provence','heuvels','bergen'][zi]||'polder';const b=zi<4?B[zi]:zd+3000;zones.push({ty,a:zd,b});zd=b;last=ty;continue}
-    if(up/len>.2)ty=steep>up*.4?'bergen':'heuvels';
-    else{if(!bag.length)bag=['polder','provence','meer','heuvels','bos','provence','bergen','polder','bos'].sort(()=>r()-.5);ty=bag.pop();if(ty===last&&bag.length){bag.unshift(ty);ty=bag.pop()}}
-    zones.push({ty,a:zd,b:zd+len,v:r()});zd+=len;last=ty;
-  }
-  const C={S,H,n,L,N,Y:Ys,UP,zones,seed,ph:r()*6};
-  /* bochten: polder lang rechtdoor met af en toe een scherpe bocht, heuvels en bergen slingerend */
-  const X=new Float32Array(N),Z=new Float32Array(N),HD=new Float32Array(N),K=new Float32Array(N);
-  let hd=0,x=0,z=0,turn=0,amt=0,next=500,zig=null;const ph=C.ph,hp=[];C.hp=hp;
-  for(let k=0;k<N;k++){
-    const d=k*STEP,ty=zoneAt(C,d).ty,gr=(Ys[Math.min(N-1,k+10)]-Ys[k])/40*100;let kap;
-    /* haarspeldbochten: op een steile klim in de bergen zigzagt de weg tegen de helling op */
-    if(!zig&&ty==='bergen'&&gr>4&&d>300)zig={a:hd-.35,tgt:hd,left:120+r()*120,arc:0,dk:0};
-    if(zig&&!zig.arc&&(ty!=='bergen'||gr<2.5))zig=null;
-    if(zig){
-      if(zig.arc>0){kap=zig.dk;zig.arc-=STEP;if(zig.arc<=0){zig.arc=0;zig.left=200+r()*160}}
-      else{
-        kap=clamp((zig.tgt-hd)*.03,-.02,.02)+Math.sin(d/90+ph)/900;zig.left-=STEP;
-        if(zig.left<=0){const nt=Math.abs(zig.tgt-(zig.a+.35))<.01?zig.a+Math.PI-.35:zig.a+.35;zig.dk=(nt-zig.tgt)/64;zig.arc=64;zig.tgt=nt;hp.push(d)}
-      }
-    }else if(ty==='polder'){
-      kap=Math.sin(d/800+ph)/3000;
-      if(d>=next){amt=(.7+r()*.7)*(hd>.2?-1:hd<-.2?1:(r()<.5?-1:1));turn=44;next=d+600+r()*900}
-      if(turn>0){kap+=amt/44;turn-=STEP}
-      kap-=hd*.0012;
-    }else{const Rr=ty==='bergen'?120:ty==='heuvels'?190:300;kap=(.6*Math.sin(d/(Rr*1.8)+ph)+.4*Math.sin(d/(Rr*.8)+ph*2.3))/Rr-hd*(ty==='bergen'?.002:.0012)}
-    X[k]=x;Z[k]=z;HD[k]=hd;K[k]=kap;
-    x+=Math.sin(hd)*STEP;z-=Math.cos(hd)*STEP;hd+=kap*STEP;
-  }
-  Object.assign(C,{X,Z,HD,K});
-  /* kanalen met een bruggetje in de polder */
-  /* dorpen waar de weg doorheen loopt */
+/* hoogteprofiel van een route, voor het startpaneel: één keer per route uitgerekend */
+const ROUTE_PROF={};
+function routeProfile(id){
+  if(ROUTE_PROF[id])return ROUTE_PROF[id];
+  const C=buildCourse(id);
+  const n=160,ys=[];for(let i=0;i<=n;i++)ys.push(C.Y[Math.round(i/n*C.N)]);const hi=Math.max(20,...ys);
+  const pts=ys.map((y,i)=>`${(i/n*300).toFixed(1)},${(46-y/hi*40).toFixed(1)}`).join(' ');
+  return ROUTE_PROF[id]={km:C.route.km,hm:Math.round(C.UPlap/10)*10,svg:`<svg class="rprof" viewBox="0 0 300 50" preserveAspectRatio="none" aria-hidden="true"><polygon points="0,50 ${pts} 300,50"/></svg>`};
+}
+/* ---------- routes: rondjes met een eigen hoogteprofiel ----------
+   Elke route is een gesloten ronde van een heel aantal kilometers, dus elke ronde ziet er precies hetzelfde uit.
+   De weg ligt vast; je vermogen en de helling bepalen hoe snel je gaat (speedFor), niet andersom.
+   zones: landschappen in km. klim: [begin km, lengte km, gemiddeld %]; na elke klim volgt een afdaling, zodat de ronde op dezelfde hoogte sluit. */
+const ROUTES=[
+  {id:'polder',name:'Polderronde',km:14,zones:[['polder',5],['meer',4],['polder',5]],klim:[[9.4,.5,3]],roll:.6},
+  {id:'bos',name:'Bossen en meren',km:18,zones:[['bos',5],['meer',4],['polder',4],['bos',5]],klim:[[2,1.2,2.5],[13.4,1,3.5]],roll:1.5},
+  {id:'heuvel',name:'Heuvelland',km:22,zones:[['polder',3],['heuvels',8],['bos',4],['heuvels',7]],klim:[[3.6,1.6,4.5],[7.2,.9,8],[10.2,1.2,5],[16,2,5.5],[19.8,.7,9]],roll:3},
+  {id:'provence',name:'Provence',km:26,zones:[['provence',9],['heuvels',6],['provence',11]],klim:[[2.5,5,4.2],[13.5,2.5,5.5],[20.5,1.4,3.5]],roll:2.5},
+  {id:'col',name:'De Col',km:30,zones:[['bos',4.5],['bergen',16.5],['bos',4],['meer',5]],klim:[[4.5,9.5,6.8]],roll:1.5}
+];
+const ROUTE_KEY='kopwerk.route';
+const routeId=()=>{let v='';try{v=localStorage.getItem(ROUTE_KEY)||''}catch(e){}return ROUTES.some(r=>r.id===v)?v:'heuvel'};
+function setRoute(id){try{localStorage.setItem(ROUTE_KEY,id)}catch(e){}}
+/* positie binnen de ronde, ook voor afstanden voorbij één ronde of (bij de camera) net voor de start */
+const wrapD=(C,d)=>((d%C.L)+C.L)%C.L;
+const kAt=(C,d)=>Math.round(wrapD(C,d)/STEP)%C.N;
+function buildCourse(id){
+  const R=ROUTES.find(x=>x.id===(id||routeId()))||ROUTES[0],L=R.km*1000,N=Math.round(L/STEP);
+  const seed=[...R.id].reduce((a,c)=>a*31+c.charCodeAt(0)|0,7),r=rng(seed),C={L,lap:L,lapKm:R.km,N,seed,ph:r()*6,route:R,hp:[]};
+  const zones=[];let zd=0;for(const [ty,km] of R.zones){zones.push({ty,a:zd,b:zd+km*1000,v:r()});zd+=km*1000}zones[zones.length-1].b=L;C.zones=zones;
+  /* hoogte: klimmen omhoog, daarna een afdaling tot hooguit 2,5 keer de klimlengte of tot de volgende klim; wat overblijft wordt over de ronde verdeeld */
+  const G=new Float32Array(N+1),cl=R.klim.map(([a,len,g])=>({a:a*1000,len:len*1000,g})).sort((x,y)=>x.a-y.a);C.climbs=cl;
+  cl.forEach((c,i)=>{const nx=i<cl.length-1?cl[i+1].a:L+cl[0].a,room=Math.max(200,Math.min(nx-(c.a+c.len)-150,c.len*2.5)),dg=c.len*c.g/room;
+    for(let k=0;k<=N;k++){const d=k*STEP;if(d>=c.a&&d<c.a+c.len)G[k]+=c.g;else{const e=((d-(c.a+c.len))%L+L)%L;if(e<room)G[k]-=dg}}});
+  const H=new Float32Array(N+1);for(let k=1;k<=N;k++)H[k]=H[k-1]+G[k-1]*STEP/100;
+  const err=H[N];for(let k=0;k<=N;k++)H[k]-=err*k/N;
+  /* glooiing: kleine heuvels die in de ronde passen (hele golven per ronde) */
+  const waves=[0,1,2].map(()=>({m:Math.max(2,Math.round(L/(500+r()*900))),p:r()*6,a:.4+r()*.6}));
+  for(let k=0;k<=N;k++){const u=k/N;let h=0;for(const w of waves)h+=w.a*Math.sin(u*Math.PI*2*w.m+w.p);H[k]+=h*R.roll/2}
+  /* afvlakken rond (de ronde loopt door), en hoogte nooit onder nul */
+  const Y=new Float32Array(N+1),RW=10;for(let k=0;k<N;k++){let s=0;for(let j=-RW;j<=RW;j++)s+=H[((k+j)%N+N)%N];Y[k]=s/(2*RW+1)}Y[N]=Y[0];
+  let lo=1e9;for(const y of Y)lo=Math.min(lo,y);for(let k=0;k<=N;k++)Y[k]-=lo;
+  const UP=new Float32Array(N+1);for(let k=1;k<=N;k++)UP[k]=UP[k-1]+Math.max(0,Y[k]-Y[k-1]);C.UPlap=UP[N];
+  /* vorm: een gesloten bocht met een paar grote golven en, in heuvels, bos en bergen, kleinere slingers */
+  const M=4096,amps=[2,3,4,5].map(k=>({k,a:(.05+r()*.07)/k,p:r()*6})),wig=[0,1,2].map(()=>{const m=Math.max(2,Math.round(L/(350+r()*500))),lam=L/m,amax=lam*lam/(4*Math.PI*Math.PI*130)/1.3;return {m,a:Math.min(amax,6+r()*16),p:r()*6}});
+  const zoneW={polder:.2,meer:.35,provence:.6,heuvels:1,bos:.8,bergen:1.3},envAt=u=>{const d=u*L;let w=0,tot=0;for(const z of zones){let e=1e9;for(const sh of[-L,0,L])e=Math.min(e,Math.max(z.a+sh-d,d-z.b-sh,0));const t=1-clamp(e/400,0,1);w+=t*(zoneW[z.ty]??.6);tot+=t}return tot?w/tot:.5};
+  const shape=R0=>{const P=[];for(let i=0;i<=M;i++){const t=i/M*Math.PI*2;let rr=1;for(const q of amps)rr+=q.a*Math.cos(q.k*t+q.p);P.push([R0*rr*Math.cos(t),R0*rr*Math.sin(t)])}
+    /* slingers loodrecht op de weg */
+    const Q=[];for(let i=0;i<=M;i++){const a=P[(i+M-1)%M],b=P[(i+1)%M],dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz)||1,u=i/M;let w=0;for(const q of wig)w+=q.a*Math.sin(u*Math.PI*2*q.m+q.p);w*=envAt(u);Q.push([P[i][0]-dz/l*w,P[i][1]+dx/l*w])}
+    Q[M]=Q[0];let len=0;for(let i=1;i<=M;i++)len+=Math.hypot(Q[i][0]-Q[i-1][0],Q[i][1]-Q[i-1][1]);return {Q,len}};
+  let R0=L/(2*Math.PI),sh=shape(R0);R0*=L/sh.len;sh=shape(R0);R0*=L/sh.len;sh=shape(R0);
+  /* gelijke stappen van STEP meter langs de weg */
+  const X=new Float32Array(N+1),Z=new Float32Array(N+1),HD=new Float32Array(N+1),K=new Float32Array(N+1),Q=sh.Q;
+  let acc=0,i=1;X[0]=Q[0][0];Z[0]=Q[0][1];
+  for(let k=1;k<N;k++){const want=k*sh.len/N;while(i<M&&acc+Math.hypot(Q[i][0]-Q[i-1][0],Q[i][1]-Q[i-1][1])<want){acc+=Math.hypot(Q[i][0]-Q[i-1][0],Q[i][1]-Q[i-1][1]);i++}
+    const sl=Math.hypot(Q[i][0]-Q[i-1][0],Q[i][1]-Q[i-1][1])||1,f=clamp((want-acc)/sl,0,1);X[k]=Q[i-1][0]+(Q[i][0]-Q[i-1][0])*f;Z[k]=Q[i-1][1]+(Q[i][1]-Q[i-1][1])*f}
+  X[N]=X[0];Z[N]=Z[0];
+  let prev=null;for(let k=0;k<=N;k++){const a=k<N?k:0,b=(a+1)%N;let h=Math.atan2(X[b]-X[a],-(Z[b]-Z[a]));if(prev!=null){while(h-prev>Math.PI)h-=Math.PI*2;while(h-prev<-Math.PI)h+=Math.PI*2}HD[k]=h;prev=h}
+  for(let k=0;k<N;k++)K[k]=(HD[k+1]-HD[k])/STEP;K[N]=K[0];
+  Object.assign(C,{X,Z,HD,K,Y,UP});
+  /* dorpen waar de weg doorheen loopt (niet midden op een steile klim) */
   const NAMES2={heuvels:['Epen','Slenaken','Gulpen','Wahlwiller','Mechelen','Eys','Noorbeek'],provence:['Lourmarin','Bonnieux','Gordes','Ménerbes','Sault','Bédoin','Venasque'],bergen:['Saint-Véran','Valloire','Huez','Bourg-Doisans','Vaujany','Oz']},NAMES=['Oosterwold','Hoogveen','Kerkdriel','Molenhoek','Westerbroek','Zandvoorde','Lindewijk','Ellecom','Bergharen','Nieuwlande','Aldeboarn','Holterberg','Vierhouten','Oudemirdum','Wijnaldum','Boxmeer'].sort(()=>r()-.5);
-  C.villages=[];for(const zn of zones){const d=zn.a+(zn.b-zn.a)*(.3+r()*.4),gr=Math.abs(Ys[Math.min(N-1,Math.round(d/STEP)+40)]-Ys[Math.round(d/STEP)])/160*100;
-    if(P.wo.type==='demo'&&!((zn.ty==='polder'&&zn.a<1)||(zn.ty==='provence'&&zn.a<2500)||(zn.ty==='heuvels'&&zn.a<4000)))continue;
-    if(P.wo.type==='demo'||zn.ty==='polder'||zn.ty==='heuvels'||zn.ty==='provence'||(zn.ty==='meer'&&r()<.6)||(zn.ty==='bergen'&&gr<3&&r()<.6))C.villages.push({d,len:170+r()*110,ty:zn.ty,name:(NAMES2[zn.ty]||NAMES)[Math.floor(r()*(NAMES2[zn.ty]||NAMES).length)]})}
+  const grAt=d=>Math.abs(Y[kAt(C,d+160)]-Y[kAt(C,d)])/160*100;
+  C.villages=[];for(const zn of zones){let d=zn.a+(zn.b-zn.a)*(.3+r()*.4);for(let t=0;t<8&&grAt(d)>3;t++)d=zn.a+(zn.b-zn.a)*(.15+r()*.7);
+    if(grAt(d)<=3.5&&(zn.ty==='polder'||zn.ty==='heuvels'||zn.ty==='provence'||(zn.ty==='meer'&&r()<.6)||(zn.ty==='bergen'&&r()<.6)))C.villages.push({d,len:170+r()*110,ty:zn.ty,name:(NAMES2[zn.ty]||NAMES)[Math.floor(r()*(NAMES2[zn.ty]||NAMES).length)]})}
   /* herkenningspunten: een rij windmolens in de polder of bij het meer, een kasteel op een heuvel, luchtballonnen */
   C.marks=[];for(const zn of zones){const len=zn.b-zn.a;
-    if((zn.ty==='polder'||zn.ty==='meer')&&zn.v<.55){const side=zn.ty==='meer'?1:(r()<.5?-1:1),n=3+Math.floor(r()*4),d0=zn.a+len*(.15+r()*.3);for(let i=0;i<n;i++)C.marks.push({k:'turbine',d:d0+i*(170+r()*60),off:side*(74+r()*14)})}
-    if((zn.ty==='heuvels'||zn.ty==='provence')&&zn.v>.35)C.marks.push({k:'kasteel',d:zn.a+len*(.3+r()*.4),off:(r()<.5?-1:1)*(70+r()*12)});
-    if(zn.ty!=='bergen'&&r()<.5)for(let i=0;i<1+Math.floor(r()*3);i++)C.marks.push({k:'ballon',d:zn.a+len*r(),off:(r()<.5?-1:1)*(110+r()*260),h:45+r()*110,c:r()});
+    if((zn.ty==='polder'||zn.ty==='meer')&&zn.v<.65){const side=zn.ty==='meer'?1:(r()<.5?-1:1),n=3+Math.floor(r()*4),d0=zn.a+len*(.15+r()*.3);for(let i=0;i<n;i++)C.marks.push({k:'turbine',d:d0+i*(170+r()*60),off:side*(74+r()*14)})}
+    if((zn.ty==='heuvels'||zn.ty==='provence')&&zn.v>.3)C.marks.push({k:'kasteel',d:zn.a+len*(.3+r()*.4),off:(r()<.5?-1:1)*(70+r()*12)});
+    if(zn.ty!=='bergen'&&r()<.6)for(let i=0;i<1+Math.floor(r()*3);i++)C.marks.push({k:'ballon',d:zn.a+len*r(),off:(r()<.5?-1:1)*(110+r()*260),h:45+r()*110,c:r()});
   }
-  C.canals=[];for(const zn of zones)if(zn.ty==='polder')for(let d=zn.a+600+r()*400;d<zn.b-300;d+=1100+r()*700)if(Math.abs(K[Math.round(d/STEP)])<.004&&!C.villages.some(v=>Math.abs(v.d-d)<v.len/2+80))C.canals.push(d);
+  C.canals=[];for(const zn of zones)if(zn.ty==='polder')for(let d=zn.a+600+r()*400;d<zn.b-300;d+=1100+r()*700)if(Math.abs(K[kAt(C,d)])<.004&&!C.villages.some(v=>Math.abs(v.d-d)<v.len/2+80))C.canals.push(d);
   return C;
 }
 /* Iets dat gemiddeld elke P meter terugkomt, maar op wisselende afstanden (van 0,35 tot 1,85 keer P) en per rit op andere plekken:
    een vast ritme (elke 650 m een boerderij) voelt al snel als dezelfde beelden. ev: ligt er een op [d, d+7)? run: zitten we in een stuk van len meter? */
 function evList(C,key,P){const E=C.ev||(C.ev={});let a=E[key];if(a)return a;a=E[key]=[];
   const r=rng(C.seed^[...key].reduce((h,c)=>h*31+c.charCodeAt(0)|0,17));let x=P*r();while(x<C.L){a.push(x);x+=P*(.35+r()*1.5)}return a}
-function ev(C,key,P,d){const a=evList(C,key,P);let lo=0,hi=a.length;while(lo<hi){const m=(lo+hi)>>1;if(a[m]<d)lo=m+1;else hi=m}return lo<a.length&&a[lo]<d+7}
-function run(C,key,P,len,d){const a=evList(C,key,P);let lo=0,hi=a.length;while(lo<hi){const m=(lo+hi)>>1;if(a[m]<=d)lo=m+1;else hi=m}return lo>0&&d-a[lo-1]<len}
+function ev(C,key,P,d){d=wrapD(C,d);const a=evList(C,key,P);let lo=0,hi=a.length;while(lo<hi){const m=(lo+hi)>>1;if(a[m]<d)lo=m+1;else hi=m}return lo<a.length&&a[lo]<d+7}
+function run(C,key,P,len,d){d=wrapD(C,d);const a=evList(C,key,P);let lo=0,hi=a.length;while(lo<hi){const m=(lo+hi)>>1;if(a[m]<=d)lo=m+1;else hi=m}return lo>0&&d-a[lo-1]<len}
 function roadAt(C,d){
-  const f=clamp(d/STEP,0,C.N-1.001),k=Math.floor(f),u=f-k,lerp=(A)=>A[k]+(A[k+1]-A[k])*u;
+  const f=clamp(wrapD(C,d)/STEP,0,C.N-.001),k=Math.floor(f),u=f-k,lerp=(A)=>A[k]+(A[k+1]-A[k])*u;
   return {x:lerp(C.X),y:lerp(C.Y),z:lerp(C.Z),h:lerp(C.HD),k:C.K[k]};
 }
-const distAt=(C,t)=>{const f=clamp(t,0,C.n-.001),k=Math.floor(f);return C.S[k]+(C.S[k+1]-C.S[k])*(f-k)};
-function zoneAt(C,d){let lo=0,hi=C.zones.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(C.zones[m].a<=d)lo=m;else hi=m-1}return C.zones[lo]}
-const villageW=(C,d)=>{let w=0;for(const v of C.villages){const t=1-clamp((Math.abs(d-v.d)-v.len/2)/50,0,1);if(t>w)w=t}return w};
-const canalAt=(C,d)=>{for(const c of C.canals)if(Math.abs(c-d)<12)return d-c;return null};
+function zoneAt(C,d){d=wrapD(C,d);let lo=0,hi=C.zones.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(C.zones[m].a<=d)lo=m;else hi=m-1}return C.zones[lo]}
+const villageW=(C,d)=>{d=wrapD(C,d);let w=0;for(const v of C.villages){let e=Math.abs(d-v.d);e=Math.min(e,C.L-e);const t=1-clamp((e-v.len/2)/50,0,1);if(t>w)w=t}return w};
+const canalAt=(C,d)=>{d=wrapD(C,d);for(const c of C.canals)if(Math.abs(c-d)<12)return d-c;return null};
 /* gewicht per landschap rond een grens, zodat het ene landschap geleidelijk overgaat in het volgende */
 function landMix(C,d){
-  const z=zoneAt(C,d),i=C.zones.indexOf(z),m={polder:0,heuvels:0,bergen:0,meer:0,provence:0,bos:0},B=350;
+  d=wrapD(C,d);const z=zoneAt(C,d),i=C.zones.indexOf(z),m={polder:0,heuvels:0,bergen:0,meer:0,provence:0,bos:0},B=350;
   const toNext=z.b-d,fromPrev=d-z.a;
-  if(toNext<B&&C.zones[i+1]){const w=.5-toNext/B/2;m[z.ty]+=1-w;m[C.zones[i+1].ty]+=w}
-  else if(fromPrev<B&&i>0){const w=.5-fromPrev/B/2;m[z.ty]+=1-w;m[C.zones[i-1].ty]+=w}
+  const nZ=C.zones[(i+1)%C.zones.length],pZ=C.zones[(i-1+C.zones.length)%C.zones.length];
+  if(toNext<B){const w=.5-toNext/B/2;m[z.ty]+=1-w;m[nZ.ty]+=w}
+  else if(fromPrev<B){const w=.5-fromPrev/B/2;m[z.ty]+=1-w;m[pZ.ty]+=w}
   else m[z.ty]=1;
   return m;
 }
@@ -954,7 +952,7 @@ function roadHash(C){
 function intrudes(C,d,x,z,ao){
   const c=C.cell,r=Math.ceil(ao/c),cx=Math.floor(x/c),cz=Math.floor(z/c),lim=ao*ao*.9;
   for(let i=-r;i<=r;i++)for(let j=-r;j<=r;j++){const a=C.hash.get((cx+i)*100003+cz+j);if(!a)continue;
-    for(const k of a){if(Math.abs(k*STEP-d)<20)continue;const dx=C.X[k]-x,dz=C.Z[k]-z;if(dx*dx+dz*dz<lim)return k}}
+    for(const k of a){let e=Math.abs(k*STEP-wrapD(C,d));e=Math.min(e,C.L-e);if(e<20)continue;const dx=C.X[k]-x,dz=C.Z[k]-z;if(dx*dx+dz*dz<lim)return k}}
   return -1;
 }
 function clipOff(C,d,p,off){
@@ -966,7 +964,7 @@ function clipOff(C,d,p,off){
 function worldBuild(){
   const T=T3;
   if(W.root){for(const ci of [...W.chunks.keys()])dropChunk(ci);W.root.traverse(o=>{if(o.geometry&&!o.userData.shared)o.geometry.dispose();if(o.material)[].concat(o.material).forEach(m=>{if(m.map&&m.map!==W.tex.asf&&m.map!==W.tex.gras)m.map.dispose();m.dispose()})});W.scene.remove(W.root)}
-  W.jobs=new Map();const C=buildCourse(),root=new T.Group();roadHash(C);C.finish=distAt(C,P.total);W.C=C;decorFor(C);W.root=root;W.total=P.total;W.segN=P.wo.segs.length;W.mills=[];W.chunks=new Map();
+  W.jobs=new Map();const C=buildCourse(),root=new T.Group();roadHash(C);C.finish=-1e9;W.C=C;decorFor(C);W.root=root;W.mills=[];W.chunks=new Map();W.dist=12;W.v=0;W.lastD=0;
   if(!W.mat){const tree=new T.MeshPhongMaterial({vertexColors:true,shininess:12,specular:'#1a1a1a'});
     const crowd=new T.MeshLambertMaterial({vertexColors:true});
     const tintPart=v=>'attribute float pat;\n'+v.replace('#include <color_vertex>','vColor=vec3(1.);\n#ifdef USE_COLOR\nvColor*=color;\n#endif\n#ifdef USE_INSTANCING_COLOR\nvColor.xyz*=mix(vec3(1.),instanceColor.xyz,pat);\n#endif');
@@ -1008,15 +1006,10 @@ function worldBuild(){
     piek:new T.MeshBasicMaterial({vertexColors:true,fog:false,transparent:true}),
     klinker:new T.MeshLambertMaterial({map:W.tex.klinker}),steen:new T.MeshLambertMaterial({map:W.tex.steen}),
     wolk:new T.MeshBasicMaterial({vertexColors:true,color:W.mood.cloud,transparent:true,opacity:.9,fog:false})};if(W.mood.rain)for(const k of['asf','rood','lap'])W.mat[k].color.multiplyScalar(.72)}
-  /* bogen bij elk nieuw blok (niet bij elke stap van de FTP-test), een finishboog en hellingsborden */
-  const segs=P.wo.segs,zc=z=>getComputedStyle(document.documentElement).getPropertyValue('--z'+z).trim()||'#888';
+  /* start/finish van de ronde, en onderaan elke klim een bord met het gemiddelde stijgingspercentage */
   const arch=(ar,d)=>{const p=roadAt(C,d);ar.position.set(p.x,p.y,p.z);ar.rotation.y=-p.h;root.add(ar)};
-  segs.forEach((s,i)=>{const pv=segs[i-1];
-    if(s.d<20||(pv&&pv.kind===s.kind&&Math.abs(pv.d-s.d)<2&&(s.kind!=='work'||P.wo.type==='ramptest')))return;
-    arch(makeArch(zc(zoneOf((s.a+s.b)/2)),`${s.label.slice(0,24)} · ${Math.round(s.a*P.ftp)} W`),distAt(C,P.starts[i]));
-    const g=gradeFor(s);if(g>=3&&!(pv&&gradeFor(pv)>=3)){const sg=makeSign(Math.round(g)),d=Math.max(5,distAt(C,P.starts[i])-30),p=roadAt(C,d);
-      sg.position.set(p.x+Math.cos(p.h)*5.4,p.y,p.z+Math.sin(p.h)*5.4);sg.rotation.y=-p.h;root.add(sg)}});
-  arch(makeArch('#20242c','FINISH',true),distAt(C,P.total));
+  arch(makeArch('#20242c',C.route.name.toUpperCase(),true),0);
+  for(const c of C.climbs){if(c.g<3)continue;const sg=makeSign(Math.round(c.g)),p=roadAt(C,c.a-30);sg.position.set(p.x+Math.cos(p.h)*5.4,p.y,p.z+Math.sin(p.h)*5.4);sg.rotation.y=-p.h;root.add(sg)}
   W.scene.add(root);
   if(W.ready){const c=Math.floor((W.lastD||0)/CH);for(let ci=Math.max(0,c-1);ci<=c+2;ci++)buildChunk(ci)}
 }
@@ -1048,8 +1041,8 @@ function instMesh(key,L){
   m.computeBoundingSphere();if(k==='wolk')m.frustumCulled=false;return m;
 }
 function* chunkJob(ci){
-  const T=T3,C=W.C,M=W.mat,a=ci*CH;if(a>=C.L||W.chunks.has(ci))return;
-  const g=new T.Group(),r=rng(C.seed+ci*7919+3);
+  const T=T3,C=W.C,M=W.mat,cl=ci%C.lapKm,a=cl*CH;if(a>=C.L||W.chunks.has(ci))return;
+  const g=new T.Group(),r=rng(C.seed+cl*7919+3);
   const geo=(pos,idx,col,uv)=>{const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));if(col)g.setAttribute('color',new T.Float32BufferAttribute(col,3));if(uv)g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();return g};
   const lam=M.lam;
   const OFF=[-95,-78,-64,-53,-44,-36,-29,-23,-18,-14,-10.5,-7.5,-5.6,-4.4,4.4,5.6,7.5,10.5,14,18,23,29,36,44,53,64,78,95];
@@ -1125,7 +1118,7 @@ function* chunkJob(ci){
   }
   /* kanalen met een brug */
   if(!W.G.piek0)for(let i=0;i<3;i++)W.G['piek'+i]=peakGeo(W.mood,i*7+3);
-  const rk=rng(C.seed+ci*131+7),KSUB={boom:['loof',.5],eik:['loof',.45],plataan:['loof',.3],den:['naald',.55],struik:['struik',.5],rots:['rots',.6],stam:['hout',.7],auto:['auto',.75],bloem:['bloem',.35]};
+  const rk=rng(C.seed+cl*131+7),KSUB={boom:['loof',.5],eik:['loof',.45],plataan:['loof',.3],den:['naald',.55],struik:['struik',.5],rots:['rots',.6],stam:['hout',.7],auto:['auto',.75],bloem:['bloem',.35]};
   const lists={};const put=(k,x,y,z,s,ry,col,sy,tl)=>{if(W.lite&&(k==='pol'||k==='bloem'||k==='struik'||k==='mens2')&&r()<.45)return;
     const km=W.KC&&/^([a-z]+)([~*]?)$/.exec(k),sb=km&&KSUB[km[1]];
     if(sb&&W.KC[sb[0]]&&rk()<sb[1]){const L=sb[0]==='loof'&&W.KC.herfst&&rk()<.07?W.KC.herfst:W.KC[sb[0]];k=L[Math.floor(rk()*L.length)]+km[2];
@@ -1150,7 +1143,7 @@ function* chunkJob(ci){
     muur:d=>{const ty=zoneAt(C,d).ty;if(ty==='heuvels'){if(ehol(d)>.25)return null;const b=Math.floor(d/44);return ehs(b,3)<.3?{s:ehs(b,4)<.5?-1:1,o:6.9}:null}
       if(ty==='provence'){if(Math.sin(d/400+C.ph)>.35)return null;const b=Math.floor(d/52);return ehs(b,5)<.35?{s:ehs(b,6)<.5?-1:1,o:7.6}:null}return null},
     heg:d=>{if(zoneAt(C,d).ty!=='heuvels')return null;if(ehol(d)>.5)return {s:0,o:6.95};if(EDGE.muur(d))return null;const b=Math.floor(d/56);return ehs(b,7)<.25?{s:ehs(b,8)<.5?-1:1,o:6.9}:null},
-    rail:d=>{if(zoneAt(C,d).ty!=='bergen')return null;for(let e=-48;e<=48;e+=16){const k2=C.K[clamp(Math.round((d+e)/STEP),0,C.N-1)];if(Math.abs(k2)>.02)return {s:-Math.sign(k2),o:5}}
+    rail:d=>{if(zoneAt(C,d).ty!=='bergen')return null;for(let e=-48;e<=48;e+=16){const k2=C.K[kAt(C,d+e)];if(Math.abs(k2)>.02)return {s:-Math.sign(k2),o:5}}
       const b=Math.floor(d/64);return ehs(b,9)<.55?{s:-(Math.sign(Math.sin(d/1300+C.ph))||1),o:5}:null}};
   /* bomen vlak langs de weg werpen echte schaduw op het asfalt (alleen op de laptop); cp = het wegpunt waar we nu bouwen */
   let cp=null;const tree=(k,x,y,z,s,nr)=>{if(nr==null)nr=cp&&Math.hypot(x-cp.x,z-cp.z)<17;if(W.lite&&!k.endsWith('~'))k+='~';put(nr&&!W.lite?k+'*':k,x,y,z,s,r()*6,tint(),s*(.85+r()*.35),(r()-.5)*.08);put('blob',x,y+.05,z,s*(BLOB[k.replace('~','')]||2.2),0)};
@@ -1332,7 +1325,7 @@ function* chunkJob(ci){
   /* genummerde haarspeldbochten, aftellend naar de top zoals op de Alpe d'Huez */
   C.hp.forEach((dh,i)=>{const d=dh-22;if(d<a||d>=a+CH)return;const q=roadAt(C,d),sg=makeVirage(C.hp.length-i,900+Math.round(q.y*10)/10|0);sg.position.set(q.x+Math.cos(q.h)*5.3,q.y,q.z+Math.sin(q.h)*5.3);sg.rotation.y=-q.h;g.add(sg)});
   /* bocht-waarschuwingen */
-  for(let d=Math.max(80,a);d<Math.min(C.L-80,a+CH);d+=20){const k1=C.K[Math.round((d+70)/STEP)],k0=C.K[Math.round(d/STEP)];
+  for(let d=Math.max(80,a);d<Math.min(C.L-80,a+CH);d+=20){const k1=C.K[kAt(C,d+70)],k0=C.K[kAt(C,d)];
     if(Math.abs(k1)>.012&&Math.abs(k0)<.006&&!villageW(C,d)){const sg=makeBend(k1>0),q=roadAt(C,d);sg.position.set(q.x+Math.cos(q.h)*5.4,q.y,q.z+Math.sin(q.h)*5.4);sg.rotation.y=-q.h;g.add(sg);d+=200}}
   /* water in de sloten langs de polderweg */
   {const pos=[],idx=[];for(const side of[-1,1]){let j=-1,run=false;
@@ -1411,22 +1404,24 @@ function worldFrame(t){
   const w=W;try{worldStep(t);w.errs=0}catch(e){console.error(e);w.errs=(w.errs||0)+1;if(w.errs>=10)worldFail(w,e)}
 }
 function worldStep(t){
-  if(P.total!==W.total||P.wo.segs.length!==W.segN)worldBuild();
+  if(W.C.route.id!==routeId())worldBuild();
   const dt=Math.min(.1,(t-W.last)/1000);W.last=t;const C=W.C,T=T3;
   /* haalt de laptop geen ~42 beelden per seconde, dan iets minder scherp tekenen */
   if(!W.lite&&dt>0&&dt<.1){const f=W.perf||(W.perf={n:0,s:0});f.n++;f.s+=dt;if(f.n>=150){const pr=W.ren.getPixelRatio();if(f.s/f.n>1/42&&pr>1){const np=Math.max(1,pr-.25);W.ren.setPixelRatio(np);if(W.comp)W.comp.setPixelRatio(np);W.fit()}f.n=0;f.s=0}}
   const run=P.mode==='run'&&!P.auto,rate=run?(P.sim?P.speed:1):0;
-  /* vloeiend tussen de seconden door */
-  if(P.free){const pw=dispPower()||0;W.extra+=run?speedFor(pw,0)*dt:0;W.disp=P.total}
-  else{W.disp+=rate*dt;const tgt=P.pos;if(Math.abs(tgt-W.disp)>20)W.disp=tgt;W.disp+=(tgt-W.disp)*Math.min(1,dt*1.5);W.disp=Math.min(W.disp,tgt+1)}
-  const d=distAt(C,Math.min(W.disp,C.n-1))+W.extra,p=roadAt(C,d);
+  /* de route ligt vast: je snelheid volgt uit je vermogen, je gewicht en de helling (met wat traagheid, zoals op een echte fiets) */
+  {const d0=W.dist||0,sl0=(roadAt(C,d0+8).y-roadAt(C,d0).y)/8*100,vt=run?speedFor(dispPower()||0,sl0):0;
+    W.v=(W.v||0)+(vt-(W.v||0))*Math.min(1,dt*(vt<(W.v||0)?.5:.8));W.dist=d0+W.v*dt*(P.sim?P.speed:1)}
+  const d=W.dist,p=roadAt(C,d);
   const pos=Math.min(P.pos,P.total-1),tgt=P.free?0:tgtAt(pos),pw=dispPower();
   const dev=pw==null||!tgt?0:clamp(pw/tgt-1,-.3,.3),want=P.mode==='ready'?4:clamp(2-dev*150,-2.5,45);
   W.gap+=(want-W.gap)*Math.min(1,dt*.6);
   const slope=dd=>(roadAt(C,dd+6).y-roadAt(C,dd).y)/6*100;
   const lane=(R,dd,off,cad,spd,stand)=>{const q=roadAt(C,dd);R.g.position.set(q.x+Math.cos(q.h)*off,q.y,q.z+Math.sin(q.h)*off);R.g.rotation.y=-q.h;
     const q2=roadAt(C,dd+3);R.g.rotation.x=Math.atan2(q2.y-q.y,3);R.g.rotation.z=clamp(-q.k*spd*spd*.012,-.25,.25);poseRider(R,dt,cad,spd,stand)};
-  const spd=rate*(distAt(C,Math.min(pos+1,C.n-1))-distAt(C,pos))||(P.free&&run?speedFor(pw||0,0):0);
+  const spd=W.v*(P.sim?Math.min(P.speed,3):1);
+  /* zonder ERG, of vrij rijden na de training, voelt de trainer de helling van de route */
+  if(ble.cp&&!P.sim&&run&&(P.free||!P.erg)){const g=clamp(Math.round(slope(d)*2)/2,-10,20);if(g!==W.gs&&now()-(W.gt||0)>1000){setGrade(g);W.gs=g;W.gt=now()}}
   const cad=now()-live.tP<3000&&live.cad?live.cad:0,seg=P.wo.segs[segAt(pos)];
   /* uit het zadel bij steile stukken en harde inspanningen */
   const hard=!P.free&&seg&&(seg.a+seg.b)/2>1.25,stand=run&&(slope(d)>7.5||hard);
@@ -1466,8 +1461,7 @@ function worldHud(d){
   const g=P.game,el=id=>document.getElementById(id);if(!g)return;
   const set=(id,v)=>{const e=el(id);if(e&&e.textContent!==String(v))e.textContent=v};
   set('p-km',nl((d/1000).toFixed(1)));
-  if(W&&W.C){const C=W.C,k=clamp(Math.round(d/STEP),0,C.N-1),sl=(roadAt(C,d+8).y-roadAt(C,d).y)/8*100,pw=dispPower()||0;
-    W.kmh=(W.kmh||0)+((P.mode==='run'&&!P.auto&&pw?speedFor(pw,sl)*3.6:0)-(W.kmh||0))*.08;set('p-spd',Math.round(W.kmh));set('p-hm',Math.round(C.UP[k]));
+  if(W&&W.C){const C=W.C;set('p-spd',Math.round((W.v||0)*3.6));set('p-hm',Math.round(Math.floor(d/C.L)*C.UPlap+C.UP[kAt(C,d)]));
     const ctl=el('p-ctl');if(ctl)ctl.classList.toggle('hide',P.mode==='run'&&now()-(W.uiT||0)>4000)}
   if(W&&W.C&&!P.free){
     /* aftellen in de laatste 3 seconden van een blok */
@@ -1481,15 +1475,15 @@ function worldHud(d){
   const pop=el('p-pop');if(pop){const on=g.pop&&now()-g.pop.t<3500;pop.hidden=!on;if(on)set('p-pop','★'.repeat(g.pop.st)+'☆'.repeat(3-g.pop.st))}
 }
 /* hoogteprofiel van de komende anderhalve kilometer, in de kleur van de blokken */
-const tAt=(C,d)=>{let lo=0,hi=C.n;if(d>=C.S[hi])return C.n;while(hi-lo>1){const m=(lo+hi)>>1;if(C.S[m]<=d)lo=m;else hi=m}return lo};
+/* kleur bij een stijgingspercentage, zoals op een hoogteprofiel van een klim */
+const gradeZone=g=>g<1?1:g<3?3:g<5?4:g<7?5:g<9?6:7;
 function drawProfile(d){
   const cv=document.getElementById('p-prof');if(!cv)return;const C=W.C,c=cv.getContext('2d'),w=cv.width,h=cv.height,a=d-120,b=d+1400,N=90;
   if(!W.zc){const cs=getComputedStyle(document.documentElement);W.zc=[0,1,2,3,4,5,6,7].map(z=>cs.getPropertyValue('--z'+z).trim()||'#888')}
   let lo=1e9,hi=-1e9;const ys=[];for(let i=0;i<=N;i++){const y=roadAt(C,a+(b-a)*i/N).y;ys.push(y);lo=Math.min(lo,y);hi=Math.max(hi,y)}
   hi=Math.max(hi,lo+25);const Y=y=>h-6-(y-lo)/(hi-lo)*(h-22);
   c.clearRect(0,0,w,h);
-  for(let i=0;i<N;i++){const dd=a+(b-a)*(i+.5)/N,t=tAt(C,dd),sg=t<P.total?P.wo.segs[segAt(Math.min(t,P.total-1))]:null;
-    c.fillStyle=sg?W.zc[zoneOf((sg.a+sg.b)/2)]:'rgba(255,255,255,.35)';c.globalAlpha=.85;
+  for(let i=0;i<N;i++){c.fillStyle=W.zc[gradeZone((ys[i+1]-ys[i])/((b-a)/N)*100)];c.globalAlpha=.85;
     c.beginPath();c.moveTo(i/N*w,h);c.lineTo(i/N*w,Y(ys[i]));c.lineTo((i+1)/N*w+.6,Y(ys[i+1]));c.lineTo((i+1)/N*w+.6,h);c.fill()}
   c.globalAlpha=1;c.strokeStyle='#fff';c.lineWidth=2;c.beginPath();ys.forEach((y,i)=>i?c.lineTo(i/N*w,Y(y)):c.moveTo(0,Y(y)));c.stroke();
   const x=(d-a)/(b-a)*w,yy=Y(roadAt(C,d).y);c.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--acc').trim()||'#1D4ED8';c.strokeStyle='#fff';c.lineWidth=2.5;c.beginPath();c.arc(x,yy,6,0,7);c.fill();c.stroke();
