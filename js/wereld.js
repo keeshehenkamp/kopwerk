@@ -269,7 +269,8 @@ function propGeos(){
     for(const b of blobs){cx+=b[0];cy+=b[1];cz+=b[2];ymin=Math.min(ymin,b[1]-b[3]*(b[5]||1));ymax=Math.max(ymax,b[1]+b[3]*(b[5]||1))}
     cx/=blobs.length;cy/=blobs.length;cz/=blobs.length;for(const b of blobs)R=Math.max(R,Math.hypot(b[0]-cx,b[1]-cy,b[2]-cz)+b[3]);
     const lo=new T.Color(col).offsetHSL(-.015,-.03,-.16),hi=new T.Color(col).offsetHSL(.03,.06,.1),c=new T.Color();
-    return blobs.map(([x,y,z,r,sx=1,sy=1,sz=1])=>{
+    /* bewust geen [x,y,z,r,sx=1,...]: Safari op de iPhone struikelt over standaardwaarden bij destructureren */
+    return blobs.map(B=>{const x=B[0],y=B[1],z=B[2],r=B[3],sx=B[4]??1,sy=B[5]??1,sz=B[6]??1;
       const g=new T.IcosahedronGeometry(r,det===2?(r>=1.3?2:1):det),p=g.attributes.position,n=g.attributes.normal,cl=[],ph=x*3.1+z*1.7+y;
       for(let i=0;i<p.count;i++){let vx=p.getX(i),vy=p.getY(i),vz=p.getZ(i);const k=1+.13*Math.sin(vx/r*4.1+vy/r*2.9+ph)*Math.cos(vz/r*3.7-vy/r*2.3+ph);
         vx=vx*k*sx+x;vy=vy*k*sy+y;vz=vz*k*sz+z;p.setXYZ(i,vx,vy,vz);
