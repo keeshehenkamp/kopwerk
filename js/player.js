@@ -123,7 +123,7 @@ function paintPlayer(){
     el('p-target').textContent='–';el('p-power').textContent=pw==null?'–':pw;
     el('p-cad').textContent=fp&&live.cad?Math.round(live.cad):'–';el('p-hr').textContent=fh&&live.hr?live.hr:'–';
     el('p-cadl').textContent='Cadans';el('p-seg').textContent='Vrij rijden';el('p-left').textContent=clock(P.freeSec);
-    el('p-next').textContent='Training afgerond. Rijd door zolang je wilt en stop wanneer je klaar bent.';
+    el('p-next').textContent='Training klaar · vrij rijden';
     el('p-zone').style.background='var(--z3)';el('p-dot').style.left='50%';
     el('p-cur').setAttribute('x1',1000);el('p-cur').setAttribute('x2',1000);
     if(P.drawn!==P.tr.length){P.drawn=P.tr.length;el('p-trace').setAttribute('points',P.trace)}
@@ -141,7 +141,7 @@ function paintPlayer(){
   el('p-zone').style.background=`var(--z${zoneOf(fracAt(i,pos))})`;
   const dev=pw==null||!tgt?0:clamp((pw/tgt-1)*100,-20,20);
   el('p-dot').style.left=(50+dev*2.5)+'%';
-  const hb=el('p-hint');if(hb){const on=!!P.hint&&P.hint.i===i;hb.hidden=!on;if(on)el('p-hintt').textContent=`Hartslag ${P.hint.hr}, normaal rond ${P.hint.exp} bij dit vermogen. Voelt het zwaar? Zet een stap lager.`}
+  const hb=el('p-hint');if(hb){const on=!!P.hint&&P.hint.i===i;hb.hidden=!on;if(on)el('p-hintt').textContent=`Hartslag ${P.hint.hr}, normaal ${P.hint.exp}`}
   el('p-cur').setAttribute('x1',P.pos/P.total*1000);el('p-cur').setAttribute('x2',P.pos/P.total*1000);
   if(P.drawn!==P.tr.length){P.drawn=P.tr.length;el('p-trace').setAttribute('points',P.trace)}
 }
@@ -154,19 +154,16 @@ function playerHTML(){
   const hr=ble.hrOn?`<span class="dotst on"></span>${esc(ble.hrName)}`:'';
   const status=P.sim?'<span class="badge">Demo zonder trainer</span>':`<span class="small muted">${tr}${hr?' &nbsp; '+hr:''}</span>`;
   const readyBox=ready?`<div class="pready stack">
-      <div><h3>Koppel je trainer en begin</h3><p class="muted small" style="margin-top:4px">Sluit Zwift en andere fietsapps eerst af: de meeste trainers accepteren één Bluetooth-verbinding tegelijk.</p></div>
-      <div class="row small muted">Rijden met
-        <span class="seg" role="group" aria-label="Weergave"><button class="btn small" data-act="view" data-v="3d" aria-pressed="${v3}">3D-wereld</button><button class="btn small" data-act="view" data-v="cijfers" aria-pressed="${!v3}">Alleen cijfers</button></span>
-      </div>
+      <div class="seg" role="group" aria-label="Weergave"><button class="btn small" data-act="view" data-v="3d" aria-pressed="${v3}">3D-wereld</button><button class="btn small" data-act="view" data-v="cijfers" aria-pressed="${!v3}">Alleen cijfers</button></div>
       <div class="row">
-        <button class="btn" data-act="connect">${ble.on?'Andere trainer koppelen':'Trainer koppelen'}</button>
-        <button class="btn" data-act="connectHr">${ble.hrOn?'Andere hartslagmeter koppelen':'Hartslagmeter koppelen'}</button>
+        <button class="btn" data-act="connect">${ble.on?'Andere trainer':'Trainer koppelen'}</button>
+        <button class="btn" data-act="connectHr">${ble.hrOn?'Andere hartslagmeter':'Hartslagmeter koppelen'}</button>
         <button class="btn pri big" data-act="go" ${ble.on?'':'disabled'}>Start training</button>
       </div>
       ${ui.bleMsg?`<p class="notice small">${esc(ui.bleMsg)}</p>`:''}
-      <div class="row small muted">Geen trainer bij de hand?
-        <button class="btn" data-act="goSim">Start demo</button>
-        <label>Snelheid <select id="simspeed"><option value="1">1×</option><option value="10">10×</option><option value="60" selected>60×</option></select></label>
+      <div class="row small">
+        <button class="btn small" data-act="goSim">Demo zonder trainer</button>
+        <select id="simspeed" aria-label="Snelheid van de demo"><option value="1">1×</option><option value="10">10×</option><option value="60" selected>60×</option></select>
       </div></div>`:'';
   const ctl=ready?'':`<div class="row">
         <button class="btn icon" data-act="bias" data-d="-0.05" aria-label="Lichter">−</button>
@@ -188,7 +185,7 @@ function playerHTML(){
       <div class="zgauge" aria-hidden="true"><span class="ok"></span><span class="mid"></span><span class="dot" id="p-dot"></span></div><span id="p-cadl" hidden></span></div>
     <div class="zbar"><div class="zb1"><span><b id="p-spd">0</b><i>km/u</i></span><span><b id="p-km">0,0</b><i>km</i></span><span><b id="p-hm">0</b><i>m</i></span><span><b id="p-elapsed">0:00</b><i>/ ${clock(P.total)}${P.free?' +':''}</i></span></div>
       <div class="zprog"><i id="p-prog"></i></div>
-      <div class="zb2"><span class="zname">${esc(w.name)}</span>${status}<span class="zbtns"><button class="btn small" data-act="view3d">Alleen cijfers</button>${ready?'<button class="btn small" data-act="closePlayer">Sluiten</button>':''}</span></div></div>
+      <div class="zb2"><span class="zname">${esc(w.name)}</span>${status}<span class="zbtns">${ready?'<button class="btn small" data-act="closePlayer">Sluiten</button>':'<button class="btn small" data-act="view3d">Alleen cijfers</button>'}</span></div></div>
     <div class="zlist"><div class="zlh"><b>Schema</b><span>nog <b id="p-rest">${clock(P.total)}</b></span></div><div id="p-list"></div>
       <div class="zcur"><span id="p-seg"></span><div class="zct"><span><b id="p-target">–</b><i>W</i></span><b id="p-left"></b></div><span id="p-next" class="znext"></span></div></div>
     ${hud?`<div class="zside">${hud}</div>`:''}${load}
@@ -202,7 +199,7 @@ function playerHTML(){
     <div class="ptop">
       <div><h2>${esc(w.name)}</h2>${status}${v3?' <span class="small" id="p-km"></span>':''}</div>
       <div class="pclock"><span id="p-elapsed" style="color:var(--ink);font-size:34px;font-weight:600">0:00</span><span> / ${clock(P.total)}${P.free?' +':''}</span></div>
-      <div class="row"><button class="btn" data-act="view3d">3D-wereld</button>${ready?'<button class="btn" data-act="closePlayer">Sluiten</button>':''}</div>
+      <div class="row">${ready?'<button class="btn" data-act="closePlayer">Sluiten</button>':'<button class="btn" data-act="view3d">3D-wereld</button>'}</div>
     </div>
     ${hud}${load}
     <div class="pmain">
@@ -215,7 +212,7 @@ function playerHTML(){
         <div class="pnum"><label>Hartslag</label><b id="p-hr">–</b><i>bpm</i></div>
       </div>
       <div class="gauge" aria-hidden="true"><span class="ok"></span><span class="mid"></span><span class="dot" id="p-dot"></span></div>
-      <div class="pnext"><span id="p-next"></span><span class="pexp">Balk: je vermogen ten opzichte van het doel, van −20% tot +20%</span></div>
+      <div class="pnext"><span id="p-next"></span></div>
     </div>
     <div class="pchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
     <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>
@@ -257,7 +254,7 @@ async function finishRide(){
   gameEndBlock();const a=P;a.mode='done';clearInterval(a.timer);
   if(ble.cp&&!a.sim)setGrade(0);
   try{if(wake){wake.release();wake=null}}catch(e){}
-  if(a.wo.type==='demo'){P=null;toast('Dat was de demo. Start een echte training vanuit Vandaag of Trainingen.');return render()}
+  if(a.wo.type==='demo'){P=null;toast('Demo afgelopen');return render()}
   if(a.rec.p.length<60){await idb.del('active');P=null;toast('Korter dan een minuut gereden: niet opgeslagen.');return render()}
   await storeRide(a);P=null;render();
 }

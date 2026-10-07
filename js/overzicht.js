@@ -59,7 +59,7 @@ function fitChart(path){
       <line x1="${xn}" x2="${xn}" y1="0" y2="200" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>
       ${ln('ctl','var(--acc)',2.2,0,0,now)}${ln('ctl','var(--acc)',2,1,now,N-1)}${ln('atl','var(--muted)',1.5,0,0,now)}${ln('atl','var(--muted)',1.5,1,now,N-1)}</svg>
       ${dateTick(all[0].d,0)}${now>0&&now<N-1?`<span class="xl" style="left:${now/(N-1)*100}%">vandaag</span>`:''}${dateTick(all[N-1].d,1)}</div>
-    <div class="legend"><span><i style="background:var(--acc)"></i>Fitheid</span><span><i style="background:var(--muted)"></i>Vermoeidheid</span><span>Gestippeld: verwacht met je schema</span></div>`;
+    <div class="legend"><span><i style="background:var(--acc)"></i>Fitheid</span><span><i style="background:var(--muted)"></i>Vermoeidheid</span><span><i class="dash"></i>Verwacht</span></div>`;
 }
 /* vorm = fitheid min vermoeidheid, rond de nullijn */
 function formChart(path){
@@ -72,7 +72,7 @@ function formChart(path){
       <path d="${pathOf(part(0,now),y)}" fill="none" stroke="var(--ink)" stroke-width="2" vector-effect="non-scaling-stroke"/>
       <path d="${pathOf(part(now,N-1),y)}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/></svg>
       ${dateTick(all[0].d,0)}${dateTick(all[N-1].d,1)}</div>
-    <div class="legend"><span>Boven de lijn: fris. Eronder: de training zit nog in je benen.</span></div>`;
+    <div class="legend"><span>Boven 0: fris</span><span>Onder 0: vermoeid</span></div>`;
 }
 
 /* ---------- Kalender: alle ritten en geplande trainingen per maand ---------- */
@@ -104,7 +104,7 @@ const PERIODS=[[42,'6 weken'],[91,'3 maanden'],[365,'1 jaar'],[0,'Alles']];
 function prestatiesView(){
   if(!state.setup)return setupView();
   const head=`<div class="head"><div><h1>Prestaties</h1></div></div>`,real=state.rides.filter(r=>!r.sim);
-  if(!real.length)return `${head}<div class="card"><p class="muted">Na je eerste rit zie je hier je vermogenscurve, hoeveel vermogen je overhoudt na lang rijden en je records.</p></div>`;
+  if(!real.length)return `${head}<div class="card"><p class="muted">Je records verschijnen na je eerste rit.</p></div>`;
   fillKj();
   const per=ui.perf??91,cut=per?iso(addDays(new Date(),-per)):'',sel=real.filter(r=>!cut||r.date>=cut),lbl=(PERIODS.find(([v])=>v===per)||PERIODS[1])[1];
   const chips=`<div class="seg" role="group" aria-label="Periode">${PERIODS.map(([v,t])=>`<button class="btn small" data-act="perf" data-p="${v}" aria-pressed="${v===per}">${t}</button>`).join('')}</div>`;
@@ -112,10 +112,10 @@ function prestatiesView(){
   const fresh=records(sel),aft={};for(const k of KJ_STEPS){aft[k]={};for(const r of sel){const b=r.kjb&&r.kjb[k];if(b)for(const [w] of KJ_DUR)if(b[w]&&(!aft[k][w]||b[w]>aft[k][w]))aft[k][w]=b[w]}}
   const any=KJ_STEPS.some(k=>Object.keys(aft[k]).length);
   const cell=(k,w)=>{const v=aft[k][w],f=fresh[w]&&fresh[w].w;return v?`<b style="font-weight:600">${v} W</b>${f?` <span class="muted">${Math.round(v/f*100)}%</span>`:''}`:'–'};
-  const dur=`<div class="card"><h3 style="margin-bottom:4px">Vermogen na lang rijden</h3><p class="small muted" style="margin-bottom:10px">Wat je nog kunt leveren nadat je al veel werk hebt gedaan, als deel van je frisse waarde.</p>
+  const dur=`<div class="card"><h3 style="margin-bottom:10px">Vermogen na lang rijden</h3>
     ${any?`<div class="scroll"><table><thead><tr><th>Duur</th><th>Fris</th><th>Na 1.000 kJ</th><th>Na 2.000 kJ</th></tr></thead><tbody>
       ${KJ_DUR.map(([w,t])=>`<tr><td>${t}</td><td>${fresh[w]?fresh[w].w+' W':'–'}</td><td>${cell(1000,w)}</td><td>${cell(2000,w)}</td></tr>`).join('')}</tbody></table></div>`
-      :`<p class="small">Nog geen rit van 1.000 kJ of meer in deze periode. Dat is ongeveer anderhalf uur op 190 W.</p>`}</div>`;
+      :`<p class="small muted">Nog geen rit boven 1.000 kJ in deze periode.</p>`}</div>`;
   const top=state.rides.filter(r=>r.game&&(!cut||r.date>=cut)).sort((a,b)=>b.game.pts-a.game.pts).slice(0,5);
   const best=top.length?`<div class="card"><h3 style="margin-bottom:6px">Je beste ritten</h3><div class="list">${top.map((r,i)=>{const d=new Date(r.ts);
     return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${i+1}</b></span><span class="w"><b>${esc(r.name)}</b><span>${d.getDate()} ${MONTHS[d.getMonth()]} · ★ ${r.game.stars}/${r.game.max}</span></span><span class="r">${r.game.pts.toLocaleString('nl-NL')}</span></button>`}).join('')}</div></div>`:'';
@@ -126,7 +126,7 @@ function prestatiesView(){
 function voortgangView(){
   if(!state.setup)return setupView();
   const today=new Date(),head=`<div class="head"><div><h1>Voortgang</h1></div></div>`;
-  if(!state.rides.some(r=>!r.sim))return `${head}<div class="card"><p class="muted">Na je eerste ritten zie je hier hoe je fitheid, vermoeidheid, vorm en geschatte FTP zich ontwikkelen, en waar je schema je naartoe brengt.</p></div>`;
+  if(!state.rides.some(r=>!r.sim))return `${head}<div class="card"><p class="muted">Je voortgang verschijnt na je eerste rit.</p></div>`;
   const path=fitnessPath(today,horizonDays(today)),f=path.now,kg=state.profile.weight||75,e=eftpAt(today),wkg=(e||state.profile.ftp)/kg;
   const tiles=`<div class="stats"><div><b>${f.ctl}</b><span>Fitheid</span></div><div><b>${f.atl}</b><span>Vermoeidheid</span></div><div><b>${f.tsb>0?'+':''}${f.tsb}</b><span>Vorm: ${formOf(f.tsb)}</span></div>
     <div><b>${e?e+'<small>W</small>':'–'}</b><span>eFTP${e?'':', nog geen schatting'}</span></div><div><b>${nl(wkg.toFixed(1))}<small>W/kg</small></b><span>Niveau: ${levelOf(wkg)}</span></div></div>`;
@@ -136,9 +136,9 @@ function voortgangView(){
     const done=state.rides.filter(r=>!r.sim&&r.date>=s&&r.date<=en).reduce((a,r)=>a+r.tss,0),pl=s>=state.planStart?weekSum(planWeek(state,m)).t:0;
     mx=Math.max(mx,done,pl);bars.push({m,done,pl})}
   const load=`<div class="card"><h3 style="margin-bottom:14px">Belasting per week</h3><div class="bars">${bars.map(b=>`<div class="b"><span class="num">${b.done||''}</span><div class="col" style="height:${Math.max(2,Math.max(b.pl,b.done)/mx*100)}%${b.pl?'':';border-color:transparent'}"><i style="height:${Math.round(b.done/Math.max(1,Math.max(b.pl,b.done))*100)}%"></i></div><span>wk ${weekNo(b.m)}</span></div>`).join('')}</div>
-    <p class="small muted" style="margin-top:12px">Gestippeld: gepland. Gevuld: gereden.</p></div>`;
+    <div class="legend"><span><i style="background:var(--acc)"></i>Gereden</span><span><i class="box"></i>Gepland</span></div></div>`;
   return `${head}<div class="stack">${tiles}
-    <div class="cols"><div class="card"><h3 style="margin-bottom:4px">Fitheid en vermoeidheid</h3><p class="small muted" style="margin-bottom:6px">Fitheid is wat je trainingen van de afgelopen weken hebben opgebouwd, vermoeidheid wat de laatste dagen in je benen zit. Vermoeidheid zakt sneller weg dan fitheid.</p>${fitChart(path)}</div>
-      <div class="card"><h3 style="margin-bottom:4px">Vorm</h3><p class="small muted" style="margin-bottom:6px">Fitheid min vermoeidheid: hoe klaar je bent om te presteren.</p>${formChart(path)}</div></div>
+    <div class="cols"><div class="card"><h3 style="margin-bottom:10px">Fitheid en vermoeidheid</h3>${fitChart(path)}</div>
+      <div class="card"><h3 style="margin-bottom:10px">Vorm</h3>${formChart(path)}</div></div>
     <div class="cols">${progressCard()||'<div></div>'}${load}</div></div>`;
 }

@@ -749,7 +749,7 @@ function worldFail(tok,e){
   const cur=W===tok;worldDrop(tok);if(!cur)return;
   W=null;setView3d(false);
   const why=String(e&&e.message||e||'').slice(0,80);
-  toast(`De 3D-wereld lukte niet op dit toestel${why?` (${why})`:''}. Je rijdt verder met alleen cijfers.`);
+  toast(`3D lukt niet op dit toestel${why?` (${why})`:''}. Verder met cijfers.`);
   if(P)renderPlayer();
 }
 /* alles van een (half) geladen wereld vrijgeven; mag vaker worden aangeroepen */
@@ -1356,7 +1356,7 @@ function worldHud(d){
     if(now()-(W.profT||0)>300){W.profT=now();drawProfile(d)}
   }
   if(!g.on)return;
-  set('p-pts',g.pts.toLocaleString('nl-NL'));set('p-mult',g.streak>=5?`×${gameMult()} · reeks ${clock(g.streak)}`:'');
+  set('p-pts',g.pts.toLocaleString('nl-NL'));set('p-mult',g.streak>=5?`${gameMult()>1?`×${gameMult()} · `:''}reeks ${clock(g.streak)}`:'');
   set('p-stars','★ '+g.stars.reduce((a,b)=>a+b,0));
   const pop=el('p-pop');if(pop){const on=g.pop&&now()-g.pop.t<3500;pop.hidden=!on;if(on)set('p-pop','★'.repeat(g.pop.st)+'☆'.repeat(3-g.pop.st))}
 }

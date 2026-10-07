@@ -138,7 +138,7 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .phase i.peak{background:var(--z5)}.phase i.taper{background:var(--z4)}.phase i.event{background:var(--z6)}
 .phase i.now{outline:2px solid var(--ink);outline-offset:2px}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:10px}
-.legend i{display:inline-block;width:12px;height:8px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.legend i{display:inline-block;width:12px;height:8px;border-radius:2px;vertical-align:middle;margin-right:6px}.legend i.dash{height:0;width:16px;border-top:2px dashed var(--muted);border-radius:0}.legend i.box{border:1.5px dashed var(--muted);height:9px}
 .wnav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .wnav h2{margin:0 4px}
 .drow{display:grid;grid-template-columns:58px 14px minmax(0,1fr) 120px 84px;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:12px 4px}
@@ -209,9 +209,11 @@ tr:last-child td{border:0}
 .bars .b{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;height:100%;font-size:12px;color:var(--muted)}
 .bars .col{width:100%;max-width:40px;position:relative;border:1.5px dashed var(--hover);border-bottom:0;border-radius:4px 4px 0 0;min-height:2px}
 .bars .col i{position:absolute;left:-1.5px;right:-1.5px;bottom:0;background:var(--acc);border-radius:4px 4px 0 0}
-.rpe{display:flex;gap:6px;flex-wrap:wrap}
-.rpe button{width:42px;height:42px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:17px}
+.rpe{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px;max-width:474px}
+@media (max-width:480px){.rpe{gap:4px}}
+.rpe button{width:100%;height:42px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:17px}
 .rpe button[aria-pressed="true"]{background:var(--acc);color:#fff;border-color:var(--acc)}
+.rpel{display:flex;justify-content:space-between;max-width:474px;font-size:13px;color:var(--muted)}
 .verdict p+p{margin-top:8px}
 .month{font-size:15px;font-weight:600;margin:24px 2px 8px}
 
@@ -338,11 +340,10 @@ tr:last-child td{border:0}
   .w3 .zbar{left:8px;right:8px;transform:none;min-width:0;top:8px;padding:6px 10px}.w3 .zb1{gap:8px}.w3 .zb1 b{font-size:19px}.w3 .zb1 i{font-size:11px}.w3 .zb2{font-size:11px;flex-wrap:nowrap;gap:8px}.w3 .zb2>span:not(.zbtns){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.w3 .zbtns{flex:none}
   .w3 .zpow{left:8px;top:104px;min-width:0;padding:8px 12px 8px 14px}.w3 .zp1 b{font-size:42px}.w3 .zp2 b{font-size:18px}.w3 .zp2{gap:10px}
   .w3 .zlist{top:auto;bottom:66px;left:8px;width:180px}.w3 #p-list,.w3 .zlh{display:none}.w3 .zct b{font-size:26px}
-  .w3 .zside{top:104px;right:8px}.w3 .pprof{right:8px;top:200px;width:150px}.w3 .zchart{left:8px;right:8px;bottom:8px;height:36px}
+  .w3 .zside{top:104px;right:8px}.w3 .pprof{right:8px;top:226px;width:150px}.w3 .zchart{left:8px;right:8px;bottom:8px;height:36px}
   /* bediening als paneel onderin, zodat de fietser vrij blijft; knoppen lopen door over meerdere regels */
   .w3 .zctl{top:auto;bottom:calc(8px + env(safe-area-inset-bottom,0px));left:8px;right:8px;transform:none;width:auto;flex-direction:column;align-items:stretch;gap:8px;padding:10px;border-radius:14px;background:rgba(16,20,28,.95)}
   .w3 .zctl .row{flex-wrap:wrap;justify-content:center}.w3 .zctl .row+.row .btn{flex:1 1 30%;padding:10px 8px;font-size:14px}.w3 .zctl .row .badge{flex:1 1 100%;text-align:center}
-  .pexp{display:none}
   /* voor de start staan er nog geen cijfers: dan alleen het startpaneel en het verloop */
   .player.isready .pmain>:not(.pready){display:none}
 }
