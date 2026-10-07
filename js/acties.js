@@ -43,7 +43,11 @@ const actions={
   saveHealth(){const k=document.querySelector('input[name="hk"]:checked'),f=document.getElementById('h-from').value,tk=iso(new Date());
     if(!k||!HEALTH[k.value])return;state.health={kind:k.value,from:/^\d{4}-\d{2}-\d{2}$/.test(f)&&f<=tk?f:tk};ui.modal=null;save();render();window.scrollTo(0,0);
     toast(HEALTH[k.value].cap?'Doorgegeven. Je schema heeft nu alleen korte, rustige ritjes.':'Doorgegeven. Er staan geen trainingen meer gepland tot je weer beter bent.')},
-  healthDrop(){state.health=null;ui.modal=null;save();render()},
+  healthDrop(){state.health=null;ui.modal=null;save();render();toast('Melding ingetrokken')},
+  /* een melding die je al had afgesloten toch intrekken: dan vervalt ook de opbouw daarna */
+  healthUndo(d){state.healthLog=(state.healthLog||[]).filter(h=>h.from!==d.from);
+    for(const [k,v] of Object.entries(state.missed||{}))if(v.why==='ziek'&&k>=d.from)delete state.missed[k];
+    save();render();toast('Melding ingetrokken. Je schema is weer gewoon.')},
   healthBetter(){const h=state.health;if(!h)return;const y=iso(addDays(new Date(),-1));state.health=null;
     if(y>=h.from){h.to=y;(state.healthLog=state.healthLog||[]).push(h)}
     const n=y>=h.from?dayDiff(parseISO(h.from),parseISO(y))+1:0;save();render();window.scrollTo(0,0);

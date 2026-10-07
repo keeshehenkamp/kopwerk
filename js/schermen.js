@@ -104,13 +104,14 @@ function initWheels(){
 /* ---------- vandaag ---------- */
 /* hoe je ervoor staat: gereedheid, ziek gemeld of een lichtere week; bovenaan, met ziek melden als icoon */
 function statusCard(plan,today){
-  const rd=readiness(today),f=rd.f,e=eftpAt(today),ftp=state.profile.ftp,H=state.health,fat=plan.fat;
+  const rd=readiness(today),f=rd.f,e=eftpAt(today),ftp=state.profile.ftp,H=state.health,fat=plan.fat,hs=H?null:healthOn(state,iso(today));
   const note=H||fat.health||fat.tired?'':fat.heavy>=2?'Twee trainingen voelden deze week zwaarder dan verwacht. De rest van de week is een stap lichter.':fat.heavy?'De rest van de week is een stap lichter.'
     :fat.level?`Je reed de laatste week ${fat.pct}% meer dan gewoonlijk. De zware trainingen zijn een stap lichter.`:'';
   const why=H?`${HEALTH[H.kind].label} sinds ${dateLong(parseISO(H.from))}. ${rd.why}`:rd.lvl==='ok'?'':rd.why;
   return `<div class="card ready ${rd.lvl}"><div class="sthead"><div><h2>${rd.label}</h2>${why?`<p class="small muted" style="margin-top:3px">${why}</p>`:''}${note?`<p class="small" style="margin-top:5px">${note}</p>`:''}</div>
       ${H?'':`<button class="ibtn" data-act="openHealth" aria-label="Ziek of geblesseerd melden" title="Ziek of geblesseerd">${ICO.ziek}</button>`}</div>
-    ${H?`<div class="row" style="margin-top:12px"><button class="btn small pri" data-act="healthBetter">Ik ben weer beter</button><button class="btn small" data-act="openHealth">Aanpassen</button></div>`:''}
+    ${H?`<div class="row" style="margin-top:12px"><button class="btn small pri" data-act="healthBetter">Ik ben weer beter</button><button class="btn small" data-act="openHealth">Aanpassen</button><button class="btn small" data-act="healthDrop">Intrekken</button></div>`
+      :hs&&hs.ret?`<div class="row" style="margin-top:12px"><button class="btn small" data-act="healthUndo" data-from="${hs.h.from}">Melding intrekken</button></div>`:''}
     ${e&&e>ftp*1.02?`<p class="small" style="margin-top:10px">Je ritten wijzen op een hogere FTP. <button class="link" data-act="setFtp" data-w="${e}">FTP op ${e} W zetten</button></p>`:''}</div>`;
 }
 function dayCard(d,tk){
