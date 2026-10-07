@@ -64,13 +64,23 @@ function stepSecond(){
   P.rec.hr.push(fh&&live.hr?live.hr:0);
   P.rec.cad.push(fresh&&live.cad?Math.round(live.cad):0);
   P.rec.tgt.push(tgt);
-  gameStep(i,P.rec.p[P.rec.p.length-1],tgt);
+  gameStep(i,P.rec.p[P.rec.p.length-1],tgt);hrWatch(i,tgt);
   const v=P.rec.p[P.rec.p.length-1]/P.ftp;P.tr.push([P.pos,v]);
   P.trace+=`${(P.pos/P.total*1000).toFixed(1)},${(100-clamp(v/P.maxI,0,1)*100).toFixed(1)} `;
   P.pos+=1;
   const rem=P.starts[i]+P.wo.segs[i].d-P.pos;
   if(P.speed===1&&rem>=1&&rem<=3&&i<P.wo.segs.length-1&&P.wo.segs[i].d>=10)beep(660,120);
   if(P.pos>=P.total){if(P.sim)finishRide();else enterFree()}
+}
+/* Hartslag als controle: ligt je hartslag in een gelijkmatig blok een minuut lang duidelijk boven wat bij dit vermogen normaal is,
+   dan verschijnt een melding. Pas na tweeënhalve minuut in het blok, omdat hartslag achterloopt; één keer per blok. */
+function hrWatch(i,tgt){
+  const s=P.wo.segs[i],into=P.pos-P.starts[i],n=P.rec.p.length;
+  if(P.free||!tgt||s.d<180||into<150||tgt>P.ftp*1.05||(P.hintOff&&P.hintOff[i])||(P.hint&&P.hint.i===i)){if(P.hint&&P.hint.i!==i)P.hint=null;P.hrHi=0;return}
+  if(n<60)return;let sp=0,sh=0,c=0;for(let k=n-60;k<n;k++)if(P.rec.hr[k]>0){sp+=P.rec.p[k];sh+=P.rec.hr[k];c++}
+  const e=c>=50?hrExpect(sp/c):null;if(!e)return;
+  P.hrHi=sh/c-e>=Math.max(8,e*.05)?(P.hrHi||0)+1:0;
+  if(P.hrHi>=60)P.hint={i,hr:Math.round(sh/c),exp:Math.round(e)};
 }
 function tick(){
   if(!P)return;
@@ -131,6 +141,7 @@ function paintPlayer(){
   el('p-zone').style.background=`var(--z${zoneOf(fracAt(i,pos))})`;
   const dev=pw==null||!tgt?0:clamp((pw/tgt-1)*100,-20,20);
   el('p-dot').style.left=(50+dev*2.5)+'%';
+  const hb=el('p-hint');if(hb){const on=!!P.hint&&P.hint.i===i;hb.hidden=!on;if(on)el('p-hintt').textContent=`Hartslag ${P.hint.hr}, normaal rond ${P.hint.exp} bij dit vermogen. Voelt het zwaar? Zet een stap lager.`}
   el('p-cur').setAttribute('x1',P.pos/P.total*1000);el('p-cur').setAttribute('x2',P.pos/P.total*1000);
   if(P.drawn!==P.tr.length){P.drawn=P.tr.length;el('p-trace').setAttribute('points',P.trace)}
 }
@@ -180,6 +191,7 @@ function playerHTML(){
     ${hud?`<div class="zside">${hud}</div>`:''}${load}
     ${readyBox?`<div class="zready">${readyBox}</div>`:''}
     <div class="zchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
+    <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>
     <div class="pctl zctl" id="p-ctl">${ctl}</div>
   </div>`;
   return `<div class="player">
@@ -203,6 +215,7 @@ function playerHTML(){
       <div class="pnext"><span id="p-next"></span><span>Balk: je vermogen ten opzichte van het doel, van −20% tot +20%</span></div>
     </div>
     <div class="pchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
+    <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>
     <div class="pctl">${ctl}</div>
   </div>`;
 }
@@ -225,10 +238,11 @@ function markRecords(ride){
 function makeRide(a){
   const an=analyze(a.rec,a.ftp,a.laps,a.planned||a.wo.sec,a.wo.type);
   const d=new Date(a.startTs||Date.now());
-  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,planned:a.planned||a.wo.sec,ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game)},an);
+  const hrOff=a.sim?null:hrOffset(a.rec,a.ftp);
+  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,planned:a.planned||a.wo.sec,ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game),kjb:a.sim?{}:kjBests(a.rec.p)},hrOff!=null?{hrOff}:{},an);
 }
 async function storeRide(a){
-  const ride=makeRide(a);
+  const ride=makeRide(a);if(!a.sim)learnHr(a.rec,a.ftp);
   state.rides=state.rides.filter(r=>r.id!==ride.id);
   markRecords(ride);
   state.rides.push(ride);save();

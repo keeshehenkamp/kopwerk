@@ -46,7 +46,7 @@ function analyze(rec,ftp,laps,plannedSec,type){
     if(w>0)score=Math.round(acc/w*Math.min(1,n/Math.max(1,plannedSec)));
   }
   let decoup=null;
-  if(type==='duur'&&n>=1200&&hrv.length>n*.8){
+  if(['duur','herstel','souplesse'].includes(type)&&n>=1200&&hrv.length>n*.8){
     const h=Math.floor(n/2);
     const f=(a,b)=>{const pp=avg(p.slice(a,b)),hh=avg(rec.hr.slice(a,b).filter(x=>x>0));return hh?pp/hh:0};
     const e1=f(0,h),e2=f(h,n);
@@ -85,6 +85,40 @@ function fitness(rides,today,span){
   return {series,ctl:Math.round(ctl),atl:Math.round(atl),tsb:Math.round(ctl-atl)};
 }
 
+/* ---------- gevoel en hartslag als controle ----------
+   Verwachte zwaarte (1-10) per soort training. Voelt een training twee punten of meer zwaarder, dan is dat een signaal. */
+const RPE_EXP={herstel:3,duur:4,souplesse:4,openers:4,tempo:5,kracht:6,sweetspot:6,duurtempo:6,duurklim:6,duurheuvels:6,klim:7,drempel:7,sprint:7,heuvels:8,vo2:8,anaeroob:8};
+const rpeHeavy=r=>!r.sim&&r.rpe!=null&&RPE_EXP[r.type]!=null&&r.rpe>=RPE_EXP[r.type]+2;
+/* gemiddelden per minuut van rustige stukken (vermogen een paar minuten gelijk, na de eerste acht minuten) */
+function hrPairs(rec,ftp){
+  const p=rec.p,h=rec.hr||[],M=Math.floor(p.length/60),mp=[],mh=[],out=[];
+  for(let m=0;m<M;m++){let sp=0,sh=0,c=0;for(let i=m*60;i<m*60+60;i++)if(h[i]>0){sp+=p[i];sh+=h[i];c++}mp.push(c>=50?sp/c:0);mh.push(c>=50?sh/c:0)}
+  for(let m=8;m<M;m++){const w=mp[m];if(!w||!mh[m]||w<ftp*.45||w>ftp*1.05)continue;
+    if([1,2,3].every(k=>mp[m-k]&&Math.abs(mp[m-k]-w)<w*.08))out.push([w,mh[m]])}
+  return out;
+}
+/* hartslag = a + b × vermogen, uit je eigen ritten; oudere ritten tellen steeds minder mee */
+function learnHr(rec,ftp){
+  if(!rec||!rec.hr||!rec.hr.some(x=>x>0))return;
+  const pr=hrPairs(rec,ftp);if(pr.length<5)return;
+  const m=state.hrm||(state.hrm={sx:0,sy:0,sxx:0,sxy:0,n:0,rides:0,lo:1e9,hi:0});
+  for(const k of['sx','sy','sxx','sxy','n'])m[k]*=.85;
+  for(const [x,y] of pr){m.sx+=x;m.sy+=y;m.sxx+=x*x;m.sxy+=x*y;m.n++;m.lo=Math.min(m.lo,x);m.hi=Math.max(m.hi,x)}
+  m.rides++;
+}
+/* normale hartslag bij vermogen w; null zolang er te weinig ritten zijn of w buiten wat je al reed valt */
+function hrExpect(w){
+  const m=state.hrm;if(!m||m.rides<3||m.n<20||w<m.lo*.9||w>m.hi*1.1)return null;
+  const d=m.n*m.sxx-m.sx*m.sx;if(d<=0)return null;
+  const b=(m.n*m.sxy-m.sx*m.sy)/d,a=(m.sy-b*m.sx)/m.n;
+  return b>0&&b<1?a+b*w:null;
+}
+/* hoeveel slagen je hartslag in deze rit gemiddeld afweek van normaal bij hetzelfde vermogen */
+function hrOffset(rec,ftp){
+  if(!rec||!rec.hr)return null;const pr=hrPairs(rec,ftp);if(pr.length<10)return null;
+  let s=0,c=0;for(const [w,h] of pr){const e=hrExpect(w);if(e){s+=h-e;c++}}
+  return c>=10?Math.round(s/c):null;
+}
 function verdict(r,ftp){
   const out=[];
   if(r.type==='ramptest'){
@@ -105,6 +139,11 @@ function verdict(r,ftp){
     if(r.decoup>5)out.push(`In de tweede helft leverde je ${nl(r.decoup)}% minder vermogen per hartslag dan in de eerste. Dat wijst op vermoeidheid, warmte of te weinig drinken.`);
     else if(r.decoup>-5)out.push('Je hartslag bleef in verhouding tot je vermogen stabiel. Deze duur en intensiteit kun je goed aan.');
   }
+  if(r.hrOff!=null&&!r.sim){
+    if(r.hrOff>=6)out.push(`Je hartslag lag gemiddeld ${r.hrOff} slagen hoger dan normaal bij dit vermogen. Warmte, weinig slaap, stress of een opkomende verkoudheid kunnen meespelen. Voelt het ook zwaar, neem dan gas terug.`);
+    else if(r.hrOff<=-6)out.push(`Je hartslag lag gemiddeld ${-r.hrOff} slagen lager dan normaal bij dit vermogen. Hetzelfde werk kost je minder: een goed teken.`);
+  }
+  if(rpeHeavy(r))out.push('Dit voelde zwaarder dan je bij deze training mag verwachten. De rest van de week wordt een stap lichter.');
   if(r.rpe!=null&&r.lvl&&LADDER[r.type]&&!r.sim){
     const st=progStep(r);
     out.push(st<0?'Dit was te zwaar. Deze training gaat de volgende keer een trede terug.':st===0?'Stevig, maar goed te doen. De volgende keer blijft deze training op dezelfde trede.':st<1?'Goed gedaan. De volgende keer wordt deze training iets zwaarder.':'Dit ging je makkelijk af. De volgende keer gaat deze training een trede omhoog.');

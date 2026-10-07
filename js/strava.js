@@ -49,7 +49,7 @@ async function stravaFetch(manual){
       const ride=makeRide({wo:{name:a.name||'Buitenrit',type:'buiten',sec:res.rec.p.length},ftp:state.profile.ftp,rec:res.rec,laps:[{l:'Rit',k:'steady',c:0,s:0}],sim:false,startTs:ts});
       ride.id=id;ride.adj=true;ride.strava=a.id;
       if(!res.hasP){const IF=EFFORT[1][0];ride.IF=IF;ride.tss=Math.round(ride.dur/3600*IF*IF*100);ride.noPower=true;ride.best={};ride.zones=[0,0,0,0,0,0,0]}
-      markRecords(ride);state.rides.push(ride);await idb.put('s:'+id,res.rec);n++;
+      if(res.rec&&res.rec.p&&res.rec.p.some(x=>x>0))learnHr(res.rec,ride.ftp);markRecords(ride);state.rides.push(ride);await idb.put('s:'+id,res.rec);n++;
     }
     if(n)toast(`${n} ${n===1?'rit':'ritten'} van Strava opgehaald.`);else if(manual)toast('Geen nieuwe ritten op Strava.');
   }catch(e){if(manual)toast('Ophalen van Strava lukte niet. Probeer het later opnieuw.')}

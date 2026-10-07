@@ -340,3 +340,31 @@ tr:last-child td{border:0}
   .w3 .zctl{bottom:auto;top:50%;flex-wrap:wrap;justify-content:center;border-radius:16px;width:90vw}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* melding tijdens de rit: hartslag hoger dan normaal */
+.phint{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 26px 10px;padding:10px 14px;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 var(--r) var(--r) 0;background:var(--surface);font-size:15px}
+.phint[hidden]{display:none}
+.w3 .phint{position:absolute;left:50%;transform:translateX(-50%);bottom:132px;margin:0;width:min(620px,92vw);background:rgba(255,255,255,.96);color:#18181B;border-color:#E4E4E7;border-left-color:var(--acc)}
+.w3 .phint .btn{background:#fff;color:#18181B;border-color:#E4E4E7}.w3 .phint .btn.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+/* Home: gereedheid, tijd deze week */
+.ready{border-left:3px solid var(--ok);border-radius:0 var(--r) var(--r) 0}.ready.warn{border-left-color:var(--z4)}.ready.stop{border-left-color:var(--bad)}
+.mini4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}
+.mini4 div{background:var(--sunk);border-radius:8px;padding:9px 11px}.mini4 b{display:block;font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}.mini4 span{font-size:12px;color:var(--muted)}
+.avsum{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:10px;text-align:center;font-size:14px;font-variant-numeric:tabular-nums}
+.avsum b{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:2px}
+/* instellen: evenement in- en uitklappen */
+.evbox summary{cursor:pointer;font-weight:500;width:max-content}.evbox summary:hover{color:var(--acc)}
+/* periodekeuze */
+.seg{display:flex;gap:6px;flex-wrap:wrap}.seg .btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+/* kalender */
+.cal{display:flex;flex-direction:column;gap:4px}
+.cal-w{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal-h span{font-size:12px;color:var(--muted);padding:0 6px}
+.cal-d{min-height:84px;display:flex;flex-direction:column;align-items:stretch;gap:3px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 7px;font-size:12px;min-width:0}
+.cal-d:not([disabled]):hover{border-color:var(--hover)}.cal-d[disabled]{cursor:default}
+.cal-d>b{font-size:13px;font-weight:600}
+.cal-d.out{opacity:.45}.cal-d.today{box-shadow:inset 0 0 0 1.5px var(--ink)}.cal-d.rode{background:var(--sunk)}
+.cal-i{display:flex;align-items:center;gap:5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-i i{width:8px;height:8px;border-radius:2px;flex:none}.cal-i.done::before{content:'✓';color:var(--ok);font-weight:700}
+.cal-i.ev{color:var(--acc)}.cal-i.miss{color:var(--muted);text-decoration:line-through}.cal-i.miss i{opacity:.35}
+.cal-m{color:var(--muted);font-variant-numeric:tabular-nums}
+@media (max-width:700px){.cal-d{min-height:52px;padding:5px 4px}.cal-i{font-size:0;gap:0}.cal-i i{width:9px;height:9px}.cal-i.done::before{font-size:12px}.cal-m{display:none}.mini4{grid-template-columns:repeat(2,minmax(0,1fr))}}

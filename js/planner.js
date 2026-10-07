@@ -17,7 +17,7 @@ const GOALS={
     plan:'In een koers of snelle groep beslissen korte, harde inspanningen die steeds terugkomen. Daarom ligt de nadruk op VO2max, 30/30-intervallen en sprints, met drempelwerk om ertussen te herstellen.',
     slots:[['vo2','anaeroob','sprint'],['vo2','drempel','anaeroob'],['anaeroob','vo2','sprint']],
     why:{vo2:'Aanvallen pareren en gaten dichten duurt een paar minuten ver boven je drempel. Dat train je hier.',anaeroob:'Steeds opnieuw versnellen uit bochten en na demarrages, met weinig rust ertussen.',sprint:'Explosiviteit voor de sprint en om een wiel te pakken.',drempel:'Een hoge drempel betekent dat je tussen de versnellingen door herstelt in plaats van verder leegloopt.',duur:'De aerobe basis bepaalt hoe fris je de finale haalt.'}},
-  fit:{name:'Fitter worden',long:'duur',
+  fit:{name:'Gewoon beter worden',long:'duur',
     plan:'Een brede mix: elke week een langer blok onder je drempel en een kortere, hardere prikkel. Zo ontwikkel je uithoudingsvermogen en snelheid tegelijk zonder je te specialiseren.',
     slots:[['sweetspot','vo2','sprint'],['drempel','anaeroob','tempo'],['vo2','sweetspot','sprint']],
     why:{sweetspot:'De efficiëntste manier om je algemene uithoudingsvermogen te verhogen.',vo2:'Korte harde intervallen verbeteren je conditie het snelst per geïnvesteerde minuut.',drempel:'Leert je lang een stevig tempo vast te houden.',anaeroob:'Maakt je beter in herhaald versnellen en snel herstellen.',sprint:'Houdt snelheid en explosiviteit erin.',tempo:'Stevig doorrijden zonder dat het echt zwaar wordt.'}}
@@ -161,12 +161,16 @@ function planWeek(st,monday,today){
   /* na ziekte of blessure, of als je net te moe was voor een training: deze week lichter */
   const hw=[0,1,2,3,4,5,6].map(i=>healthOn(st,iso(addDays(monday,i))));
   if(hw.some(h=>h&&h.light)&&fat.level<2)fat={level:2,pct:0,health:true};
+  /* gevoel na de rit: duidelijk zwaarder dan verwacht in de laatste drie dagen, of twee keer in een week */
+  const heavy=today&&thisWeek===0?rides.filter(r=>rpeHeavy(r)&&r.date<=iso(today)&&r.date>=iso(addDays(today,-6))):[];
+  if(fat.level<2&&heavy.length&&(heavy.length>=2||heavy.some(r=>r.date>=iso(addDays(today,-2)))))fat={level:2,pct:0,heavy:heavy.length};
   if(today&&thisWeek===0&&fat.level<2&&Object.entries(st.missed||{}).some(([k,v])=>v.why==='moe'&&k<=iso(today)&&k>=iso(addDays(today,-2))))fat={level:2,pct:0,tired:true};
   const L=rec?0:clamp(ctx.L+(st.levelAdj||0)-(fat.level?1:0),0,2);
   const days=[],wk=(st.weeks||{})[iso(monday)],av=weekAvail(st,monday);
   for(let i=0;i<7;i++){
     const d=addDays(monday,i),k=iso(d),o=st.overrides[k]||{},base=av[i];
-    days.push({i,date:d,iso:k,o,base,minutes:o.skip?0:(o.minutes!=null?o.minutes:base),wo:null});
+    /* dagen voordat je met Kopwerk begon krijgen geen training */
+    days.push({i,date:d,iso:k,o,base,minutes:o.skip||(st.started&&k<st.started)?0:(o.minutes!=null?o.minutes:base),wo:null});
     /* ziek of geblesseerd: niets, of hooguit kort en rustig */
     const hs=hw[i],dd=days[i];if(hs){dd.health=hs;if(hs.cap!=null){dd.minutes=Math.min(dd.minutes,hs.cap);dd.easyOnly=true}}
   }
@@ -174,7 +178,7 @@ function planWeek(st,monday,today){
   if(evDay){evDay.event=st.event.name||'Evenement';evDay.minutes=0}
   /* dagen die voorbij zijn houden wat er toen gepland stond */
   const tk=today?iso(today):null,plog=st.plog||{};
-  for(const d of days)if(tk&&(d.iso<tk||(d.iso===tk&&(st.missed||{})[tk]))&&plog[d.iso]&&!d.event)d.logged=plog[d.iso];
+  for(const d of days)if(tk&&(d.iso<tk||(d.iso===tk&&(st.missed||{})[tk]))&&plog[d.iso]&&!d.event&&!(st.started&&d.iso<st.started))d.logged=plog[d.iso];
   const C=coachTargets(st,monday,ctx,fat);
   const lv=t=>lvlFor(st,t,C,ctx,fat);
   const keyLen=t=>t==='openers'||t==='ramptest'?45:LADDER[t]?Math.max(45,r5(ladderNeed(t,lv(t)))):INTENSE.includes(t)?C.keyTi:C.keyT;

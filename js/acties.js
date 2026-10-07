@@ -67,9 +67,9 @@ const actions={
   saveSettings(){
     const g=id=>document.getElementById(id);
     const ftp=clamp(Math.round(+g('s-ftp').value)||200,60,600),w=clamp(+g('s-w').value||75,35,200);
-    const mh=Math.round(+g('s-mhr').value)||0,evd=g('s-evd').value,evn=g('s-evn').value.trim();
+    const mh=g('s-mhr')?Math.round(+g('s-mhr').value)||0:state.profile.maxHr||0,evd=g('s-evd').value,evn=g('s-evn').value.trim();
     if(ftp!==state.profile.ftp)logFtp(ftp);
-    state.profile={ftp,weight:w,goal:g('s-goal').value,sound:g('s-snd').value==='1',maxHr:mh?clamp(mh,120,230):0};
+    state.profile={ftp,weight:w,goal:g('s-goal').value,sound:g('s-snd')?g('s-snd').value==='1':state.profile.sound!==false,maxHr:mh?clamp(mh,120,230):0};
     const evk=g('s-evk').value,evkm=Math.round(+g('s-evkm').value)||0;
     const old=state.event,keep=old&&old.profile&&old.name===(evn||'Evenement')&&old.date===evd?{profile:old.profile}:{};
     state.event=/^\d{4}-\d{2}-\d{2}$/.test(evd)?Object.assign({name:evn||'Evenement',date:evd},EVENTS[evk]?{kind:evk}:{},evkm?{km:clamp(evkm,20,400)}:{},keep):null;
@@ -100,7 +100,7 @@ const actions={
         ride.id='i'+Math.round(start/1000).toString(36);ride.adj=true;
         if(!r.hasP){const IF=EFFORT[eff][0];ride.IF=IF;ride.tss=Math.round(ride.dur/3600*IF*IF*100);ride.noPower=true;ride.best={};ride.zones=[0,0,0,0,0,0,0]}
         if(state.rides.some(x=>x.id===ride.id)){ui.modal=null;render();return toast('Deze rit staat er al in.')}
-        markRecords(ride);state.rides.push(ride);save();
+        if(r.hasP)learnHr(r.rec,ftp);markRecords(ride);state.rides.push(ride);save();
         await idb.put('s:'+ride.id,r.rec);
         ui.modal=null;ui.streams={id:ride.id,rec:r.rec};ui.view='ride';ui.rideId=ride.id;render();window.scrollTo(0,0);
         if(!r.hasP)toast('Geen vermogen in dit bestand: de belasting is geschat.');
@@ -159,13 +159,15 @@ const actions={
   stravaConnect(){stravaConnect()},
   stravaFetch(){stravaFetch(true)},
   stravaOff(){delete state.strava;save();render();toast('Strava is ontkoppeld.')},
+  calNav(d){ui.calOff=+d.d?(ui.calOff||0)+(+d.d):0;render()},
+  perf(d){ui.perf=+d.p;render()},
   theme(d,el){setTheme(el.value);render()},
   themeToggle(){setTheme(isDark()?'light':'dark');render()},
   setFtp(d){state.profile.ftp=+d.w;logFtp(+d.w);save();render();toast(`FTP is nu ${d.w} W. Alle trainingen zijn daarop aangepast.`)},
   async delRide(){
     if(ui.confirm!=='ride'){ui.confirm='ride';return render()}
     const id=ui.rideId;state.rides=state.rides.filter(r=>r.id!==id);state.deleted=(state.deleted||[]).concat(id);save();await idb.del('s:'+id);
-    ui.confirm='';ui.view='ritten';ui.streams=null;render();
+    ui.confirm='';ui.view='kalender';ui.streams=null;render();
   },
   csv(){
     const r=state.rides.find(x=>x.id===ui.rideId),s=ui.streams;if(!r||!s)return;
@@ -208,6 +210,8 @@ const actions={
   pause(){if(!P)return;if(P.mode==='run')P.mode='pause';else if(P.mode==='pause'){P.mode='run';P.last=now();P.sent=-1}P.stopArm=false;renderPlayer()},
   skip(){if(!P||P.mode==='ready')return;const i=segAt(P.pos);if(i>=P.wo.segs.length-1)return finishRide();P.pos=P.starts[i+1];P.sent=-1;paintPlayer()},
   stop(){if(!P)return;if(!P.stopArm){P.stopArm=true;return renderPlayer()}finishRide()},
+  hintLower(){if(!P||!P.hint)return;(P.hintOff=P.hintOff||{})[P.hint.i]=true;P.hint=null;actions.bias({d:-.05})},
+  hintOk(){if(!P||!P.hint)return;(P.hintOff=P.hintOff||{})[P.hint.i]=true;P.hint=null;paintPlayer()},
   bias(d){if(!P)return;P.bias=clamp(Math.round((P.bias+(+d.d))*100)/100,.5,1.5);P.sent=-1;renderPlayer()},
   erg(){if(!P)return;P.erg=!P.erg;if(P.erg)P.sent=-1;else setGrade(P.grade);renderPlayer()},
   grade(d){if(!P)return;P.grade=clamp(P.grade+(+d.d),-5,15);setGrade(P.grade);renderPlayer()}

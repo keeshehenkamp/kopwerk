@@ -13,8 +13,10 @@ const ICON={
   lib:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 20V11h3.2v9zm6.4 0V4h3.2v16zM16.8 20v-6H20v6z"/></svg>',
   profiel:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20.5c0-4 3.6-6.2 8-6.2s8 2.2 8 6.2z"/></svg>'
 };
-const TABS=[['vandaag','Vandaag'],['schema','Schema'],['ritten','Ritten'],['lib','Trainingen'],['profiel','Profiel']];
-const tabOf=v=>v==='ride'?'ritten':v==='training'?(ui.detail&&ui.detail.from)||'vandaag':v;
+const TABS=[['vandaag','Home'],['kalender','Kalender'],['prestaties','Prestaties'],['voortgang','Voortgang'],['profiel','Profiel']];
+ICON.kalender=ICON.schema;ICON.prestaties=ICON.lib;ICON.voortgang=ICON.ritten;
+const TAB_OF={ride:'kalender',schema:'kalender',ritten:'kalender',lib:'kalender',analyse:'voortgang',settings:'profiel'};
+const tabOf=v=>v==='training'?TAB_OF[(ui.detail&&ui.detail.from)||'vandaag']||(ui.detail&&ui.detail.from)||'vandaag':TAB_OF[v]||v;
 const dayShort=d=>`${DAYS[dow(d)]} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}`;
 /* zwaarste blok van een training, voor het gekleurde stipje */
 const woZone=w=>{let f=0;for(const s of w.segs)if(s.d>=30)f=Math.max(f,(s.a+s.b)/2);return zoneOf(f||.5)};
@@ -33,25 +35,27 @@ function shell(body){
 function settingsForm(first){
   const p=state.profile,ev=state.event||{};
   const save=`<button class="btn pri big" data-act="saveSettings">${first?'Maak mijn schema':'Wijzigingen opslaan'}</button>`;
-  return `<div class="stack">
-    <div class="card stack"><h2>Jij</h2>
-      <div class="form">
-        <div><label class="f" for="s-ftp">FTP in watt</label><input type="number" id="s-ftp" min="60" max="600" value="${p.ftp}" style="width:120px"></div>
-        <div><label class="f" for="s-w">Gewicht in kg</label><input type="number" id="s-w" min="35" max="200" value="${p.weight}" style="width:120px"></div>
-        <div><label class="f" for="s-mhr">Maximale hartslag</label><input type="number" id="s-mhr" min="120" max="230" value="${p.maxHr||''}" placeholder="optioneel" style="width:120px"></div>
-        <div><label class="f" for="s-snd">Geluid bij blokwissel</label>${sel('id="s-snd"',[[1,'Aan'],[0,'Uit']],p.sound?1:0)}</div>
-      </div>
-      <p class="small muted">Weet je je FTP niet? Vul 200 in; de coach plant in de eerste week een FTP-test.</p></div>
-    <div class="card stack"><h2>Doel en evenement</h2>
-      <div class="form">
-        <div><label class="f" for="s-goal">Doel</label>${sel('id="s-goal"',Object.entries(GOALS).map(([k,g])=>[k,g.name]),p.goal)}</div>
-        <div><label class="f" for="s-evn">Evenement</label><input type="text" id="s-evn" maxlength="40" value="${esc(ev.name||'')}" placeholder="optioneel" style="width:100%"></div>
+  /* doelen: 'gewoon beter worden' voorop; een evenement is optioneel */
+  const goals=['fit','ftp','klimmen','duur','koers'].filter(k=>GOALS[k]).map(k=>[k,GOALS[k].name]);
+  const event=`<details class="evbox"${ev.date?' open':''}><summary>Ik train voor een evenement</summary>
+      <div class="form" style="margin-top:12px">
+        <div><label class="f" for="s-evn">Naam</label><input type="text" id="s-evn" maxlength="40" value="${esc(ev.name||'')}" placeholder="optioneel" style="width:100%"></div>
         <div><label class="f" for="s-evd">Datum</label><input type="date" id="s-evd" value="${ev.date||''}"></div>
         <div><label class="f" for="s-evk">Soort</label>${sel('id="s-evk"',EVENT_KINDS,ev.kind||'')}</div>
         <div><label class="f" for="s-evkm">Afstand in km</label><input type="number" id="s-evkm" min="20" max="400" value="${ev.km||''}" placeholder="optioneel" style="width:120px"></div>
+      </div>${first?'':`<div class="row" style="margin-top:12px"><button class="btn" data-act="aiResearch"${ui.aiBusy?' disabled':''}>${ui.aiBusy?'De coach onderzoekt je evenement':'Laat de coach je evenement onderzoeken'}</button>${ui.aiBusy?'<span class="small muted">Dit duurt meestal een tot twee minuten.</span>':''}</div>`}</details>`;
+  return `<div class="stack">
+    <div class="card stack"><h2>Wat wil je bereiken?</h2>
+      <div class="form"><div><label class="f" for="s-goal">Doel</label>${sel('id="s-goal"',goals,p.goal||'fit')}</div></div>${event}</div>
+    <div class="card stack"><h2>Jij</h2>
+      <div class="form">
+        <div><label class="f" for="s-ftp">FTP in watt</label><input type="number" id="s-ftp" min="60" max="600" value="${first&&!state.setup?'':p.ftp}" placeholder="weet ik niet" style="width:120px"></div>
+        <div><label class="f" for="s-w">Gewicht in kg</label><input type="number" id="s-w" min="35" max="200" value="${p.weight}" style="width:120px"></div>
+        ${first?'':`<div><label class="f" for="s-mhr">Maximale hartslag</label><input type="number" id="s-mhr" min="120" max="230" value="${p.maxHr||''}" placeholder="optioneel" style="width:120px"></div>
+        <div><label class="f" for="s-snd">Geluid bij blokwissel</label>${sel('id="s-snd"',[[1,'Aan'],[0,'Uit']],p.sound?1:0)}</div>`}
       </div>
-      ${first?'':`<div class="row"><button class="btn" data-act="aiResearch"${ui.aiBusy?' disabled':''}>${ui.aiBusy?'De coach onderzoekt je evenement':'Laat de coach je evenement onderzoeken'}</button>${ui.aiBusy?'<span class="small muted">Dit duurt meestal een tot twee minuten.</span>':''}</div>`}
-    </div>
+      ${first?'<p class="small muted">Weet je je FTP niet? Laat het leeg; de coach plant in de eerste week een FTP-test.</p>':''}</div>
+    ${first?'':`<div class="card row spread"><h2>Wanneer kun je fietsen?</h2><button class="btn small" data-act="openAvail" data-mon="${iso(mondayOf(new Date()))}">Tijd per dag aanpassen</button></div>`}
     ${first?`<div class="card stack"><div><h2>Wanneer kun je fietsen?</h2><p class="small muted" style="margin-top:4px">De tijd die je hebt. De coach kiest zelf hoeveel je daarvan traint. Elke week kun je dit aanpassen.</p></div>
       <div class="avail">${DAYS.map((d,i)=>`<div><label class="f" for="s-a${i}" style="font-weight:600;color:var(--ink)">${d}</label>${sel(`id="s-a${i}"`,MINS.map(m=>[m,m?durTxt(m):'Rust']),state.avail[i])}</div>`).join('')}</div></div>`:''}
     <div>${save}</div></div>`;
@@ -63,22 +67,18 @@ function setupView(){
 /* ---------- vandaag ---------- */
 function bandHTML(plan,today){
   const ev=state.event,evDate=ev&&ev.date?parseISO(ev.date):null,toEv=evDate?dayDiff(today,evDate):-1;
-  const f=fitness(state.rides,today,84),s=f.series,prev=s.length>7?s[s.length-8].ctl:0,dl=Math.round(f.ctl-prev);
-  const has=state.rides.some(r=>!r.sim);
-  const form=f.tsb>5?'Fris':f.tsb<-20?'Zwaar vermoeid':f.tsb<-8?'Vermoeid':'In balans';
-  const tiles=`<div class="tiles"><div><b class="${has&&dl>0?'up':has&&dl<0?'down':''}">${has?f.ctl+(dl>0?' ↑':dl<0?' ↓':''):'–'}</b><small>${has?`Conditie, ${dl>=0?'+':''}${dl} deze week`:'Conditie, nog geen ritten'}</small></div><div><b>${has?form:'–'}</b><small>Vorm vandaag</small></div></div>`;
   if(toEv>=0){
     const start=parseISO(state.planStart),total=Math.max(1,Math.ceil(dayDiff(start,evDate)/7)),done=clamp(Math.floor(dayDiff(start,today)/7)+1,1,total);
     return `<div class="band"><div class="lb">${esc(ev.name)} · ${evDate.getDate()} ${MONTHS[evDate.getMonth()]}</div>
       <div class="bigno"><b>${toEv}</b><span>${toEv===1?'dag':'dagen'}</span></div>
       <div class="bar"><i style="width:${Math.round(done/total*100)}%"></i></div>
-      <div class="bl"><span>${esc(plan.label)}</span><span>week ${done} van ${total}</span></div>${tiles}</div>`;
+      <div class="bl"><span>${esc(plan.label)}</span><span>week ${done} van ${total}</span></div></div>`;
   }
   const goal=GOALS[state.profile.goal]||GOALS.ftp,ph=plan.ctx.kind==='rec'?4:((((Math.floor(dayDiff(parseISO(state.planStart),plan.monday)/7))%4)+4)%4)+1;
-  return `<div class="band"><div class="lb">Doel: ${esc(goal.name.toLowerCase())}</div>
+  return `<div class="band"><div class="lb">Doel: ${esc(goal.name.replace(/^[A-Z](?=[a-z])/,c=>c.toLowerCase()))}</div>
     <div class="bigno txt"><b>${esc(plan.label)}</b></div>
     <div class="bar"><i style="width:${ph*25}%"></i></div>
-    <div class="bl"><span>${ph<4?`Herstelweek over ${4-ph} ${4-ph===1?'week':'weken'}`:'Deze week rustiger aan'}</span><span>week ${weekNo(plan.monday)}</span></div>${tiles}</div>`;
+    <div class="bl"><span>${ph<4?`Herstelweek over ${4-ph} ${4-ph===1?'week':'weken'}`:'Deze week rustiger aan'}</span><span>week ${weekNo(plan.monday)}</span></div></div>`;
 }
 function prepCard(plan,today){
   const cur=mondayOf(today),nextMon=addDays(cur,7),isCur=iso(plan.monday)===iso(cur);
@@ -123,14 +123,25 @@ function vandaagView(){
     ${H?'':'<div style="margin-top:10px"><button class="link small" data-act="openHealth">Ziek of geblesseerd?</button></div>'}</div>`;
   /* komende trainingen, ook volgende week */
   const next=planWeek(state,addDays(mon,7),today).days,up=plan.days.concat(next).filter(d=>d.iso>tk&&(d.wo||d.event)&&!rideOn(d.iso)).slice(0,4);
-  const upcoming=up.length?`<div class="card"><h3 style="margin-bottom:4px">Komende trainingen</h3><div class="list">${up.map(d=>`<button data-act="${d.event?'nav':'openDay'}" data-iso="${d.iso}" data-v="schema"><span class="when"><b>${DAYS[d.i]}</b>${d.date.getDate()} ${MONTHS[d.date.getMonth()].slice(0,3)}</span>${dotFor(d)}<span class="w"><b>${esc(d.event||d.wo.name)}</b><span>${d.event?'Evenement':durTxt(d.wo.minutes)}</span></span></button>`).join('')}</div></div>`:'';
+  const upcoming=up.length?`<div class="card"><h3 style="margin-bottom:4px">Komende trainingen</h3><div class="list">${up.map(d=>`<button data-act="${d.event?'nav':'openDay'}" data-iso="${d.iso}" data-v="kalender"><span class="when"><b>${DAYS[d.i]}</b>${d.date.getDate()} ${MONTHS[d.date.getMonth()].slice(0,3)}</span>${dotFor(d)}<span class="w"><b>${esc(d.event||d.wo.name)}</b><span>${d.event?'Evenement':durTxt(d.wo.minutes)}</span></span></button>`).join('')}</div></div>`:'';
   const pend=ui.pending?`<div class="notice row spread"><span>Er staat een onderbroken training klaar: ${esc(ui.pending.wo.name)}, ${clock(ui.pending.rec.p.length)} gereden.</span><span class="row"><button class="btn small" data-act="pendSave">Opslaan</button><button class="btn small" data-act="pendDrop">Weggooien</button></span></div>`:'';
-  const fat=H||plan.fat.health?'':plan.fat.tired?'<p class="notice small">Je was te moe voor een training. De rest van de week is een stap lichter.</p>':plan.fat.level?`<p class="notice small">Je hebt de laatste week ${plan.fat.pct}% meer gereden dan gewoonlijk. De zware trainingen zijn daarom een stap lichter.</p>`:'';
+  const fat=H||plan.fat.health?'':plan.fat.heavy?`<p class="notice small">${plan.fat.heavy>=2?'Twee trainingen voelden deze week zwaarder dan verwacht.':'Je laatste training voelde zwaarder dan verwacht.'} De rest van de week is een stap lichter.</p>`:plan.fat.tired?'<p class="notice small">Je was te moe voor een training. De rest van de week is een stap lichter.</p>':plan.fat.level?`<p class="notice small">Je hebt de laatste week ${plan.fat.pct}% meer gereden dan gewoonlijk. De zware trainingen zijn daarom een stap lichter.</p>`:'';
   const sick=H?`<div class="notice stack"><span>Je bent ${healthWord(H)} gemeld sinds ${dateLong(parseISO(H.from))} (${HEALTH[H.kind].label.toLowerCase()}). ${HEALTH[H.kind].cap?'Je schema heeft alleen korte, rustige ritjes.':'Er staan geen trainingen gepland.'}</span>
       <span class="row"><button class="btn small pri" data-act="healthBetter">Ik ben weer beter</button><button class="btn small" data-act="openHealth">Aanpassen</button></span></div>`
     :hs&&hs.ret?`<p class="notice small">Je bouwt weer op na ${healthWord(hs.h)==='ziek'?'je ziekte':'je blessure'}: ${hs.cap!=null?'eerst alleen rustige ritten.':'deze week minder zware trainingen.'}</p>`:'';
-  return `<div class="home"><div class="stack">${pend}${bandHTML(plan,today)}${strip}<div><div class="daylbl" style="margin-top:0">${lbl}</div>${dayCard(sd,tk)}</div></div>
-    <div class="stack">${sick}${prepCard(plan,today)}${fat}${week}${upcoming}</div></div>`;
+  /* gereedheid: ben je vandaag klaar om te trainen? */
+  const rd=readiness(today),f=rd.f,e=eftpAt(today),ftp=state.profile.ftp;
+  const ready=`<div class="card ready ${rd.lvl}"><div class="small muted">Gereedheid</div><h2 style="margin-top:2px">${rd.label}</h2><p class="small muted" style="margin-top:2px">${rd.why}</p>
+    ${state.rides.some(r=>!r.sim)?`<div class="mini4"><div><b>${f.ctl}</b><span>Fitheid</span></div><div><b>${f.atl}</b><span>Vermoeidheid</span></div><div><b>${f.tsb>0?'+':''}${f.tsb}</b><span>Vorm</span></div><div><b>${e||'–'}</b><span>eFTP${e?' W':''}</span></div></div>`:''}
+    ${e&&e>ftp*1.02?`<p class="small" style="margin-top:10px">Je ritten wijzen op een hogere FTP. <button class="link" data-act="setFtp" data-w="${e}">FTP op ${e} W zetten</button></p>`:''}</div>`;
+  /* je tijd deze week: altijd te zien en aan te passen */
+  const prep=prepCard(plan,today),short=m=>m>=60?(m%60?`${Math.floor(m/60)}u${m%60}`:`${m/60}u`):m?`${m}m`:'–';
+  const avail=prep||`<div class="card"><div class="row spread"><h3>Je tijd deze week</h3><button class="link small" data-act="openAvail" data-mon="${iso(mon)}">Aanpassen</button></div>
+    <div class="avsum">${plan.days.map(d=>`<span><b>${DAYS[d.i]}</b>${d.o.skip?'–':short(d.o.minutes!=null?d.o.minutes:d.base)}</span>`).join('')}</div></div>`;
+  const last=state.rides.filter(r=>!r.sim).sort((a,b)=>b.ts-a.ts).slice(0,3);
+  const recent=last.length?`<div class="card"><h3 style="margin-bottom:4px">Recente ritten</h3><div class="list">${last.map(r=>{const d=new Date(r.ts);return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${DAYS[dow(d)]}</b>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span><span class="w"><b>${esc(r.name)}</b><span>${clock(r.dur)} · ${r.tss} TSS${r.rpe?` · gevoel ${r.rpe}`:''}</span></span></button>`}).join('')}</div></div>`:'';
+  return `<div class="home"><div class="stack">${pend}${bandHTML(plan,today)}${ready}${strip}<div><div class="daylbl" style="margin-top:0">${lbl}</div>${dayCard(sd,tk)}</div></div>
+    <div class="stack">${sick}${avail}${fat}${week}${upcoming}${recent}</div></div>`;
 }
 
 /* ---------- schema ---------- */
@@ -144,8 +155,7 @@ function phaseStrip(today){
     <div class="phase" style="margin-top:12px">${cells.join('')}</div>
     <div class="legend"><span><i style="background:var(--z2);opacity:.55"></i>Basis</span><span><i style="background:var(--z3)"></i>Opbouw</span><span><i style="background:var(--z1);opacity:.6"></i>Herstel</span><span><i style="background:var(--z5)"></i>Piek</span><span><i style="background:var(--z4)"></i>Afbouw</span></div></div>`;
 }
-function schemaView(){
-  if(!state.setup)return setupView();
+function weekDetail(){
   const today=new Date(),tk=iso(today),mon=addDays(mondayOf(today),ui.weekOff*7),plan=planWeek(state,mon,today),sum=weekSum(plan);
   if(ui.weekOff===0)logPlan(plan,today);
   const goal=GOALS[state.profile.goal]||GOALS.ftp,prof=plan.prof;
@@ -161,15 +171,15 @@ function schemaView(){
   const pf=plan.ctx.toGo!=null&&state.event&&state.event.profile,PS=pf&&profileSummary(pf,state.profile.ftp,state.profile.weight||75);
   const pfTxt=PS?` Afgestemd op ${esc(pf.naam)}: ${Math.round(pf.afstand_km)} km${pf.hoogtemeters?`, ${Math.round(pf.hoogtemeters)} hoogtemeters`:''}${PS.climbs.length?`, ${PS.climbs.length} hellingen van meestal ${clock(PS.median*60)}`:''}.`:'';
   const adj=state.levelAdj?`<p class="small muted">De zware trainingen staan een stap ${state.levelAdj>0?'zwaarder':'lichter'}. <button class="link" data-act="resetAdj">Terugzetten</button></p>`:'';
-  return `<div class="head"><div><h1>Schema</h1><p>Week ${weekNo(mon)} · ${esc(plan.label.toLowerCase())} · ${durTxt(sum.m)} gepland</p></div>
+  return `<div class="head" style="margin-top:0"><div><h2>Week ${weekNo(mon)}</h2><p>${esc(plan.label)} · ${durTxt(sum.m)} gepland</p></div>
       <div class="wnav"><button class="btn icon" data-act="week" data-d="-1" aria-label="Vorige week">‹</button>${ui.weekOff?'<button class="btn" data-act="week" data-d="0">Deze week</button>':''}<button class="btn icon" data-act="week" data-d="1" aria-label="Volgende week">›</button></div></div>
     <div class="stack">${ui.weekOff>=0?prepCard(plan,today):''}
     <div class="card" style="padding:8px 12px">${rows}</div>
     <div class="row spread"><details class="why"><summary>Waarom dit schema?</summary><div class="stack" style="margin-top:10px;max-width:80ch">
         <p class="small muted">${phaseTxt}</p>
-        <p class="small"><b style="font-weight:600">${esc(prof===goal?'Doel: '+goal.name.toLowerCase():prof.name)}.</b> <span class="muted">${esc(prof.plan)}</span></p>
+        <p class="small"><b style="font-weight:600">${esc(prof===goal?'Doel: '+goal.name.replace(/^[A-Z](?=[a-z])/,c=>c.toLowerCase()):prof.name)}.</b> <span class="muted">${esc(prof.plan)}</span></p>
         <p class="small muted">${basis}${ruimte}${pfTxt}</p>${adj}</div></details>
-      <div class="row">${plan.custom?`<button class="btn small" data-act="openAvail" data-mon="${iso(mon)}">Beschikbaarheid</button>`:''}<button class="btn small" data-act="zwoWeek">Download voor Zwift</button></div></div>
+      <div class="row"><button class="btn small" data-act="openAvail" data-mon="${iso(mon)}">Tijd per dag aanpassen</button><button class="btn small" data-act="zwoWeek">Download voor Zwift</button></div></div>
     ${phaseStrip(today)}</div>`;
 }
 
@@ -250,20 +260,20 @@ function progressCard(){
       <path d="${line('f')}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>${tk}</div>
     <div class="legend"><span><i style="background:var(--acc)"></i>Ingestelde FTP</span><span><i style="background:var(--muted)"></i>Geschat uit je beste 20 minuten</span></div>${lvHTML}</div>`;
 }
-function recordsCard(){
-  const all=records(state.rides),cut=iso(addDays(new Date(),-42)),recent=records(state.rides.filter(r=>r.date>=cut));
+function recordsCard(sel,pl){
+  const all=records(state.rides),recent=records(sel||state.rides.filter(r=>r.date>=iso(addDays(new Date(),-42))));pl=pl||'6 weken';
   const ds=BESTS.filter(([w])=>all[w]);
   if(!ds.length)return '';
   const kg=state.profile.weight||75,max=Math.max(...ds.map(([w])=>all[w].w))*1.08,N=BESTS.length;
   const x=i=>(i/(N-1)*1000),y=v=>200-v/max*200;
   const line=src=>{let d='',pen=false;BESTS.forEach(([w],i)=>{if(!src[w]){return}d+=`${pen?'L':'M'}${x(i).toFixed(1)},${y(src[w].w).toFixed(1)}`;pen=true});return d};
-  const lbl=BESTS.map(([w,t],i)=>`${i%2&&i!==N-1?'':`<span class="xl${i===0?' first':i===N-1?' last':''}" style="left:${i/(N-1)*100}%">${t}</span>`}`).join('');
+  const lbl=BESTS.map(([w,t],i)=>`${(i%2===0&&i<N-2)||i===N-1?`<span class="xl${i===0?' first':i===N-1?' last':''}" style="left:${i/(N-1)*100}%">${t}</span>`:''}`).join('');
   return `<div class="card"><h3 style="margin-bottom:10px">Vermogenscurve en records</h3><div class="cols">
     <div><div class="chart" style="height:200px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je beste vermogen per duur">
       <path d="${line(all)}" fill="none" stroke="var(--ink)" stroke-width="2" vector-effect="non-scaling-stroke"/>
       <path d="${line(recent)}" fill="none" stroke="var(--acc)" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/></svg>${lbl}</div>
-      <div class="legend"><span><i style="background:var(--ink)"></i>Beste ooit</span><span><i style="background:var(--acc)"></i>Laatste 6 weken</span></div></div>
-    <div class="scroll"><table><thead><tr><th>Duur</th><th>Record</th><th>W/kg</th><th>6 weken</th><th>Op</th></tr></thead><tbody>
+      <div class="legend"><span><i style="background:var(--ink)"></i>Beste ooit</span><span><i style="background:var(--acc)"></i>${pl.replace(/^./,c=>c.toUpperCase())}</span></div></div>
+    <div class="scroll"><table><thead><tr><th>Duur</th><th>Record</th><th>W/kg</th><th>${pl.replace(/^./,c=>c.toUpperCase())}</th><th>Op</th></tr></thead><tbody>
       ${ds.map(([w,t])=>{const d=parseISO(all[w].date);return `<tr><td>${t}</td><td><b style="font-weight:600">${all[w].w} W</b></td><td>${nl((all[w].w/kg).toFixed(1))}</td><td>${recent[w]?recent[w].w+' W':'–'}</td><td><button class="link" data-act="openRide" data-id="${all[w].id}">${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</button></td></tr>`}).join('')}
     </tbody></table></div></div></div>`;
 }
@@ -297,43 +307,15 @@ function awardsOf(r){
   }
   return out;
 }
-function rittenView(){
-  const rides=[...state.rides].sort((a,b)=>b.ts-a.ts);
-  const head=`<div class="head"><div><h1>Ritten</h1></div><div class="row">${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Buitenrit toevoegen</button></div></div>`;
-  if(!rides.length)return `${head}<div class="card stack"><h2>Nog geen ritten</h2><p class="muted" style="max-width:60ch">Na elke training zie je hier je vermogen per blok, tijd per zone, je records en hoe je conditie zich ontwikkelt. Ritten die je buiten rijdt kun je toevoegen, zodat je belasting klopt.</p></div>`;
-  const today=new Date(),f=fitness(state.rides,today,84),mon=mondayOf(today);
-  const bars=[];let mx=1;
-  for(let w=7;w>=0;w--){const m=addDays(mon,-7*w),e=iso(addDays(m,6)),s=iso(m);
-    const done=state.rides.filter(r=>!r.sim&&r.date>=s&&r.date<=e).reduce((a,r)=>a+r.tss,0),pl=state.setup&&s>=state.planStart?weekSum(planWeek(state,m)).t:0;
-    mx=Math.max(mx,done,pl);bars.push({m,done,pl})}
-  const form=f.tsb>5?'Fris':f.tsb<-20?'Zwaar vermoeid':f.tsb<-8?'Vermoeid':'In balans';
-  /* per maand, zoals in een logboek */
-  const groups=[];for(const r of rides){const d=new Date(r.ts),k=d.getFullYear()*12+d.getMonth();let g=groups[groups.length-1];if(!g||g.k!==k){g={k,d,list:[]};groups.push(g)}g.list.push(r)}
-  const months=groups.map(g=>`<div class="month">${MONTHS[g.d.getMonth()].replace(/^./,c=>c.toUpperCase())}${g.d.getFullYear()!==today.getFullYear()?' '+g.d.getFullYear():''}</div>
-    <div class="card" style="padding:4px 14px"><div class="list">${g.list.map(r=>{const d=new Date(r.ts);
-      return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${DAYS[dow(d)]} ${d.getDate()}</b></span><span class="w"><b>${esc(r.name)}${r.sim?' <span class="badge">Demo</span>':''}</b><span>${clock(r.dur)} · ${r.tss} TSS${r.np?' · '+r.np+' W':''}</span></span><span class="r">${r.score!=null?r.score+'/100':''}</span></button>`}).join('')}</div></div>`).join('');
-  const top=state.rides.filter(r=>r.game).sort((a,b)=>b.game.pts-a.game.pts).slice(0,5);
-  const best=top.length?`<div class="card"><h3 style="margin-bottom:6px">Jouw beste ritten</h3><div class="list">${top.map((r,i)=>{const d=new Date(r.ts);
-    return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${i+1}</b></span><span class="w"><b>${esc(r.name)}${r.sim?' <span class="badge">Demo</span>':''}</b><span>${d.getDate()} ${MONTHS[d.getMonth()]} · ★ ${r.game.stars}/${r.game.max} · reeks ${clock(r.game.streak)}</span></span><span class="r">${r.game.pts.toLocaleString('nl-NL')}</span></button>`}).join('')}</div></div>`:'';
-  return `${head}
-    <div class="stats"><div><b>${f.ctl}</b><span>Conditie</span></div><div><b>${f.atl}</b><span>Vermoeidheid</span></div><div><b>${f.tsb>0?'+':''}${f.tsb}</b><span>Vorm: ${form.toLowerCase()}</span></div><div><b>${bars[7].done}<small>van ${bars[7].pl}</small></b><span>TSS deze week</span></div></div>
-    <div class="cols" style="margin-top:16px">
-      <div class="stack" style="gap:16px">${progressCard()}<div class="card"><h3 style="margin-bottom:10px">Conditie en vermoeidheid</h3>${trendChart(f)}</div></div>
-      <div class="card"><h3 style="margin-bottom:14px">Belasting per week</h3><div class="bars">${bars.map(b=>`<div class="b"><span class="num">${b.done||''}</span><div class="col" style="height:${Math.max(2,Math.max(b.pl,b.done)/mx*100)}%${b.pl?'':';border-color:transparent'}"><i style="height:${Math.min(100,b.done/Math.max(1,b.pl,b.done)*100)}%"></i></div><span>wk ${weekNo(b.m)}</span></div>`).join('')}</div>
-        <p class="small muted" style="margin-top:12px">Gestippeld: gepland. Gevuld: gereden.</p></div>
-    </div>
-    ${(()=>{const parts=[recordsCard(),best].filter(Boolean);return parts.length?`<div class="cols" style="margin-top:16px">${parts.map(x=>`<div>${x}</div>`).join('')}</div>`:''})()}
-    ${months}`;
-}
 function rideView(){
   const r=state.rides.find(x=>x.id===ui.rideId);
-  if(!r){ui.view='ritten';return rittenView()}
+  if(!r){ui.view='kalender';return kalenderView()}
   const d=new Date(r.ts),rec=ui.streams&&ui.streams.id===r.id?ui.streams.rec:null,kg=state.profile.weight||75;
   const v=verdict(r,state.profile.ftp),est=ftpEstimate(r);
   const ftpBtn=est&&Math.abs(est-state.profile.ftp)>=2&&(r.type==='ramptest'||est>state.profile.ftp*1.02)?`<button class="btn pri" data-act="setFtp" data-w="${est}">FTP bijwerken naar ${est} W</button>`:'';
   const rpe=`<div class="card stack"><h3>${r.rpe==null?'Hoe zwaar voelde deze training?':'Zo zwaar voelde het'}</h3><div class="rpe">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="rpe" data-n="${n}" aria-pressed="${r.rpe===n}" aria-label="${n} van 10">${n}</button>`).join('')}</div><p class="small muted">1 is moeiteloos, 10 is alles gegeven. Je antwoord bepaalt de volgende trede van deze training.</p></div>`;
-  const tot=r.zones.reduce((a,b)=>a+b,0)||1;
-  const zones=r.zones.map((s,i)=>`<div class="zrow"><span>${ZN[i+1]}</span><span class="bar"><i style="width:${s/tot*100}%;background:var(--z${i+1})"></i></span><span>${clock(s)} &nbsp;${Math.round(s/tot*100)}%</span></div>`).join('');
+  const tot=(r.zones||[]).reduce((a,b)=>a+b,0)||1;
+  const zones=(r.zones||[]).map((s,i)=>`<div class="zrow"><span>${ZN[i+1]}</span><span class="bar"><i style="width:${s/tot*100}%;background:var(--z${i+1})"></i></span><span>${clock(s)} &nbsp;${Math.round(s/tot*100)}%</span></div>`).join('');
   const prd=new Set((r.prs||[]).map(x=>x.d));
   const outdoor=r.type==='buiten';
   let hz='';
@@ -353,7 +335,7 @@ function rideView(){
       ${rows.map(l=>`<tr><td><span class="zchip"><i style="background:var(--z${zoneOf(l.t/r.ftp)})"></i>${esc(l.label)}</span></td><td>${clock(l.d)}</td><td>${l.t} W</td><td>${l.p} W</td><td style="color:${Math.abs(l.dev)>6?'var(--z6)':'inherit'}">${Math.abs(l.dev)<.05?'0,0':(l.dev>0?'+':'')+nl(l.dev.toFixed(1))}%</td><td>${l.cad||'–'}</td><td>${l.hr||'–'}</td></tr>`).join('')}
       </tbody></table></div></div>`;
   }
-  return `<button class="back" data-act="nav" data-v="ritten">‹ Ritten</button>
+  return `<button class="back" data-act="nav" data-v="kalender">‹ Kalender</button>
     <div class="head"><div><h1>${esc(r.name)}${r.sim?' <span class="badge" style="vertical-align:middle">Demo</span>':''}</h1><p>${dateLong(d)} ${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}</p></div>${ftpBtn}</div>
     <div class="stack">
     ${awardsOf(r).length?`<div class="awards">${awardsOf(r).map(([i,t])=>`<span><b>${i}</b>${esc(t)}</span>`).join('')}</div>`:''}
@@ -458,7 +440,7 @@ function modalHTML(){
 function render(){
   const app=document.getElementById('app');
   if(P){renderPlayer();document.getElementById('modal').innerHTML='';return}
-  const views={vandaag:vandaagView,schema:schemaView,ritten:rittenView,analyse:rittenView,ride:rideView,lib:libView,profiel:profielView,settings:profielView,training:trainingView};
+  const views={vandaag:vandaagView,kalender:kalenderView,schema:kalenderView,ritten:kalenderView,prestaties:prestatiesView,voortgang:voortgangView,analyse:voortgangView,ride:rideView,lib:libView,profiel:profielView,settings:profielView,training:trainingView};
   const v=views[ui.view]||vandaagView;
   app.innerHTML=shell(v());
   document.getElementById('modal').innerHTML=modalHTML();
