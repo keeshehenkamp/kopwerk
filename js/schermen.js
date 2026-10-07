@@ -35,7 +35,7 @@ function shell(body){
 /* ---------- formulier met je gegevens (eerste keer en Profiel) ---------- */
 function settingsForm(first){
   const p=state.profile,ev=state.event||{};
-  const save=`<button class="btn pri big" data-act="saveSettings">${first?'Maak mijn schema':'Wijzigingen opslaan'}</button>`;
+  const save=`<button class="btn pri big" data-act="saveSettings">Maak mijn schema</button>`;
   /* doelen: 'gewoon beter worden' voorop; een evenement is optioneel */
   const goals=['fit','ftp','klimmen','duur','koers'].filter(k=>GOALS[k]).map(k=>[k,GOALS[k].name]);
   const event=`<details class="evbox"${ev.date?' open':''}><summary>Ik train voor een evenement</summary>
@@ -56,39 +56,61 @@ function settingsForm(first){
         <div><label class="f" for="s-snd">Geluid bij blokwissel</label>${sel('id="s-snd"',[[1,'Aan'],[0,'Uit']],p.sound?1:0)}</div>`}
       </div>
 </div>
-    ${first?'':`<div class="card row spread"><h2>Wanneer kun je fietsen?</h2><button class="btn small" data-act="openAvail" data-mon="${iso(mondayOf(new Date()))}">Tijd per dag aanpassen</button></div>`}
-    ${first?`<div class="card stack"><h2>Wanneer kun je fietsen?</h2>
-      <div class="avail">${DAYS.map((d,i)=>`<div><label class="f" for="s-a${i}" style="font-weight:600;color:var(--ink)">${d}</label>${sel(`id="s-a${i}"`,MINS.map(m=>[m,m?durTxt(m):'Rust']),state.avail[i])}</div>`).join('')}</div></div>`:''}
-    <div>${save}</div></div>`;
+    ${first?`<div class="card"><h2 style="margin-bottom:12px">Wanneer kun je fietsen?</h2>${availEditor('setup')}</div>`:''}
+    ${first?`<div>${save}</div>`:''}</div>`;
 }
 function setupView(){
   return `<div class="head"><div><h1>Welkom bij Kopwerk</h1></div></div>${settingsForm(true)}`;
 }
 
+/* ---------- je tijd per dag ----------
+   Tik op een dag en kies de tijd; het staat meteen opgeslagen en je gaat door naar de volgende dag.
+   Een week zonder eigen invulling neemt de laatst ingevulde week over. */
+const minShort=m=>m?(m>=60?(m%60?`${Math.floor(m/60)}u${m%60}`:`${m/60}u`):`${m}m`):'–';
+function avWeek(k){
+  if(k==='setup'){const m=ui.setupAvail||(ui.setupAvail=state.avail.slice());return {mins:m,lock:m.map(()=>false)}}
+  const tk=iso(new Date()),plan=planWeek(state,parseISO(k),new Date());
+  return {mins:plan.days.map(d=>d.o.skip?0:(d.o.minutes!=null?d.o.minutes:d.base)),lock:plan.days.map(d=>d.iso<tk),dates:plan.days.map(d=>d.date),today:plan.days.map(d=>d.iso===tk)};
+}
+function availEditor(k){
+  const w=avWeek(k),sel=ui.avSel&&ui.avSel.k===k&&!w.lock[ui.avSel.i]?ui.avSel.i:null,tot=w.mins.reduce((x,y)=>x+y,0);
+  const tiles=w.mins.map((m,i)=>`<button class="avd${sel===i?' on':''}${w.today&&w.today[i]?' today':''}" data-act="avDay" data-k="${k}" data-i="${i}"${w.lock[i]?' disabled':''} aria-pressed="${sel===i}" aria-label="${DAYS_L[i]}: ${m?durTxt(m):'rust'}"><span>${DAYS[i]}${w.dates?' '+w.dates[i].getDate():''}</span><b>${minShort(m)}</b></button>`).join('');
+  const chips=sel==null?'':`<div class="avchips" role="group" aria-label="Tijd op ${DAYS_L[sel]}">${MINS.map(m=>`<button class="btn" data-act="avSet" data-k="${k}" data-m="${m}" aria-pressed="${w.mins[sel]===m}">${m?minShort(m):'Rust'}</button>`).join('')}</div>`;
+  return `<div class="aved" data-k="${k}"><div class="avdays">${tiles}</div>${chips}<div class="avtot">${tot?durTxt(tot)+' beschikbaar':'Nog geen tijd gekozen'}</div></div>`;
+}
+function avRefresh(k){const el=document.querySelector(`.aved[data-k="${k}"]`);if(el)el.outerHTML=availEditor(k)}
+
 /* ---------- vandaag ---------- */
-function bandHTML(plan,today){
+/* de week: fase of aftellen naar je evenement, en hoe ver je deze week bent */
+function weekCard(plan,today){
+  const mon=plan.monday,planned=plan.days.filter(d=>d.wo),wk=state.rides.filter(r=>!r.sim&&r.date>=iso(mon)&&r.date<=iso(addDays(mon,6)));
+  const sum=weekSum(plan),doneM=Math.round(wk.reduce((a,r)=>a+r.dur,0)/60);
   const ev=state.event,evDate=ev&&ev.date?parseISO(ev.date):null,toEv=evDate?dayDiff(today,evDate):-1;
+  let top,big,sub;
   if(toEv>=0){
     const start=parseISO(state.planStart),total=Math.max(1,Math.ceil(dayDiff(start,evDate)/7)),done=clamp(Math.floor(dayDiff(start,today)/7)+1,1,total);
-    return `<div class="band"><div class="lb">${esc(ev.name)} · ${evDate.getDate()} ${MONTHS[evDate.getMonth()]}</div>
-      <div class="bigno"><b>${toEv}</b><span>${toEv===1?'dag':'dagen'}</span></div>
-      <div class="bar"><i style="width:${Math.round(done/total*100)}%"></i></div>
-      <div class="bl"><span>${esc(plan.label)}</span><span>week ${done} van ${total}</span></div></div>`;
+    top=`${esc(ev.name)} · ${evDate.getDate()} ${MONTHS[evDate.getMonth()]}`;big=`<div class="bigno"><b>${toEv}</b><span>${toEv===1?'dag':'dagen'}</span></div>`;sub=`${esc(plan.label)} · week ${done} van ${total}`;
+  }else{
+    const goal=GOALS[state.profile.goal]||GOALS.ftp,ph=plan.ctx.kind==='rec'?4:((((Math.floor(dayDiff(parseISO(state.planStart),mon)/7))%4)+4)%4)+1;
+    top=`Doel: ${esc(goal.name.replace(/^[A-Z](?=[a-z])/,c=>c.toLowerCase()))}`;big=`<div class="bigno txt"><b>${esc(plan.label)}</b></div>`;sub=ph<4?`Herstelweek over ${4-ph} ${4-ph===1?'week':'weken'}`:'Deze week rustiger aan';
   }
-  const goal=GOALS[state.profile.goal]||GOALS.ftp,ph=plan.ctx.kind==='rec'?4:((((Math.floor(dayDiff(parseISO(state.planStart),plan.monday)/7))%4)+4)%4)+1;
-  return `<div class="band"><div class="lb">Doel: ${esc(goal.name.replace(/^[A-Z](?=[a-z])/,c=>c.toLowerCase()))}</div>
-    <div class="bigno txt"><b>${esc(plan.label)}</b></div>
-    <div class="bar"><i style="width:${ph*25}%"></i></div>
-    <div class="bl"><span>${ph<4?`Herstelweek over ${4-ph} ${4-ph===1?'week':'weken'}`:'Deze week rustiger aan'}</span><span>week ${weekNo(plan.monday)}</span></div></div>`;
+  return `<div class="band"><div class="bl" style="margin-top:0"><span>${top}</span><span>week ${weekNo(mon)}</span></div>${big}
+    <div class="prog"><i style="width:${sum.m?Math.min(100,Math.round(doneM/sum.m*100)):0}%"></i></div>
+    <div class="kvl"><span><b>${Math.min(wk.length,planned.length)} van ${planned.length}</b> trainingen</span><span>${durTxt(doneM)} van ${durTxt(sum.m)}</span></div>
+    <div class="bl"><span>${sub}</span>${state.health?'':'<button class="link small" data-act="openHealth">Ziek of geblesseerd?</button>'}</div></div>`;
 }
-function prepCard(plan,today){
-  const cur=mondayOf(today),nextMon=addDays(cur,7),isCur=iso(plan.monday)===iso(cur);
-  const card=(m,title)=>{const pw=planWeek(state,m,today);return `<div class="card stack"><h2>${title}</h2>
-    <div class="avail">${pw.days.map(d=>`<div><label class="f" for="n-a${d.i}"><b style="color:var(--ink)">${DAYS[d.i]}</b> ${d.date.getDate()}</label>${sel(`id="n-a${d.i}"`,MINS.map(v=>[v,v?durTxt(v):'Rust']),d.base)}</div>`).join('')}</div>
-    <div><button class="btn pri" data-act="saveWeek" data-mon="${iso(m)}" data-p="n">Trainingen klaarzetten</button></div></div>`};
-  if(isCur&&dow(today)===6&&!state.weeks[iso(nextMon)])return card(nextMon,`Zet week ${weekNo(nextMon)} klaar`);
-  if(!plan.custom)return card(plan.monday,isCur?'Wanneer kun je deze week?':`Wanneer kun je in week ${weekNo(plan.monday)}?`);
-  return '';
+/* hoe je ervoor staat: gereedheid, ziek gemeld, of een lichtere week; alles op één plek */
+function statusCard(plan,today){
+  const rd=readiness(today),f=rd.f,e=eftpAt(today),ftp=state.profile.ftp,H=state.health,fat=plan.fat;
+  const note=H||fat.health||fat.tired?'':fat.heavy>=2?'Twee trainingen voelden deze week zwaarder dan verwacht. De rest van de week is een stap lichter.':fat.heavy?'De rest van de week is een stap lichter.'
+    :fat.level?`Je reed de laatste week ${fat.pct}% meer dan gewoonlijk. De zware trainingen zijn een stap lichter.`:'';
+  const why=H?`${HEALTH[H.kind].label} sinds ${dateLong(parseISO(H.from))}. ${rd.why}`:rd.lvl==='ok'?'':rd.why;
+  const html=`<div class="card ready ${rd.lvl}"><div class="small muted">Gereedheid</div><h2 style="margin-top:2px">${rd.label}</h2>
+    ${why?`<p class="small muted" style="margin-top:4px">${why}</p>`:''}${note?`<p class="small" style="margin-top:6px">${note}</p>`:''}
+    ${H?`<div class="row" style="margin-top:12px"><button class="btn small pri" data-act="healthBetter">Ik ben weer beter</button><button class="btn small" data-act="openHealth">Aanpassen</button></div>`:''}
+    ${state.rides.some(r=>!r.sim)?`<div class="mini4"><div><b>${f.ctl}</b><span>Fitheid</span></div><div><b>${f.atl}</b><span>Vermoeidheid</span></div><div><b>${f.tsb>0?'+':''}${f.tsb}</b><span>Vorm</span></div><div><b>${e||'–'}</b><span>eFTP${e?' W':''}</span></div></div>`:''}
+    ${e&&e>ftp*1.02?`<p class="small" style="margin-top:10px">Je ritten wijzen op een hogere FTP. <button class="link" data-act="setFtp" data-w="${e}">FTP op ${e} W zetten</button></p>`:''}</div>`;
+  return {html,alert:rd.lvl!=='ok'||!!note};
 }
 function dayCard(d,tk){
   const r=rideOn(d.iso);
@@ -112,37 +134,21 @@ function vandaagView(){
   logPlan(plan,today);
   const selIso=ui.selDay&&ui.selDay>=iso(mon)&&ui.selDay<=iso(addDays(mon,6))?ui.selDay:tk;
   const sd=plan.days.find(d=>d.iso===selIso);
-  const hs=healthOn(state,tk),H=state.health;
   const strip=`<div class="days">${plan.days.map(d=>`<button class="dd${d.iso===tk?' today':''}" data-act="selDay" data-iso="${d.iso}" aria-pressed="${d.iso===selIso}" aria-label="${DAYS_L[d.i]} ${d.date.getDate()}">${DAYS[d.i]}<b>${d.date.getDate()}</b>${dotFor(d,rideOn(d.iso))}</button>`).join('')}</div>`;
   const lbl=selIso===tk?'Vandaag':dateLong(sd.date).replace(/^./,c=>c.toUpperCase());
-  /* voortgang deze week */
-  const planned=plan.days.filter(d=>d.wo),wk=state.rides.filter(r=>!r.sim&&r.date>=iso(mon)&&r.date<=iso(addDays(mon,6)));
-  const sum=weekSum(plan),doneM=Math.round(wk.reduce((a,r)=>a+r.dur,0)/60);
-  const week=`<div class="card"><div class="kvl"><span>Deze week</span><span><b>${Math.min(wk.length,planned.length)} van ${planned.length}</b> trainingen</span></div>
-    <div class="prog"><i style="width:${sum.m?Math.min(100,Math.round(doneM/sum.m*100)):0}%"></i></div>
-    <div class="kvl"><span>${durTxt(doneM)} gereden</span><span>${durTxt(sum.m)} gepland</span></div>
-    ${H?'':'<div style="margin-top:10px"><button class="link small" data-act="openHealth">Ziek of geblesseerd?</button></div>'}</div>`;
   /* komende trainingen, ook volgende week */
   const next=planWeek(state,addDays(mon,7),today).days,up=plan.days.concat(next).filter(d=>d.iso>tk&&(d.wo||d.event)&&!rideOn(d.iso)).slice(0,4);
   const upcoming=up.length?`<div class="card"><h3 style="margin-bottom:4px">Komende trainingen</h3><div class="list">${up.map(d=>`<button data-act="${d.event?'nav':'openDay'}" data-iso="${d.iso}" data-v="kalender"><span class="when"><b>${DAYS[d.i]}</b>${d.date.getDate()} ${MONTHS[d.date.getMonth()].slice(0,3)}</span>${dotFor(d)}<span class="w"><b>${esc(d.event||d.wo.name)}</b><span>${d.event?'Evenement':durTxt(d.wo.minutes)}</span></span></button>`).join('')}</div></div>`:'';
   const pend=ui.pending?`<div class="notice row spread"><span>Onderbroken training: ${esc(ui.pending.wo.name)}, ${clock(ui.pending.rec.p.length)}</span><span class="row"><button class="btn small" data-act="pendSave">Opslaan</button><button class="btn small" data-act="pendDrop">Weggooien</button></span></div>`:'';
-  const fat=H||plan.fat.health?'':plan.fat.heavy?`<p class="notice small">${plan.fat.heavy>=2?'Twee trainingen voelden deze week zwaarder dan verwacht.':'Je laatste training voelde zwaarder dan verwacht.'} De rest van de week is een stap lichter.</p>`:plan.fat.tired?'<p class="notice small">Je was te moe voor een training. De rest van de week is een stap lichter.</p>':plan.fat.level?`<p class="notice small">Je hebt de laatste week ${plan.fat.pct}% meer gereden dan gewoonlijk. De zware trainingen zijn daarom een stap lichter.</p>`:'';
-  const sick=H?`<div class="notice stack"><span>Je bent ${healthWord(H)} gemeld sinds ${dateLong(parseISO(H.from))} (${HEALTH[H.kind].label.toLowerCase()}). ${HEALTH[H.kind].cap?'Je schema heeft alleen korte, rustige ritjes.':'Er staan geen trainingen gepland.'}</span>
-      <span class="row"><button class="btn small pri" data-act="healthBetter">Ik ben weer beter</button><button class="btn small" data-act="openHealth">Aanpassen</button></span></div>`
-    :hs&&hs.ret?`<p class="notice small">Je bouwt weer op na ${healthWord(hs.h)==='ziek'?'je ziekte':'je blessure'}: ${hs.cap!=null?'eerst alleen rustige ritten.':'deze week minder zware trainingen.'}</p>`:'';
-  /* gereedheid: ben je vandaag klaar om te trainen? */
-  const rd=readiness(today),f=rd.f,e=eftpAt(today),ftp=state.profile.ftp;
-  const ready=`<div class="card ready ${rd.lvl}"><div class="small muted">Gereedheid</div><h2 style="margin-top:2px">${rd.label}</h2>${rd.lvl==='ok'?'':`<p class="small muted" style="margin-top:2px">${rd.why}</p>`}
-    ${state.rides.some(r=>!r.sim)?`<div class="mini4"><div><b>${f.ctl}</b><span>Fitheid</span></div><div><b>${f.atl}</b><span>Vermoeidheid</span></div><div><b>${f.tsb>0?'+':''}${f.tsb}</b><span>Vorm</span></div><div><b>${e||'–'}</b><span>eFTP${e?' W':''}</span></div></div>`:''}
-    ${e&&e>ftp*1.02?`<p class="small" style="margin-top:10px">Je ritten wijzen op een hogere FTP. <button class="link" data-act="setFtp" data-w="${e}">FTP op ${e} W zetten</button></p>`:''}</div>`;
-  /* je tijd deze week: altijd te zien en aan te passen */
-  const prep=prepCard(plan,today),short=m=>m>=60?(m%60?`${Math.floor(m/60)}u${m%60}`:`${m/60}u`):m?`${m}m`:'–';
-  const avail=prep||`<div class="card"><div class="row spread"><h3>Je tijd deze week</h3><button class="link small" data-act="openAvail" data-mon="${iso(mon)}">Aanpassen</button></div>
-    <div class="avsum">${plan.days.map(d=>`<span><b>${DAYS[d.i]}</b>${d.o.skip?'–':short(d.o.minutes!=null?d.o.minutes:d.base)}</span>`).join('')}</div></div>`;
+  /* gaat er iets anders dan normaal (moe, ziek, lichtere week), dan staat dat bovenaan */
+  const st=statusCard(plan,today);
+  /* je tijd: deze week of volgende week; op zondag standaard volgende week */
+  const nx=ui.avNext==null?dow(today)===6:ui.avNext,avK=iso(addDays(mon,nx?7:0));
+  const time=`<div class="card"><div class="row spread" style="margin-bottom:12px"><h3>Je tijd</h3><div class="seg" role="group" aria-label="Week"><button class="btn small" data-act="avWeek" data-n="0" aria-pressed="${!nx}">Deze week</button><button class="btn small" data-act="avWeek" data-n="1" aria-pressed="${nx}">Volgende week</button></div></div>${availEditor(avK)}</div>`;
   const last=state.rides.filter(r=>!r.sim).sort((a,b)=>b.ts-a.ts).slice(0,3);
   const recent=last.length?`<div class="card"><h3 style="margin-bottom:4px">Recente ritten</h3><div class="list">${last.map(r=>{const d=new Date(r.ts);return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${DAYS[dow(d)]}</b>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span><span class="w"><b>${esc(r.name)}</b><span>${clock(r.dur)} · ${r.tss} TSS${r.rpe?` · gevoel ${r.rpe}`:''}</span></span></button>`}).join('')}</div></div>`:'';
-  return `<div class="home"><div class="stack">${pend}${bandHTML(plan,today)}${ready}${strip}<div><div class="daylbl" style="margin-top:0">${lbl}</div>${dayCard(sd,tk)}</div></div>
-    <div class="stack">${sick}${avail}${fat}${week}${upcoming}${recent}</div></div>`;
+  return `<div class="home"><div class="stack">${pend}${st.alert?st.html:''}${strip}<div><div class="daylbl" style="margin-top:0">${lbl}</div>${dayCard(sd,tk)}</div>${weekCard(plan,today)}</div>
+    <div class="stack">${st.alert?'':st.html}${time}${upcoming}${recent}</div></div>`;
 }
 
 /* ---------- schema ---------- */
@@ -174,13 +180,14 @@ function weekDetail(){
   const adj=state.levelAdj?`<p class="small muted">De zware trainingen staan een stap ${state.levelAdj>0?'zwaarder':'lichter'}. <button class="link" data-act="resetAdj">Terugzetten</button></p>`:'';
   return `<div class="head" style="margin-top:0"><div><h2>Week ${weekNo(mon)}</h2><p>${esc(plan.label)} · ${durTxt(sum.m)} gepland</p></div>
       <div class="wnav"><button class="btn icon" data-act="week" data-d="-1" aria-label="Vorige week">‹</button>${ui.weekOff?'<button class="btn" data-act="week" data-d="0">Deze week</button>':''}<button class="btn icon" data-act="week" data-d="1" aria-label="Volgende week">›</button></div></div>
-    <div class="stack">${ui.weekOff>=0?prepCard(plan,today):''}
+    <div class="stack">
     <div class="card" style="padding:8px 12px">${rows}</div>
+    ${ui.weekOff>=0?`<div class="card"><h3 style="margin-bottom:12px">Je tijd in week ${weekNo(mon)}</h3>${availEditor(iso(mon))}</div>`:''}
     <div class="row spread"><details class="why"><summary>Waarom dit schema?</summary><div class="stack" style="margin-top:10px;max-width:80ch">
         <p class="small muted">${phaseTxt}</p>
         <p class="small"><b style="font-weight:600">${esc(prof===goal?'Doel: '+goal.name.replace(/^[A-Z](?=[a-z])/,c=>c.toLowerCase()):prof.name)}.</b> <span class="muted">${esc(prof.plan)}</span></p>
         <p class="small muted">${basis}${ruimte}${pfTxt}</p>${adj}</div></details>
-      <div class="row"><button class="btn small" data-act="openAvail" data-mon="${iso(mon)}">Tijd per dag aanpassen</button><button class="btn small" data-act="zwoWeek">Download voor Zwift</button></div></div>
+      <button class="btn small" data-act="zwoWeek">Download voor Zwift</button></div>
     ${phaseStrip(today)}</div>`;
 }
 
@@ -203,9 +210,10 @@ function trainingView(){
   let adjust='';
   if(day){
     const types=[['','Automatisch']].concat(Object.entries(TYPES).filter(([k])=>k!=='ramptest').map(([k,t])=>[k,t.name]));
-    adjust=`<div class="card stack"><h3>Aanpassen</h3><div class="form">
-      <div><label class="f" for="m-min">Tijd die je deze dag hebt</label>${sel('id="m-min" data-chg="ovMin"',MINS.map(v=>[v,v?durTxt(v):'Rust']),day.o.skip?0:(day.o.minutes!=null?day.o.minutes:day.base))}</div>
-      <div><label class="f" for="m-type">Soort training</label>${sel('id="m-type" data-chg="ovType"',w?types:[['','Rust']].concat(types.slice(1)),day.o.type||'')}</div></div></div>`;
+    const cur=day.o.skip?0:(day.o.minutes!=null?day.o.minutes:day.base);
+    adjust=`<div class="card stack"><h3>Aanpassen</h3>
+      <div><div class="f">Tijd die je deze dag hebt</div><div class="avchips" role="group" aria-label="Tijd op deze dag">${MINS.map(m=>`<button class="btn" data-act="ovMin" data-m="${m}" aria-pressed="${cur===m}">${m?minShort(m):'Rust'}</button>`).join('')}</div></div>
+      <div class="form"><div><label class="f" for="m-type">Soort training</label>${sel('id="m-type" data-chg="ovType"',w?types:[['','Rust']].concat(types.slice(1)),day.o.type||'')}</div></div></div>`;
   }
   if(!w)return `${back}<div class="head"><div><h1>Rustdag</h1><p>${title}</p></div></div>
     <div class="detail">${adjust}</div>`;
@@ -405,14 +413,6 @@ function profielView(){
 }
 
 /* ---------- vensters ---------- */
-function availModal(){
-  const mon=parseISO(ui.modal.mon),plan=planWeek(state,mon,new Date());
-  return `<div class="veil" data-act="veil"><div class="modal stack" role="dialog" aria-modal="true" aria-label="Beschikbaarheid week ${weekNo(mon)}">
-    <div><p class="muted">${mon.getDate()} ${MONTHS[mon.getMonth()]} tot en met ${addDays(mon,6).getDate()} ${MONTHS[addDays(mon,6).getMonth()]}</p><h2>Wanneer kun je in week ${weekNo(mon)}?</h2></div>
-    <div class="avail">${plan.days.map(d=>`<div><label class="f" for="w-a${d.i}"><b style="color:var(--ink)">${DAYS[d.i]}</b> ${d.date.getDate()}</label>${sel(`id="w-a${d.i}"`,MINS.map(m=>[m,m?durTxt(m):'Rust']),d.o.skip?0:(d.o.minutes!=null?d.o.minutes:d.base))}</div>`).join('')}</div>
-    <div class="row spread"><div class="row"><button class="btn pri" data-act="saveWeek" data-mon="${ui.modal.mon}" data-p="w">Trainingen klaarzetten</button>${plan.custom?'<button class="btn" data-act="resetWeek">Zelfde als vorige week</button>':''}</div><button class="btn" data-act="closeModal">Sluiten</button></div>
-  </div></div>`;
-}
 /* training niet gedaan: waarom? */
 function missedModal(){
   const d=parseISO(ui.modal.iso),tk=iso(new Date());
@@ -433,7 +433,6 @@ function healthModal(){
 function modalHTML(){
   if(ui.modal&&ui.modal.kind==='missed')return missedModal();
   if(ui.modal&&ui.modal.kind==='health')return healthModal();
-  if(ui.modal&&ui.modal.kind==='avail')return availModal();
   if(ui.modal&&ui.modal.kind==='add')return addModal();
   return '';
 }
@@ -443,8 +442,12 @@ function render(){
   if(P){renderPlayer();document.getElementById('modal').innerHTML='';return}
   if(W)worldClose();
   const views={vandaag:vandaagView,kalender:kalenderView,schema:kalenderView,ritten:kalenderView,prestaties:prestatiesView,voortgang:voortgangView,analyse:voortgangView,ride:rideView,lib:libView,profiel:profielView,settings:profielView,training:trainingView};
-  const v=views[ui.view]||vandaagView;
+  const v=views[ui.view]||vandaagView,fe=document.activeElement,fid=fe&&fe.id&&/^(INPUT|SELECT|TEXTAREA)$/.test(fe.tagName)?fe.id:'';
   app.innerHTML=shell(v());
+  if(fid){const el=document.getElementById(fid);if(el)el.focus({preventScroll:true})}
+  /* wat je in het formulier had getypt, blijft staan als het scherm opnieuw wordt opgebouwd */
+  if(ui.draft){for(const [id,val] of Object.entries(ui.draft)){const el=document.getElementById(id);if(el)el.value=val}
+    const ev=document.querySelector('.evbox');if(ev&&Object.keys(ui.draft).some(k=>/^s-ev/.test(k)))ev.open=true}
   document.getElementById('modal').innerHTML=modalHTML();
   if(ui.view==='ride')bindChart();
 }

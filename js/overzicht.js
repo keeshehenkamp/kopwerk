@@ -11,12 +11,12 @@ const formOf=tsb=>tsb>5?'fris':tsb<-25?'zwaar vermoeid':tsb<-8?'vermoeid':'in ba
 /* gereedheid: hoe klaar je vandaag bent, uit meldingen, je gevoel en hartslag bij de laatste ritten en je vorm */
 function readiness(today){
   const tk=iso(today),f=fitness(state.rides,today,84),H=state.health;
-  if(H)return {lvl:'stop',label:healthWord(H)==='ziek'?'Ziek gemeld':'Geblesseerd',why:HEALTH[H.kind].cap?'Alleen korte, rustige ritjes tot je weer beter bent.':'Vandaag geen training.',f};
+  if(H)return {lvl:'stop',label:healthWord(H)==='ziek'?'Ziek gemeld':'Geblesseerd',why:HEALTH[H.kind].cap?'Alleen korte, rustige ritjes tot je weer beter bent.':'Geen trainingen tot je weer beter bent.',f};
   const hs=healthOn(state,tk),recent=state.rides.filter(r=>!r.sim&&r.date>=iso(addDays(today,-2))&&r.date<=tk);
   const tired=Object.entries(state.missed||{}).some(([k,v])=>v.why==='moe'&&k>=iso(addDays(today,-2))&&k<=tk);
   if(tired)return {lvl:'warn',label:'Neem het rustig',why:'Je meldde dat je te moe was. De komende dagen zijn lichter.',f};
   if(recent.some(rpeHeavy))return {lvl:'warn',label:'Neem het rustig',why:'Je laatste training voelde zwaarder dan verwacht.',f};
-  if(hs&&hs.ret)return {lvl:'warn',label:'Rustig opbouwen',why:`Na ${healthWord(hs.h)==='ziek'?'je ziekte':'je blessure'} bouw je weer op.`,f};
+  if(hs&&hs.ret)return {lvl:'warn',label:'Rustig opbouwen',why:`Na ${healthWord(hs.h)==='ziek'?'je ziekte':'je blessure'}: ${hs.cap!=null?'eerst alleen rustige ritten':'deze week minder zware trainingen'}.`,f};
   if(f.tsb<-25)return {lvl:'warn',label:'Veel vermoeidheid',why:'De trainingen van de afgelopen dagen zitten nog in je benen.',f};
   if(recent.some(r=>r.hrOff!=null&&r.hrOff>=6))return {lvl:'warn',label:'Let op je herstel',why:'Je hartslag lag bij je laatste rit hoger dan normaal.',f};
   return {lvl:'ok',label:f.tsb>5?'Fris':'Klaar om te trainen',why:f.tsb>5?'Je bent uitgerust.':f.tsb<-8?'Je bent wat vermoeid, zoals hoort als je opbouwt.':'Je vorm is in balans.',f};
