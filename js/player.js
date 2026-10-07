@@ -160,11 +160,11 @@ function playerHTML(){
   const status=P.sim?'<span class="badge">Demo zonder trainer</span>':`<span class="small muted">${tr}${hr?' &nbsp; '+hr:''}</span>`;
   const readyBox=ready?`<div class="pready stack">
       <div class="seg" role="group" aria-label="Weergave"><button class="btn small" data-act="view" data-v="3d" aria-pressed="${v3}">3D-wereld</button><button class="btn small" data-act="view" data-v="cijfers" aria-pressed="${!v3}">Alleen cijfers</button></div>
-      <div class="row">
+      ${navigator.bluetooth?`<div class="row">
         <button class="btn" data-act="connect">${ble.on?'Andere trainer':'Trainer koppelen'}</button>
         <button class="btn" data-act="connectHr">${ble.hrOn?'Andere hartslagmeter':'Hartslagmeter koppelen'}</button>
         <button class="btn pri big" data-act="go" ${ble.on?'':'disabled'}>Start training</button>
-      </div>
+      </div>`:`<p class="notice small">${NO_BLE}</p>`}
       ${ui.bleMsg?`<p class="notice small">${esc(ui.bleMsg)}</p>`:''}
       <div class="row small">
         <button class="btn small" data-act="goSim">Demo zonder trainer</button>

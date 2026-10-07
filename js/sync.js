@@ -13,7 +13,7 @@ async function fbInit(){
   const [A,U,F]=await Promise.all(['app','auth','firestore'].map(m=>import(FB+'firebase-'+m+'.js')));
   const app=A.initializeApp(CONFIG.firebase);
   fb={U,F,auth:U.getAuth(app),db:F.getFirestore(app)};
-  U.onAuthStateChanged(fb.auth,u=>{syncInfo.user=u?{uid:u.uid,email:u.email}:null;if(u)syncPull();else if(!P)render()});
+  U.onAuthStateChanged(fb.auth,u=>{syncInfo.user=u?{uid:u.uid,email:u.email}:null;syncInfo.ready=true;if(!P)render();if(u)syncPull()});
   return fb;
 }
 async function syncLogin(){
@@ -26,7 +26,7 @@ const uRef=(...p)=>fb.F.doc(fb.db,'users',syncInfo.user.uid,...p);
 /* Haalt wijzigingen van andere apparaten op en voegt ze samen: ritten van beide kanten, de rest van de nieuwste kant. */
 async function syncPull(){
   if(!syncInfo.user||syncInfo.busy)return;
-  syncInfo.busy=true;
+  syncInfo.busy=true;syncLastPull=Date.now();
   try{
     const F=fb.F,meta=syncMeta();
     const main=await F.getDoc(uRef());
@@ -54,6 +54,9 @@ async function syncPull(){
   syncInfo.busy=false;syncInfo.at=Date.now();
   if(!P&&ui.view==='profiel')render();
 }
+/* terug in de app of het tabblad: ophalen wat je op je andere apparaat deed (hooguit eens per halve minuut) */
+let syncLastPull=0;
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&syncInfo.user&&!P&&Date.now()-syncLastPull>30000)syncPull()});
 function syncSoon(){if(!syncInfo.user)return;clearTimeout(syncT);syncT=setTimeout(()=>syncPush().catch(()=>{}),2000)}
 /* Verstuurt alleen wat sinds de vorige keer veranderd is, plus meetgegevens die nog niet online staan. */
 async function syncPush(){

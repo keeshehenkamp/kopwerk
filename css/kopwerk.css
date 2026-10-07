@@ -97,6 +97,7 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .band .bar{height:6px;border-radius:3px;background:var(--sunk);margin-top:14px;overflow:hidden}
 .band .bar i{display:block;height:100%;background:var(--acc);border-radius:3px}
 .band .bl{display:flex;justify-content:space-between;gap:10px;margin-top:8px;font-size:13px;color:var(--muted)}
+.band .bl .link{white-space:nowrap}
 .band .tiles{display:flex;gap:10px;margin-top:16px}
 .band .tiles div{flex:1;background:var(--sunk);border-radius:8px;padding:10px 12px}
 .band .tiles b{display:block;font-size:19px;font-weight:600}

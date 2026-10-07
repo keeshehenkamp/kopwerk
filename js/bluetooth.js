@@ -3,7 +3,9 @@
 const live={power:null,cad:null,hr:null,tP:0,tH:0,hist:[]};
 const ble={dev:null,cp:null,queue:Promise.resolve(),name:'',on:false,hrDev:null,hrName:'',hrOn:false,crank:null,busy:false};
 const now=()=>performance.now();
-const NO_BLE='Deze browser ondersteunt geen Bluetooth. Gebruik Chrome of Edge op je laptop, of op een iPhone de app Bluefy.';
+const NO_BLE='Deze browser ondersteunt geen Bluetooth. Open Kopwerk in Chrome of Edge op je laptop.';
+/* rijden kan alleen met Web Bluetooth; op een telefoon of tablet zonder Bluetooth tonen we geen startknoppen */
+const canRide=()=>!!navigator.bluetooth||!matchMedia('(pointer:coarse)').matches;
 function onPower(w,cad){
   const t=now();live.power=Math.max(0,w);live.tP=t;
   if(cad!=null)live.cad=cad;

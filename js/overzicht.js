@@ -33,7 +33,7 @@ function kjBests(p){
 async function fillKj(){
   if(ui.kjBusy)return;ui.kjBusy=true;let ch=false;
   for(const r of state.rides){if(r.sim||r.kjb!==undefined||(r.kj||0)<1000)continue;const rec=await idb.get('s:'+r.id);r.kjb=rec&&rec.p?kjBests(rec.p):{};ch=true}
-  ui.kjBusy=false;if(ch){save();if(ui.view==='prestaties')render()}
+  ui.kjBusy=false;if(ch){save(false);if(ui.view==='prestaties')render()}
 }
 /* fitheid en vermoeidheid van je eerste rit tot vandaag, en daarna met de trainingen die gepland staan */
 function fitnessPath(today,ahead){

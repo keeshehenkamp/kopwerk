@@ -120,7 +120,7 @@ function dayCard(d,tk){
     const why={tijd:'geen tijd',moe:'te moe',ziek:'ziek'}[d.why],miss=why?`Niet gedaan (${why})`:'Gemist';
     const note=d.missed?`<div class="note late">${d.movedTo!=null?miss+', verplaatst naar '+DAYS_L[d.movedTo]:d.why==='moe'?miss+'. De dagen erna zijn lichter.':miss}</div>`:d.movedFrom!=null?`<div class="note moved">Verplaatst van ${DAYS_L[d.movedFrom]}</div>`:'';
     const act=d.iso>tk?'':d.missed&&d.why?`<div class="row" style="margin-top:8px"><button class="link small" data-act="undoMissed" data-iso="${d.iso}">Toch niet: melding intrekken</button></div>`
-      :d.iso===tk&&!d.missed?`<div class="row" style="margin-top:10px"><button class="btn pri big" data-act="startDay" data-iso="${d.iso}" style="flex:1">Start training</button><button class="btn big" data-act="openMissed" data-iso="${d.iso}">Lukt niet</button></div>`
+      :d.iso===tk&&!d.missed?`<div class="row" style="margin-top:10px">${canRide()?`<button class="btn pri big" data-act="startDay" data-iso="${d.iso}" style="flex:1">Start training</button>`:''}<button class="btn big" data-act="openMissed" data-iso="${d.iso}">Lukt niet</button></div>`
       :`<div class="row" style="margin-top:8px"><button class="btn small" data-act="openMissed" data-iso="${d.iso}">Niet gedaan melden</button></div>`;
     return `<button class="wcard" data-act="openDay" data-iso="${d.iso}"><div class="t"><div><h3>${esc(d.wo.name)}</h3><div class="m">${metaOf(d.wo)}</div>${note}</div><span class="chev">›</span></div>${profileSVG(d.wo.segs)}</button>
       ${act}`;
@@ -147,7 +147,10 @@ function vandaagView(){
   const time=`<div class="card"><div class="row spread" style="margin-bottom:12px"><h3>Je tijd</h3><div class="seg" role="group" aria-label="Week"><button class="btn small" data-act="avWeek" data-n="0" aria-pressed="${!nx}">Deze week</button><button class="btn small" data-act="avWeek" data-n="1" aria-pressed="${nx}">Volgende week</button></div></div>${availEditor(avK)}</div>`;
   const last=state.rides.filter(r=>!r.sim).sort((a,b)=>b.ts-a.ts).slice(0,3);
   const recent=last.length?`<div class="card"><h3 style="margin-bottom:4px">Recente ritten</h3><div class="list">${last.map(r=>{const d=new Date(r.ts);return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${DAYS[dow(d)]}</b>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span><span class="w"><b>${esc(r.name)}</b><span>${clock(r.dur)} · ${r.tss} TSS${r.rpe?` · gevoel ${r.rpe}`:''}</span></span></button>`}).join('')}</div></div>`:'';
-  return `<div class="home"><div class="stack">${pend}${st.alert?st.html:''}${strip}<div><div class="daylbl" style="margin-top:0">${lbl}</div>${dayCard(sd,tk)}</div>${weekCard(plan,today)}</div>
+  let hide=false;try{hide=localStorage.getItem('kopwerk.synchint')==='0'}catch(e){}
+  const sync=CONFIG.firebase&&syncInfo.ready&&!syncInfo.user&&!hide?`<div class="card row spread"><div><h3>Synchroniseren</h3><div class="small muted" style="margin-top:2px">Hetzelfde schema op je telefoon en laptop</div></div>
+    <span class="row"><button class="btn small pri" data-act="syncLogin">Inloggen met Google</button><button class="btn small" data-act="syncHide" aria-label="Verbergen">×</button></span></div>`:'';
+  return `<div class="home"><div class="stack">${pend}${sync}${st.alert?st.html:''}${strip}<div><div class="daylbl" style="margin-top:0">${lbl}</div>${dayCard(sd,tk)}</div>${weekCard(plan,today)}</div>
     <div class="stack">${st.alert?'':st.html}${time}${upcoming}${recent}</div></div>`;
 }
 
@@ -226,7 +229,7 @@ function trainingView(){
       <div class="kv"><div><b>${durTxt(w.minutes)}</b><span>duur</span></div><div><b>${w.tss}</b><span>TSS</span></div><div><b>${nl(w.IF.toFixed(2))}</b><span>intensiteit</span></div><div><b>${w.lvl?w.lvl+'/'+w.lvlMax:'–'}</b><span>trede</span></div></div>
       <div class="card stack"><p>${esc(w.desc)}</p>${why?`<details class="why"><summary>Waarom deze training?</summary><p class="small muted" style="margin-top:8px">${esc(why)}</p></details>`:''}<div class="row">${zs.map(z=>`<span class="zchip"><i style="background:var(--z${z})"></i>${ZN[z]}</span>`).join('')}</div></div>
     </div><div class="stack">
-      <div class="cta"><button class="btn pri big" data-act="startModal">Start training</button><button class="btn" data-act="zwoModal">Zwift</button></div>
+      ${canRide()?`<div class="cta"><button class="btn pri big" data-act="startModal">Start training</button><button class="btn" data-act="zwoModal">Zwift</button></div>`:''}
       <div class="card"><h3 style="margin-bottom:4px">Blokken</h3>${segList(w)}</div>
       ${adjust}</div></div>`;
 }
@@ -237,7 +240,7 @@ function libView(){
   const cards=Object.keys(TYPES).map(k=>{const w=buildWorkout(k,l.min,l.L);
     return `<button class="wcard" data-act="openWo" data-type="${k}"><h3>${esc(w.name)}</h3><div class="m">${durTxt(w.minutes)} · ${w.tss} TSS</div>${profileSVG(w.segs)}</button>`}).join('');
   return `<div class="head"><div><h1>Trainingen</h1></div>
-    <div class="row"><button class="btn pri" data-act="demo">Bekijk de demo</button><label class="small muted">Duur ${sel('data-chg="libMin"',[30,45,60,75,90,120].map(m=>[m,durTxt(m)]),l.min)}</label>
+    <div class="row">${canRide()?'<button class="btn pri" data-act="demo">Bekijk de demo</button>':''}<label class="small muted">Duur ${sel('data-chg="libMin"',[30,45,60,75,90,120].map(m=>[m,durTxt(m)]),l.min)}</label>
     <label class="small muted">Zwaarte ${sel('data-chg="libL"',[[0,'Licht'],[1,'Normaal'],[2,'Zwaar']],l.L)}</label></div></div>
     <div class="grid">${cards}</div>`;
 }

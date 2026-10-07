@@ -321,5 +321,5 @@ function logPlan(plan,today){
   }
   for(const k of Object.keys(log))if(k<cut){delete log[k];ch=true}
   for(const k of Object.keys(state.missed||{}))if(k<cut){delete state.missed[k];ch=true}
-  if(ch)save();
+  if(ch)save(false);
 }

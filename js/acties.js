@@ -166,6 +166,7 @@ const actions={
     ui.aiBusy=false;render();
   },
   syncLogin(){syncLogin()},
+  syncHide(){try{localStorage.setItem('kopwerk.synchint','0')}catch(e){}render()},
   syncLogout(){syncLogout()},
   stravaConnect(){stravaConnect()},
   stravaFetch(){stravaFetch(true)},
@@ -255,7 +256,7 @@ window.addEventListener('beforeunload',e=>{if(P&&(P.mode==='run'||P.mode==='paus
       const s=await idb.get('s:'+r.id);
       if(s&&Array.isArray(s.p)){for(const[w]of BESTS)r.best[w]=bestEffort(s.p,w);ch=true}
     }
-    if(ch){save();if(!P)render()}
+    if(ch){save(false);if(!P)render()}
   }catch(e){}
   try{const a=await idb.get('active');if(a&&a.rec&&a.rec.p&&a.rec.p.length>=60&&a.wo){ui.pending=a;if(!P)render()}}catch(e){}
   /* koppelingen: inloggen (synchroniseert vanzelf), terugkomst van Strava, en elk uur nieuwe Strava-ritten */

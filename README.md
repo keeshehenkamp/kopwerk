@@ -36,7 +36,13 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 - `ftpGiven`: de dag waarop je bij de start zelf een FTP invulde. De coach telt dat als test, dus de eerste FTP-test komt pas na zes weken. Ritten krijgen `rpeAdj` als hun trede uit je gevoel komt; pas je je gevoel later aan, dan rekent de coach die trede opnieuw uit (zolang er geen nieuwere rit van die soort is beoordeeld).
 - Van demo-ritten (`sim`) bewaart de app alleen de laatste. Ze tellen niet mee in het schema, de kalender of je beste ritten.
 
+- Synchronisatie (Firebase, inloggen met Google) kiest per kant het nieuwste op basis van `updatedAt`. Alleen echte wijzigingen verhogen die (`save()`); wat de app zelf afleidt, zoals de planlog en records, bewaart met `save(false)`. Terug in de app of het tabblad haalt de app wijzigingen van je andere apparaat op.
+
 Verander deze namen of het formaat niet zonder migratie, anders zijn bestaande gegevens niet meer leesbaar. Alle opslag loopt via `js/opslag.js`. Daar kan later ook synchronisatie op aansluiten.
+
+## Laptop en telefoon
+
+Rijden met je trainer kan alleen in een browser met Web Bluetooth: Chrome of Edge op je laptop (of Chrome op Android). Op een telefoon of tablet zonder Bluetooth, zoals een iPhone, toont de app geen startknoppen: daar plan je, pas je je tijd aan en kijk je je ritten terug. Log op beide in met Google, dan zie je overal hetzelfde.
 
 ## Als app op je telefoon
 
