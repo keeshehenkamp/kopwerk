@@ -243,8 +243,8 @@ function markRecords(ride){
 function makeRide(a){
   const an=analyze(a.rec,a.ftp,a.laps,a.planned||a.wo.sec,a.wo.type);
   const d=new Date(a.startTs||Date.now());
-  const hrOff=a.sim?null:hrOffset(a.rec,a.ftp);
-  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,planned:a.planned||a.wo.sec,ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game),kjb:a.sim?{}:kjBests(a.rec.p)},hrOff!=null?{hrOff}:{},an);
+  const hrOff=a.sim?null:hrOffset(a.rec,a.ftp),perf=typeof meetSummary==='function'?meetSummary():null;
+  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,planned:a.planned||a.wo.sec,ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game),kjb:a.sim?{}:kjBests(a.rec.p)},hrOff!=null?{hrOff}:{},perf?{perf}:{},an);
 }
 async function storeRide(a){
   const ride=makeRide(a);if(!a.sim)learnHr(a.rec,a.ftp);

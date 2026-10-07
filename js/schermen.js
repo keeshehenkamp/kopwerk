@@ -327,7 +327,7 @@ function rideView(){
   /* tijd per zone als één balk */
   const zs=r.zones||[],tot=zs.reduce((a,b)=>a+b,0);
   const zones=tot?`<div class="card"><h3 style="margin-bottom:12px">Tijd per zone</h3><div class="zstack">${zs.map((s,i)=>s?`<i style="flex:${s};background:var(--z${i+1})" title="${ZN[i+1]}"></i>`:'').join('')}</div>
-      <div class="zlist">${zs.map((s,i)=>s/tot>=.005?`<div><i style="background:var(--z${i+1})"></i><span>${ZN[i+1]}</span><b>${clock(s)}</b><em>${Math.round(s/tot*100)}%</em></div>`:'').join('')}</div></div>`:'';
+      <div class="zonelist">${zs.map((s,i)=>s/tot>=.005?`<div><i style="background:var(--z${i+1})"></i><span>${ZN[i+1]}</span><b>${clock(s)}</b><em>${Math.round(s/tot*100)}%</em></div>`:'').join('')}</div></div>`:'';
   const chart=r.manual?'':`<div class="card"><h3 style="margin-bottom:10px">Verloop</h3>${rec?rideChart(r,rec):'<p class="muted">Geen meetgegevens op dit apparaat.</p>'}</div>`;
   /* diepgaande analyse */
   let deep='';
@@ -358,7 +358,7 @@ function rideView(){
   const from=TABS.find(t=>t[0]===tabOf('ride'))||TABS[1];
   return `<button class="back" data-act="nav" data-v="${from[0]}">‹ ${from[1]}</button>
     <div class="head"><div><h1>${esc(r.name)}${r.sim?' <span class="badge" style="vertical-align:middle">Demo</span>':''}</h1><p>${dateLong(d)} ${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}</p></div></div>
-    <div class="stack">${hero}${keys}${r.rpe==null?rpe:''}${prs}${chart}${zones}
+    <div class="stack">${r.perf&&/[?&]meet/.test(location.search)?`<div class="card"><h3 style="margin-bottom:6px">Meting 3D-wereld</h3><p><b>${r.perf.fps}</b> beelden per seconde · ${r.perf.big} haperingen · ${r.perf.small} gemiste beelden</p>${r.perf.list.length?`<p class="small muted" style="margin-top:6px">Grootste haperingen: ${r.perf.list.map(x=>`${clock(x.t)} (${x.ms} ms${x.b?', bijbouwen':''})`).join(', ')}</p>`:''}</div>`:''}${hero}${keys}${r.rpe==null?rpe:''}${prs}${chart}${zones}
       <button class="btn deepbtn" data-act="deep" aria-expanded="${!!ui.deep}">Diepgaande analyse<span aria-hidden="true">${ui.deep?'▴':'▾'}</span></button>
       ${deep}${r.rpe!=null?rpe:''}
       <div><button class="btn warn" data-act="delRide">${ui.confirm==='ride'?'Klik nog eens om te verwijderen':'Rit verwijderen'}</button></div></div>`;
