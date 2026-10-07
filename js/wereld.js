@@ -59,13 +59,14 @@ function routeProfile(id){
 /* ---------- routes: rondjes met een eigen hoogteprofiel ----------
    Elke route is een gesloten ronde van een heel aantal kilometers, dus elke ronde ziet er precies hetzelfde uit.
    De weg ligt vast; je vermogen en de helling bepalen hoe snel je gaat (speedFor), niet andersom.
-   zones: landschappen in km. klim: [begin km, lengte km, gemiddeld %]; na elke klim volgt een afdaling, zodat de ronde op dezelfde hoogte sluit. */
+   zones: landschappen in km. klim: [begin km, lengte km, gemiddeld %]; na elke klim volgt een afdaling, zodat de ronde op dezelfde hoogte sluit.
+   hp: reeksen haarspeldbochten [begin km, aantal bochten (oneven)]. */
 const ROUTES=[
   {id:'polder',name:'Polderronde',km:14,zones:[['polder',5],['meer',4],['polder',5]],klim:[[9.4,.5,3]],roll:.6},
   {id:'bos',name:'Bossen en meren',km:18,zones:[['bos',5],['meer',4],['polder',4],['bos',5]],klim:[[2,1.2,2.5],[13.4,1,3.5]],roll:1.5},
   {id:'heuvel',name:'Heuvelland',km:22,zones:[['polder',3],['heuvels',8],['bos',4],['heuvels',7]],klim:[[3.6,1.6,4.5],[7.2,.9,8],[10.2,1.2,5],[16,2,5.5],[19.8,.7,9]],roll:3},
   {id:'provence',name:'Provence',km:26,zones:[['provence',9],['heuvels',6],['provence',11]],klim:[[2.5,5,4.2],[13.5,2.5,5.5],[20.5,1.4,3.5]],roll:2.5},
-  {id:'col',name:'De Col',km:30,zones:[['bos',4.5],['bergen',16.5],['bos',4],['meer',5]],klim:[[4.5,9.5,6.8]],roll:1.5}
+  {id:'col',name:'De Col',km:30,zones:[['bos',4.5],['bergen',16.5],['bos',4],['meer',5]],klim:[[4.5,9.5,6.8]],roll:1.5,hp:[[5.4,7],[10,9]]}
 ];
 const ROUTE_KEY='kopwerk.route';
 const routeId=()=>{let v='';try{v=localStorage.getItem(ROUTE_KEY)||''}catch(e){}return ROUTES.some(r=>r.id===v)?v:'heuvel'};
@@ -93,20 +94,61 @@ function buildCourse(id){
   /* vorm: een gesloten bocht met een paar grote golven en, in heuvels, bos en bergen, kleinere slingers */
   const M=4096,amps=[2,3,4,5].map(k=>({k,a:(.05+r()*.07)/k,p:r()*6})),wig=[0,1,2].map(()=>{const m=Math.max(2,Math.round(L/(350+r()*500))),lam=L/m,amax=lam*lam/(4*Math.PI*Math.PI*130)/1.3;return {m,a:Math.min(amax,6+r()*16),p:r()*6}});
   const zoneW={polder:.2,meer:.35,provence:.6,heuvels:1,bos:.8,bergen:1.3},envAt=u=>{const d=u*L;let w=0,tot=0;for(const z of zones){let e=1e9;for(const sh of[-L,0,L])e=Math.min(e,Math.max(z.a+sh-d,d-z.b-sh,0));const t=1-clamp(e/400,0,1);w+=t*(zoneW[z.ty]??.6);tot+=t}return tot?w/tot:.5};
+  /* Haarspeldbochten: een vast stuk zigzag (in meters) dat naar de binnenkant van de ronde de berg op klimt.
+     f = vooruit langs de ronde, q = naar binnen. Benen van 170-320 m, 40 m uit elkaar, bochten met een straal van 20 m. */
+  const hairTpl=n=>{const r1=20,rh=20,P=[[0,0]],ap=[];let f=0,q=0,ph=0;
+    const arc=(dph,rad)=>{const st=Math.ceil(Math.abs(dph)*rad/2);for(let i=0;i<st;i++){const a0=ph;ph+=dph/st;const am=(a0+ph)/2,ds=2*rad*Math.sin(Math.abs(dph/st)/2);f+=Math.cos(am)*ds;q+=Math.sin(am)*ds;P.push([f,q])}};
+    const line=len=>{const st=Math.max(1,Math.ceil(len/2));for(let i=0;i<st;i++){f+=Math.cos(ph)*len/st;q+=Math.sin(ph)*len/st;P.push([f,q])}};
+    arc(Math.PI/2,r1);
+    for(let j=0;j<=n;j++){const inw=j%2===0,to=inw?r1+170+r()*150:j===n?r1:r1+r()*30;line(Math.abs(to-q));
+      if(j<n){const i0=P.length;arc(inw?-Math.PI:Math.PI,rh);ap.push(i0+Math.floor((P.length-i0)/2))}}
+    arc(Math.PI/2,r1);let len=0;for(let i=1;i<P.length;i++)len+=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);return {P,ap,len,F:f}};
+  const HB=(R.hp||[]).map(([km,n])=>({s:km*1000,t:hairTpl(n)})).sort((x,y)=>x.s-y.s);
+  /* waar elke reeks in de gewone ronde komt: het stuk weg ter lengte van de zigzag-breedte wordt vervangen */
+  const hairCut=Q=>{const cum=[0];for(let i=1;i<=M;i++)cum.push(cum[i-1]+Math.hypot(Q[i][0]-Q[i-1][0],Q[i][1]-Q[i-1][1]));
+    const cut=[];let extra=0,iA=1;for(const b of HB){while(iA<M-2&&cum[iA]<b.s-extra)iA++;let iB=iA+1;while(iB<M-1&&cum[iB]<cum[iA]+b.t.F)iB++;
+      cut.push({iA,iB,b});extra+=b.t.len-(cum[iB]-cum[iA]);iA=iB+1}
+    cut.base=cum[M];return cut};
+  const hairIns=(Q,cut)=>{const out=[],ap=[];let i=0;
+    for(const {iA,iB,b} of cut){for(;i<=iA;i++)out.push(Q[i]);
+      const A=Q[iA],tx=Q[iA+1][0]-Q[iA-1][0],tz=Q[iA+1][1]-Q[iA-1][1],tl=Math.hypot(tx,tz),fx=tx/tl,fz=tz/tl;let qx=-fz,qz=fx;if(qx*A[0]+qz*A[1]>0){qx=-qx;qz=-qz}
+      const T=b.t,P=T.P,ex=Q[iB][0]-(A[0]+fx*T.F),ez=Q[iB][1]-(A[1]+fz*T.F),o0=out.length-1;let s=0;
+      for(let j=1;j<P.length-1;j++){s+=Math.hypot(P[j][0]-P[j-1][0],P[j][1]-P[j-1][1]);const u=s/T.len;out.push([A[0]+fx*P[j][0]+qx*P[j][1]+ex*u,A[1]+fz*P[j][0]+qz*P[j][1]+ez*u])}
+      for(const j of T.ap)ap.push(o0+j);i=iB}
+    for(;i<=M;i++)out.push(Q[i]);
+    const cum=[0];for(let j=1;j<out.length;j++)cum.push(cum[j-1]+Math.hypot(out[j][0]-out[j-1][0],out[j][1]-out[j-1][1]));
+    return {Q:out,len:cum[cum.length-1],hpS:ap.map(j=>cum[j])}};
   const shape=R0=>{const P=[];for(let i=0;i<=M;i++){const t=i/M*Math.PI*2;let rr=1;for(const q of amps)rr+=q.a*Math.cos(q.k*t+q.p);P.push([R0*rr*Math.cos(t),R0*rr*Math.sin(t)])}
-    /* slingers loodrecht op de weg */
-    const Q=[];for(let i=0;i<=M;i++){const a=P[(i+M-1)%M],b=P[(i+1)%M],dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz)||1,u=i/M;let w=0;for(const q of wig)w+=q.a*Math.sin(u*Math.PI*2*q.m+q.p);w*=envAt(u);Q.push([P[i][0]-dz/l*w,P[i][1]+dx/l*w])}
-    Q[M]=Q[0];let len=0;for(let i=1;i<=M;i++)len+=Math.hypot(Q[i][0]-Q[i-1][0],Q[i][1]-Q[i-1][1]);return {Q,len}};
-  let R0=L/(2*Math.PI),sh=shape(R0);R0*=L/sh.len;sh=shape(R0);R0*=L/sh.len;sh=shape(R0);
+    /* slingers loodrecht op de weg (niet rond de haarspeldbochten) */
+    const wiggle=fade=>{const Q=[];for(let i=0;i<=M;i++){const a=P[(i+M-1)%M],b=P[(i+1)%M],dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz)||1,u=i/M;let w=0;for(const q of wig)w+=q.a*Math.sin(u*Math.PI*2*q.m+q.p);w*=envAt(u)*fade(u);Q.push([P[i][0]-dz/l*w,P[i][1]+dx/l*w])}
+      Q[M]=Q[0];return Q};
+    let Q=wiggle(()=>1);if(!HB.length){let len=0;for(let i=1;i<=M;i++)len+=Math.hypot(Q[i][0]-Q[i-1][0],Q[i][1]-Q[i-1][1]);return {Q,len,hpS:[]}}
+    let cut=hairCut(Q);const B=cut.base,win=cut.map(c=>[c.iA/M,c.iB/M]);
+    Q=wiggle(u=>{let f=1;for(const [ua,ub] of win)f=Math.min(f,clamp((Math.max(ua-u,u-ub,0)*B-150)/250,0,1));return f});
+    return hairIns(Q,hairCut(Q))};
+  let R0=L/(2*Math.PI),sh=shape(R0);for(let it=0;it<8;it++){R0*=L/sh.len;sh=shape(R0)}C.R0=R0;
   /* gelijke stappen van STEP meter langs de weg */
   const X=new Float32Array(N+1),Z=new Float32Array(N+1),HD=new Float32Array(N+1),K=new Float32Array(N+1),Q=sh.Q;
-  let acc=0,i=1;X[0]=Q[0][0];Z[0]=Q[0][1];
-  for(let k=1;k<N;k++){const want=k*sh.len/N;while(i<M&&acc+Math.hypot(Q[i][0]-Q[i-1][0],Q[i][1]-Q[i-1][1])<want){acc+=Math.hypot(Q[i][0]-Q[i-1][0],Q[i][1]-Q[i-1][1]);i++}
+  let acc=0,i=1;X[0]=Q[0][0];Z[0]=Q[0][1];const QN=Q.length-1;
+  for(let k=1;k<N;k++){const want=k*sh.len/N;while(i<QN&&acc+Math.hypot(Q[i][0]-Q[i-1][0],Q[i][1]-Q[i-1][1])<want){acc+=Math.hypot(Q[i][0]-Q[i-1][0],Q[i][1]-Q[i-1][1]);i++}
     const sl=Math.hypot(Q[i][0]-Q[i-1][0],Q[i][1]-Q[i-1][1])||1,f=clamp((want-acc)/sl,0,1);X[k]=Q[i-1][0]+(Q[i][0]-Q[i-1][0])*f;Z[k]=Q[i-1][1]+(Q[i][1]-Q[i-1][1])*f}
   X[N]=X[0];Z[N]=Z[0];
   let prev=null;for(let k=0;k<=N;k++){const a=k<N?k:0,b=(a+1)%N;let h=Math.atan2(X[b]-X[a],-(Z[b]-Z[a]));if(prev!=null){while(h-prev>Math.PI)h-=Math.PI*2;while(h-prev<-Math.PI)h+=Math.PI*2}HD[k]=h;prev=h}
   for(let k=0;k<N;k++)K[k]=(HD[k+1]-HD[k])/STEP;K[N]=K[0];
-  Object.assign(C,{X,Z,HD,K,Y,UP});
+  Object.assign(C,{X,Z,HD,K,Y,UP});C.hp=sh.hpS.map(s=>s*L/sh.len);
+  /* Het dal ligt aan de buitenkant van de ronde. VS: wijst de rechterkant van de weg naar buiten (1) of naar binnen (-1)?
+     DV: hoe hoog de weg boven het laagste punt van zijn landschap ligt (zo diep is het dal) */
+  const VS=new Float32Array(N+1),DV=new Float32Array(N+1);for(let k=0;k<=N;k++){const l=Math.hypot(X[k],Z[k])||1;VS[k]=(Math.cos(HD[k])*X[k]+Math.sin(HD[k])*Z[k])/l}
+  for(const z of zones){const k0=Math.floor(z.a/STEP),k1=Math.min(N,Math.ceil(z.b/STEP));let lo=1e9;for(let k=k0;k<=k1;k++)lo=Math.min(lo,Y[k]);for(let k=k0;k<=k1;k++)DV[k]=Y[k]-lo}
+  /* Voor het verre dal: per richting vanuit het midden de buitenste weg (VR straal, VY hoogte, VK stap). TH: richting langs de weg, altijd oplopend */
+  const NB=4096,VR=new Float32Array(NB).fill(-1),VY=new Float32Array(NB),VK=new Int32Array(NB),TH=new Float32Array(N+1),bin=k=>(Math.floor((Math.atan2(Z[k],X[k])/(2*Math.PI)+1)*NB)%NB+NB)%NB;
+  for(let k=0;k<N;k++){const b=bin(k),rad=Math.hypot(X[k],Z[k]);if(rad>VR[b]){VR[b]=rad;VY[b]=Y[k];VK[b]=k}}
+  {const r2=VR.slice(),y2=VY.slice(),k2=VK.slice();for(let b=0;b<NB;b++){let m=-1;for(let j=-6;j<=6;j++){const c=(b+j+NB)%NB;if(VR[c]>m){m=VR[c];r2[b]=m;y2[b]=VY[c];k2[b]=VK[c]}}}
+    for(let b=0;b<NB;b++)if(r2[b]<0){let j=1;while(r2[(b-j+NB)%NB]<0&&j<NB)j++;const c=(b-j+NB)%NB;r2[b]=r2[c];y2[b]=y2[c];k2[b]=k2[c]}
+    for(let b=0;b<NB;b++){let sr=0,sy=0;for(let j=-3;j<=3;j++){const c=(b+j+NB)%NB;sr+=r2[c];sy+=y2[c]}VR[b]=sr/7;VY[b]=sy/7;VK[b]=k2[b]}}
+  {let prev=Math.atan2(Z[0],X[0]);TH[0]=prev;for(let k=1;k<N;k++){let t=Math.atan2(Z[k],X[k]);while(t-prev>Math.PI)t-=Math.PI*2;while(t-prev<-Math.PI)t+=Math.PI*2;prev=t;TH[k]=Math.max(TH[k-1],t)}
+    TH[N]=TH[0]+Math.PI*2;for(let k=1;k<N;k++)TH[k]=Math.min(TH[k],TH[N])}
+  Object.assign(C,{VS,DV,VR,VY,VK,TH,NB});
   /* dorpen waar de weg doorheen loopt (niet midden op een steile klim) */
   const NAMES2={heuvels:['Epen','Slenaken','Gulpen','Wahlwiller','Mechelen','Eys','Noorbeek'],provence:['Lourmarin','Bonnieux','Gordes','Ménerbes','Sault','Bédoin','Venasque'],bergen:['Saint-Véran','Valloire','Huez','Bourg-Doisans','Vaujany','Oz']},NAMES=['Oosterwold','Hoogveen','Kerkdriel','Molenhoek','Westerbroek','Zandvoorde','Lindewijk','Ellecom','Bergharen','Nieuwlande','Aldeboarn','Holterberg','Vierhouten','Oudemirdum','Wijnaldum','Boxmeer'].sort(()=>r()-.5);
   const grAt=d=>Math.abs(Y[kAt(C,d+160)]-Y[kAt(C,d)])/160*100;
@@ -145,16 +187,21 @@ function landMix(C,d){
   return m;
 }
 const nz=(a,b)=>Math.sin(a*.013+b*.021)*.5+Math.sin(a*.031-b*.017+1.7)*.3+Math.sin(a*.071+b*.053+.3)*.2;
+/* dal: eerst steil omlaag (s) tot de bodem, f meter vlak, dan aan de overkant weer omhoog (ri) tot hooguit rm boven de bodem */
+const VP={heuvels:{s:.25,ri:.2,rm:120,f:250},provence:{s:.3,ri:.25,rm:250,f:300},bergen:{s:.85,ri:.6,rm:700,f:450}};
+const valleyProf=(o,D,p)=>-Math.min(D,Math.max(0,o-6)*p.s)+clamp((o-6-D/p.s-p.f)*p.ri,0,p.rm);
 /* Hoogte van het land naast de weg (off = meters naar rechts). Het land klimt met de weg mee;
    in heuvels en bergen ligt de weg tegen een helling: aan de ene kant omhoog, aan de andere kant het dal in. */
 function landH(C,d,off,mix,ry){
   const ao=Math.abs(off),near=clamp((ao-4.4)/20,0,1),n=nz(d,off),sd=clamp(Math.sin(d/1300+C.ph)*3,-1,1);
   const side=Math.tanh(off/60)*60*sd,wall=t=>Math.pow(clamp((ao-t)/45,0,1),1.5);
+  /* heuvels, Provence en bergen: de binnenkant van de ronde gaat omhoog, de buitenkant het dal in (vd: hoeveel deze kant dalkant is) */
+  const k=kAt(C,d),vs=C.VS[k],vd=clamp((Math.sign(off)*vs-.25)/.45,0,1),side2=Math.tanh(off/60)*60*clamp(-vs*1.5,-1,1),dal=z=>near*(.6+1.6*n)+valleyProf(ao,C.DV[k],VP[z]);
   let h=0;
   if(mix.polder){const c=canalAt(C,d);h+=mix.polder*(-.6*near+(ao>11&&ao<14?-1.2:0)+(c!=null&&ao>4.2?-2.6*clamp((7-Math.abs(c))/2,0,1):0)+wall(60)*4)}
-  if(mix.heuvels){const hw=clamp((Math.sin(d/650+C.ph*2)-.55)/.2,0,1);h+=mix.heuvels*(near*(side*.25+3+5*n)+wall(35)*38*(.7+.3*n)+hw*clamp((ao-4.7)/1.6,0,1)*2.6)}
-  h+=mix.provence*(near*(side*.12+1.5+3.5*n)+wall(45)*22*(.7+.3*n));
-  h+=mix.bergen*(near*(side*.5+3+4*n)+wall(22)*80*(.6+.4*n));
+  if(mix.heuvels){const hw=clamp((Math.sin(d/650+C.ph*2)-.55)/.2,0,1);h+=mix.heuvels*((1-vd)*(near*(side2*.25+3+5*n)+wall(35)*38*(.7+.3*n)+hw*clamp((ao-4.7)/1.6,0,1)*2.6)+(vd&&vd*dal('heuvels')))}
+  if(mix.provence)h+=mix.provence*((1-vd)*(near*(side2*.12+1.5+3.5*n)+wall(45)*22*(.7+.3*n))+(vd&&vd*dal('provence')));
+  if(mix.bergen)h+=mix.bergen*((1-vd)*(near*(side2*.5+3+4*n)+wall(22)*80*(.6+.4*n))+(vd&&vd*dal('bergen')));
   h+=mix.bos*(near*(side*.1+1+2.5*n)+wall(40)*14*(.7+.3*n));
   h+=mix.meer*(off<0?(ao>20?-2.6-near*2.5:-.4*near):near*(2+3*n)+wall(40)*30);
   const vw=villageW(C,d);if(vw>0)h*=1-vw*clamp((60-ao)/30,0,1);
@@ -740,6 +787,9 @@ function paintDecor(ty,MO){
         else{c.fillRect(x-10,y-7,20,7);c.beginPath();c.moveTo(x-12,y-7);c.lineTo(x,y-14);c.lineTo(x+12,y-7);c.fill()}}
       lay({amp:16,base:-3,fr:[5,11,23,47],pow:1.8,seed:6,col:mx('#5f8b54',.34),low:mx('#6f9a5c',.42),trees:[5,5],tcol:mx('#56824b',.32),gap:.45});
     }
+    /* onderrand loopt over in de waas, zodat een diep dal ervoor er naadloos in verdwijnt */
+    const fz=c.createLinearGradient(0,hy-50,0,h),hc='#'+hz.getHexString();fz.addColorStop(0,hc+'00');fz.addColorStop(1,hc);
+    c.globalCompositeOperation='source-atop';c.fillStyle=fz;c.fillRect(0,hy-50,w,h-hy+50);c.globalCompositeOperation='source-over';
   });
 }
 /* wolken: vier stapelwolken in één plaatje, met een lichte bovenkant en een blauwgrijze onderkant */
@@ -841,7 +891,7 @@ async function worldLoad(tok){
   scene.add(sun,sun.target);
   /* randlicht van achteren: geeft fietsers en bomen een lichte rand, zoals in een animatiefilm */
   const rim=new T.DirectionalLight(MO.name==='schemer'?'#8fa0ff':'#cfe6ff',MO.name==='bewolkt'||MO.name==='regen'?.4:1.1);rim.position.set(60,40,140);scene.add(rim);
-  const cam=new T.PerspectiveCamera(60,1,.3,2200);
+  const cam=new T.PerspectiveCamera(60,1,.3,3000);
   /* lucht: verloop van diepblauw naar een heldere horizon, met een warme gloed rond de zon */
   const sky=new T.Mesh(new T.SphereGeometry(1800,32,16),new T.ShaderMaterial({side:T.BackSide,depthWrite:false,
     uniforms:{top:{value:new T.Color(MO.top)},hor:{value:new T.Color(MO.hor)},glow:{value:new T.Color(MO.disc_on?MO.disc:MO.hor)},sd:{value:new T.Vector3(...MO.dir).normalize()}},
@@ -996,6 +1046,8 @@ function worldBuild(){
         #include <opaque_fragment>`)}};
     const house=new T.MeshPhongMaterial({vertexColors:true,shininess:10,specular:'#202020'});facade(house);
     const car=new T.MeshPhongMaterial({vertexColors:true,shininess:80,specular:'#8a8a8a'});facade(car,{...HSH,uNight:{value:0}});
+    /* het dal: dezelfde mist, maar pas ver weg dik (tot ~2,8 km), zodat je diep het dal in kijkt en het einde in de waas verdwijnt */
+    const farFog=mt=>{mt.onBeforeCompile=sh=>{sh.fragmentShader=sh.fragmentShader.replace('#include <fog_fragment>','#ifdef USE_FOG\ngl_FragColor.rgb=mix(gl_FragColor.rgb,fogColor,smoothstep(fogNear*2.5,fogFar*4.8,vFogDepth));\n#endif')};return mt};
     const ds={side:T.DoubleSide};
     W.mat={edgeStone:new T.MeshLambertMaterial({...ds,map:W.tex.steen,vertexColors:true}),edgeHedge:new T.MeshLambertMaterial({...ds,map:W.tex.gras,vertexColors:true}),edgeWood:new T.MeshLambertMaterial({...ds,vertexColors:true}),
       edgeRail:new T.MeshPhongMaterial({...ds,vertexColors:true,shininess:70,specular:'#777777'}),tree,crowd,walk,house,car,tegel:new T.MeshLambertMaterial({map:W.tex.tegel}),blob:new T.MeshBasicMaterial({color:'#000',transparent:true,opacity:.22,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}),
@@ -1003,7 +1055,7 @@ function worldBuild(){
     lap:new T.MeshLambertMaterial({map:W.tex.asf,color:new T.Color(.8,.8,.82),polygonOffset:true,polygonOffsetFactor:-1}),naad:new T.MeshLambertMaterial({color:'#36373c',polygonOffset:true,polygonOffsetFactor:-1}),
     woord:new T.MeshLambertMaterial({map:roadWords(),transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3}),line:new T.MeshLambertMaterial({color:'#f2f0e8'}),
     water:new T.MeshPhongMaterial({color:'#3aa6e0',shininess:90,specular:'#cfefff',transparent:true,opacity:.9,side:T.DoubleSide}),inst:new T.MeshPhongMaterial({vertexColors:true,shininess:22,specular:'#262626'}),
-    piek:new T.MeshBasicMaterial({vertexColors:true,fog:false,transparent:true}),
+    piek:new T.MeshBasicMaterial({vertexColors:true,fog:false,transparent:true}),dal:farFog(new T.MeshLambertMaterial({vertexColors:true})),
     klinker:new T.MeshLambertMaterial({map:W.tex.klinker}),steen:new T.MeshLambertMaterial({map:W.tex.steen}),
     wolk:new T.MeshBasicMaterial({vertexColors:true,color:W.mood.cloud,transparent:true,opacity:.9,fog:false})};if(W.mood.rain)for(const k of['asf','rood','lap'])W.mat[k].color.multiplyScalar(.72)}
   /* start/finish van de ronde, en onderaan elke klim een bord met het gemiddelde stijgingspercentage */
@@ -1056,7 +1108,7 @@ function* chunkJob(ci){
       for(const off0 of OFF){
         const [b,kb]=bnd[Math.sign(off0)],o1=innerOff(off0,p.k),off=Math.abs(o1)>Math.abs(b)?b:o1;
         let y=landH(C,d,off,mix,p.y);
-        if(kb>=0){const t=Math.pow(Math.abs(off/b),2),mid=(p.y+C.Y[kb])/2+nz(d,off)*2;y=y*(1-t)+mid*t}
+        if(kb>=0){const t=Math.pow(clamp((Math.abs(off)-6.5)/(Math.abs(b)-6.5),0,1),1.5),mid=(p.y+C.Y[kb])/2+nz(d,off)*2;y=y*(1-t)+mid*t}
         const wx=p.x+nx*off,wz=p.z+nzv*off;pos.push(wx,y,wz);uv.push(wx/14,wz/14);
         tmp.setRGB(0,0,0);for(const k in mix)if(mix[k])tmp.r+=grass[k].r*mix[k],tmp.g+=grass[k].g*mix[k],tmp.b+=grass[k].b*mix[k];
         const ao=Math.abs(off);
@@ -1131,6 +1183,30 @@ function* chunkJob(ci){
     for(let d=dc-9;d<dc+9;d+=1.6){const q=roadAt(C,d);for(const o of[-4.3,4.3])put('reling',q.x+Math.cos(q.h)*o,q.y,q.z+Math.sin(q.h)*o,1,-q.h+Math.PI)}
     for(let d=dc-8;d<dc+8;d+=2){const q=roadAt(C,d);for(const o of[-4.4,4.4])put('brugwand',q.x+Math.cos(q.h)*o,q.y,q.z+Math.sin(q.h)*o,1,-q.h)}
   }
+  /* Het dal aan de buitenkant van de ronde, tot ruim 2 km ver, met de bergen aan de overkant.
+     Elke kolom loopt recht van het midden van de ronde af, dus kolommen kruisen elkaar nooit. Het begint onder het gewone land (60 m)
+     De waas komt van een eigen, verdere mist (farFog). */
+  {const NB=C.NB,TP=Math.PI*2,b0=Math.floor(C.TH[Math.round(a/STEP)]/TP*NB),b1=Math.floor(C.TH[Math.min(C.N,Math.round((a+CH)/STEP))]/TP*NB),rv=rng(C.seed+cl*977+11);
+    const O2=[60,75,95,120,150,190,240,300,370,450,550,670,800,950,1120,1300,1500,1720,1950,2150],no=O2.length;
+    const c=new T.Color(),FOR=new T.Color('#3d6633'),MEA=new T.Color('#74a04b'),cols=[];
+    for(let b=b0;b<=b1;b+=2)cols.push(b);if(cols[cols.length-1]!==b1)cols.push(b1);
+    const pos=[],col=[],idx=[];let run=0;
+    for(const b of cols){const bi=(b%NB+NB)%NB,th=(b+.5)/NB*TP,ux=Math.cos(th),uz=Math.sin(th),R=C.VR[bi],Yr=C.VY[bi],kr=C.VK[bi],mix=landMix(C,kr*STEP);
+      const w=(mix.bergen||0)+(mix.heuvels||0)+(mix.provence||0);if(w<.01||R<0){run=0;continue}
+      const pr={s:0,ri:0,rm:0,f:0};for(const z in VP)if(mix[z])for(const q in pr)pr[q]+=VP[z][q]*mix[z]/w;
+      const D=C.DV[kr],xF=6+D/pr.s,fl=Yr-D*w,v0=pos.length/3;
+      for(const o of O2){const y=Yr+w*valleyProf(o,D,pr)-2.5,x=ux*(R+o),z=uz*(R+o);pos.push(x,y,z);
+        /* begroeiing: bos en weide in vlekken, op de bodem akkers, hoog aan de overkant rots en sneeuw */
+        const u=nz(th*R*1.4,o*1.4),rel=y-fl;
+        if(o>xF&&o<xF+pr.f)c.copy(FIELD[Math.abs(Math.floor(nz(th*R*.4,o*.4)*40))%FIELD.length]).lerp(MEA,.4);
+        else c.copy(u>-.05?FOR:MEA);
+        if(mix.provence>.3&&o>xF&&o<xF+pr.f)c.lerp(PFIELD[Math.abs(Math.floor(nz(th*R*.4,o*.4)*40))%PFIELD.length],.5*mix.provence);
+        if(mix.bergen>.3&&o>xF+pr.f){if(rel>380)c.lerp(rock,clamp((rel-380)/120,0,.85));if(rel>560)c.lerp(snow,clamp((rel-560)/60,0,1))}
+        col.push(c.r,c.g,c.b)}
+      if(run)for(let i=0;i<no-1;i++){const q=v0-no+i;idx.push(q,q+no,q+1,q+1,q+no,q+no+1)}run=1;
+      /* bergtoppen aan de overkant */
+      if(mix.bergen>.5&&bi%26===0&&rv()<.6){const o=1850+rv()*300,sc=200+rv()*180;put('piek'+Math.floor(rv()*3),ux*(R+o),Yr+valleyProf(o,D,pr)-40,uz*(R+o),sc,0,null,sc*(1.2+rv()*.8))}}
+    if(idx.length){const m=new T.Mesh(geo(pos,idx,col),M.dal);m.userData.vall=true;g.add(m)}}
   /* bomen, huizen, koeien, molens, paaltjes */
   const nearCanal=d=>canalAt(C,d)!=null;
   /* boom met eigen maat, kleur en scheefstand, plus een zachte schaduwvlek eronder */
@@ -1144,6 +1220,7 @@ function* chunkJob(ci){
       if(ty==='provence'){if(Math.sin(d/400+C.ph)>.35)return null;const b=Math.floor(d/52);return ehs(b,5)<.35?{s:ehs(b,6)<.5?-1:1,o:7.6}:null}return null},
     heg:d=>{if(zoneAt(C,d).ty!=='heuvels')return null;if(ehol(d)>.5)return {s:0,o:6.95};if(EDGE.muur(d))return null;const b=Math.floor(d/56);return ehs(b,7)<.25?{s:ehs(b,8)<.5?-1:1,o:6.9}:null},
     rail:d=>{if(zoneAt(C,d).ty!=='bergen')return null;for(let e=-48;e<=48;e+=16){const k2=C.K[kAt(C,d+e)];if(Math.abs(k2)>.02)return {s:-Math.sign(k2),o:5}}
+      {const k=kAt(C,d),v=C.VS[k];if(Math.abs(v)>.5&&C.DV[k]>12)return {s:Math.sign(v),o:5}}
       const b=Math.floor(d/64);return ehs(b,9)<.55?{s:-(Math.sign(Math.sin(d/1300+C.ph))||1),o:5}:null}};
   /* bomen vlak langs de weg werpen echte schaduw op het asfalt (alleen op de laptop); cp = het wegpunt waar we nu bouwen */
   let cp=null;const tree=(k,x,y,z,s,nr)=>{if(nr==null)nr=cp&&Math.hypot(x-cp.x,z-cp.z)<17;if(W.lite&&!k.endsWith('~'))k+='~';put(nr&&!W.lite?k+'*':k,x,y,z,s,r()*6,tint(),s*(.85+r()*.35),(r()-.5)*.08);put('blob',x,y+.05,z,s*(BLOB[k.replace('~','')]||2.2),0)};
@@ -1181,7 +1258,7 @@ function* chunkJob(ci){
     }
     if(ty==='heuvels'&&!vil){const hw=clamp((Math.sin(d/650+C.ph*2)-.55)/.2,0,1);if(hw>.5)for(const side of[-1,1]){const [x,y,z,cl]=at(side*6.6);if(!cl)put('heg',x,y,z,1,-p.h+Math.PI,tint(.1,.03),1.1)}}
     /* Alpen: houtstapels */
-    if(ty==='bergen'&&ev(C,'e140_1',140,d))for(const side of[-1,1]){if(r()<.6){const o=side*(330+r()*200),sc=110+r()*120,x=p.x+nx*o,z=p.z+nzv*o;if(intrudes(C,d,x,z,sc*1.6+50)<0)put('piek'+Math.floor(r()*3),x,p.y-30+r()*20,z,sc,0,null,sc*(1.4+r()*.8))}}
+    if(ty==='bergen'&&ev(C,'e140_1',140,d))for(const side of[-1,1]){if(r()<.6&&side*C.VS[kAt(C,d)]<.3){const o=side*(330+r()*200),sc=110+r()*120,x=p.x+nx*o,z=p.z+nzv*o;if(intrudes(C,d,x,z,sc*1.6+50)<0)put('piek'+Math.floor(r()*3),x,p.y-30+r()*20,z,sc,0,null,sc*(1.4+r()*.8))}}
     if(ty==='bergen'&&!vil&&ev(C,'e300_1',300,d)&&r()<.6){const side=r()<.5?-1:1,[x,y,z,cl]=at(side*(8+r()*6));if(!cl)put('hout',x,y,z,1,-p.h)}
     /* bosrand of bomenrij achter de weg: dit sluit het beeld af */
     for(const side of[-1,1]){
@@ -1343,7 +1420,7 @@ function* chunkJob(ci){
     const rowAt=dr=>{let R=rowC.get(dr);if(!R){const p=roadAt(C,dr);R={p,mix:landMix(C,dr),bnd:{'-1':clipOff(C,dr,p,innerOff(-95,p.k)),'1':clipOff(C,dr,p,innerOff(95,p.k))}};rowC.set(dr,R)}return R};
     /* hoogte van een hoekpunt van het grondvlak, precies zoals het hierboven is opgebouwd */
     const tvY=(dr,o0)=>{const R=rowAt(dr),p=R.p,[b,kb]=R.bnd[Math.sign(o0)],o1=innerOff(o0,p.k),off=Math.abs(o1)>Math.abs(b)?b:o1;let y=landH(C,dr,off,R.mix,p.y);
-      if(kb>=0){const t=Math.pow(Math.abs(off/b),2),mid=(p.y+C.Y[kb])/2+nz(dr,off)*2;y=y*(1-t)+mid*t}return y};
+      if(kb>=0){const t=Math.pow(clamp((Math.abs(off)-6.5)/(Math.abs(b)-6.5),0,1),1.5),mid=(p.y+C.Y[kb])/2+nz(dr,off)*2;y=y*(1-t)+mid*t}return y};
     const gy=(d,oN)=>{const s=Math.sign(oN),ao=Math.abs(oN);let i=0;while(i<OFFP.length-2&&OFFP[i+1]<ao)i++;const lo=OFFP[i],hi=OFFP[i+1],t=clamp((ao-lo)/(hi-lo),0,1);
       const d0=Math.min(C.L-1,Math.floor(d/DS)*DS),d1=Math.min(C.L-1,d0+DS),u=d1>d0?clamp((d-d0)/(d1-d0),0,1):0,h=dr=>tvY(dr,s*lo)*(1-t)+tvY(dr,s*hi)*t;return h(d0)*(1-u)+h(d1)*u};
     const B={stone:{pos:[],col:[],uv:[],idx:[]},hedge:{pos:[],col:[],uv:[],idx:[]},wood:{pos:[],col:[],uv:[],idx:[]},rail:{pos:[],col:[],uv:[],idx:[]}},c=new T.Color();
@@ -1453,7 +1530,7 @@ function worldStep(t){
   for(const c of W.chunks.keys())if(c<ci-2||c>ci+fwd+2)dropChunk(c);
   /* verre bergtoppen alleen in de Alpen; ze komen geleidelijk op als je de Alpen in rijdt */
   const alps=(mixNow.bergen||0)>.35;W.mat.piek.opacity=clamp(((mixNow.bergen||0)-.35)*5,0,1);
-  for(const [c,gr] of W.chunks){const near=c>=ci-1&&c<=ci+1,vis=near+'/'+alps;if(gr.userData.vis!==vis){gr.userData.vis=vis;for(const ch of gr.children)ch.visible=ch.userData.far?alps:near}}
+  for(const [c,gr] of W.chunks){const near=c>=ci-1&&c<=ci+1,vis=near+'/'+alps;if(gr.userData.vis!==vis){gr.userData.vis=vis;for(const ch of gr.children)ch.visible=ch.userData.far?alps:ch.userData.vall||near}}
   W.lastD=d;worldHud(d);
   if(W.comp)W.comp.render(dt);else W.ren.render(W.scene,W.cam);
 }
