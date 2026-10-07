@@ -21,6 +21,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 | `js/player.js` | De workout player en de demo-modus |
 | `js/wereld.js` | 3D-rit (three.js): weg uit de trainingsblokken, landschappen met dorpen, publiek, weer en tijd van de dag, hoogteprofiel, tempomaker, punten en sterren, productdemo |
 | `js/grafieken.js` | Grafieken |
+| `models/kenney.bin`, `models/kenney.json` | 46 gratis 3D-modellen van [Kenney](https://kenney.nl) (CC0): bomen, struiken, rotsen, hout, bloemen en auto's, met ingebakken natuurlijke kleuren. Opnieuw maken met `python3 tools/kenney.py <map met uitgepakte Kenney-pakketten>` (Nature Kit en Car Kit) |
 | `js/ai.js` | AI-coach: Claude onderzoekt het evenement (route, hoogtemeters, hellingen); richtvermogen per helling |
 | `js/schermen.js` | Schermen en vensters |
 | `js/acties.js` | Knoppen, toetsen en het opstarten van de app |

@@ -776,6 +776,30 @@ function decorMix(mix){
   const bd=W.ring.userData.bd,ws=Object.keys(bd).map(k=>[k,mix[k]||0]).sort((a,b)=>b[1]-a[1]);
   ws.forEach(([k,w],i)=>{const m=bd[k];m.visible=i===0||w>.01;m.material.opacity=i===0?1:Math.min(1,w*2);m.renderOrder=i===0?-1:-.9})
 }
+/* ---------- gratis 3D-modellen van Kenney (kenney.nl, CC0) ----------
+   Bomen, struiken, rotsen, hout, bloemen en auto's, vooraf omgezet naar één bestand met ingebakken kleuren (tools/kenney.py).
+   Ze komen tussen de eigen modellen te staan, zodat je niet steeds dezelfde boom of auto ziet. Lukt het laden niet, dan rijd je gewoon zonder. */
+const KN_SCALE={loof:4.5,herfst:4.5,naald:5.5,struik:6,rots:4.5,hout:3.5,bloem:2,auto:1.6};
+let KN=null;
+async function loadKenney(){
+  if(KN)return KN;
+  try{const [man,bin]=await Promise.all([fetch('models/kenney.json?v=1').then(r=>{if(!r.ok)throw 0;return r.json()}),fetch('models/kenney.bin?v=1').then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()})]);KN={man:man.modellen,bin}}
+  catch(e){KN={man:{},bin:null}}
+  return KN;
+}
+function kenneyGeos(){
+  const T=T3,out={},cats={},catOf={};if(!KN||!KN.bin)return {out,cats,catOf};
+  const lin=v=>{v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4)};
+  for(const [nm,e] of Object.entries(KN.man)){
+    const g=new T.BufferGeometry(),sc=KN_SCALE[e.cat]||1,p=new Float32Array(KN.bin,e.p,e.v*3).slice(),c8=new Uint8Array(KN.bin,e.c,e.v*3),c=new Float32Array(e.v*3);
+    for(let i=0;i<p.length;i++)p[i]*=sc;for(let i=0;i<c.length;i++)c[i]=lin(c8[i]);
+    g.setAttribute('position',new T.BufferAttribute(p,3));g.setAttribute('normal',new T.BufferAttribute(new Int8Array(KN.bin,e.n,e.v*3).slice(),3,true));
+    g.setAttribute('color',new T.BufferAttribute(c,3));g.setIndex(new T.BufferAttribute(new Uint16Array(KN.bin,e.x,e.i).slice(),1));
+    g.computeBoundingSphere();g.userData.shared=true;
+    const key='k_'+nm;out[key]=out[key+'~']=out[key+'*']=g;(cats[e.cat]=cats[e.cat]||[]).push(key);catOf[key]=e.cat;
+  }
+  return {out,cats,catOf};
+}
 /* Laden kan op een telefoon misgaan (te weinig geheugen, trage verbinding). Dan nooit een leeg blauw scherm laten staan:
    alles opruimen en verder met alleen cijfers. De reden staat in de melding. */
 async function worldOpen(){
@@ -802,7 +826,7 @@ function worldDrop(w){
 async function worldLoad(tok){
   /* afgebroken (player dicht of wereld gesloten): opruimen wat er al staat */
   const gone=()=>{if(W===tok&&P)return false;worldDrop(tok);if(W===tok)W=null;return true};
-  T3=T3||await import('three');
+  const kn=loadKenney();T3=T3||await import('three');await kn;
   if(gone())return;
   const T=T3,el=document.createElement('div');el.id='world';el.hidden=!view3d();document.body.appendChild(el);tok.el=el;
   const ren=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});tok.ren=ren;
@@ -850,6 +874,7 @@ async function worldLoad(tok){
      npcs:[KITS.rood,KITS.groen,KITS.geel,KITS.paars,KITS.bollen].slice(0,small?3:5).map(kt=>({R:makeRider(kt,false),d:null,f:1,off:2.25,cad:82+Math.random()*14})),
      disp:0,extra:0,gap:2,last:performance.now(),camP:null,mills:[],raf:0,jobs:new Map(),tex:worldTextures(small)});
   delete tok.loading;
+  {const kg=kenneyGeos();Object.assign(tok.G,kg.out);tok.KC=kg.cats;tok.KCAT=kg.catOf}
   for(const R of[W.me,W.pace,...W.npcs.map(n=>n.R)]){R.g.traverse(o=>{if(o.isMesh)o.castShadow=true});scene.add(R.g)}
   const fit=()=>{const w=innerWidth,h=innerHeight;ren.setSize(w,h);if(comp)comp.setSize(w,h);cam.aspect=w/h;cam.fov=w<h?70:55;cam.setViewOffset(w,h,0,Math.round(h*(w<h?.04:.02)),w,h);cam.updateProjectionMatrix()};
   W.fit=fit;addEventListener('resize',fit);fit();
@@ -1015,7 +1040,8 @@ const INST={CROWD:new Set(['mens','mens2','mens3','vlag']),HOUSE:new Set(['villa
 /* één soort object, vaak herhaald, als één InstancedMesh */
 function instMesh(key,L){
   const T=T3,M=W.mat,{CROWD,HOUSE,WIND}=INST,Mx=new T.Matrix4(),k=key.replace('*',''),kb=k.replace('~','');
-  const m=new T.InstancedMesh(W.G[key]||W.G[k],HOUSE.has(kb)?M.house:kb==='auto'?M.car:kb.startsWith('piek')?M.piek:kb==='wolk'?M.wolk:kb==='blob'?M.blob:WIND.has(kb)?M.tree:CROWD.has(kb)?M.crowd:kb==='loper'?M.walk:M.inst,L.length);m.userData.shared=true;
+  const kc=W.KCAT&&W.KCAT[kb];
+  const m=new T.InstancedMesh(W.G[key]||W.G[k],kc?(kc==='loof'||kc==='herfst'||kc==='naald'||kc==='struik'||kc==='bloem'?M.tree:M.inst):HOUSE.has(kb)?M.house:kb==='auto'?M.car:kb.startsWith('piek')?M.piek:kb==='wolk'?M.wolk:kb==='blob'?M.blob:WIND.has(kb)?M.tree:CROWD.has(kb)?M.crowd:kb==='loper'?M.walk:M.inst,L.length);m.userData.shared=true;
   const wc=new T.Color(1,1,1),e=new T.Euler(),q=new T.Quaternion(),v=new T.Vector3(),sc=new T.Vector3();
   L.forEach(([x,y,z,s,ry,col,sy,tl],i)=>{e.set(tl||0,ry||0,(tl||0)*.7);q.setFromEuler(e);Mx.compose(v.set(x,y,z),q,sc.set(s,sy||s,s));m.setMatrixAt(i,Mx);m.setColorAt(i,col||wc)});
   if(k.startsWith('piek')||k==='wolk')m.userData.far=true;if(k.startsWith('piek'))m.frustumCulled=false;if(k==='blob')m.receiveShadow=false;m.castShadow=key!==k||(HOUSE.has(kb)&&!W.lite);
@@ -1099,7 +1125,12 @@ function* chunkJob(ci){
   }
   /* kanalen met een brug */
   if(!W.G.piek0)for(let i=0;i<3;i++)W.G['piek'+i]=peakGeo(W.mood,i*7+3);
-  const lists={};const put=(k,x,y,z,s,ry,col,sy,tl)=>{if(W.lite&&(k==='pol'||k==='bloem'||k==='struik'||k==='mens2')&&r()<.45)return;(lists[k]=lists[k]||[]).push([x,y,z,s,ry,col,sy,tl])};
+  const rk=rng(C.seed+ci*131+7),KSUB={boom:['loof',.5],eik:['loof',.45],plataan:['loof',.3],den:['naald',.55],struik:['struik',.5],rots:['rots',.6],stam:['hout',.7],auto:['auto',.75],bloem:['bloem',.35]};
+  const lists={};const put=(k,x,y,z,s,ry,col,sy,tl)=>{if(W.lite&&(k==='pol'||k==='bloem'||k==='struik'||k==='mens2')&&r()<.45)return;
+    const km=W.KC&&/^([a-z]+)([~*]?)$/.exec(k),sb=km&&KSUB[km[1]];
+    if(sb&&W.KC[sb[0]]&&rk()<sb[1]){const L=sb[0]==='loof'&&W.KC.herfst&&rk()<.07?W.KC.herfst:W.KC[sb[0]];k=L[Math.floor(rk()*L.length)]+km[2];
+      if(sb[0]==='auto')col=null;else{s*=.85;if(sy)sy*=.85}}
+    (lists[k]=lists[k]||[]).push([x,y,z,s,ry,col,sy,tl])};
   for(const dc of C.canals)if(dc>=a&&dc<a+CH){
     const p=roadAt(C,dc),nx=Math.cos(p.h),nzv=Math.sin(p.h),wm=new T.Mesh(new T.PlaneGeometry(200,12),M.water);
     wm.rotation.set(-Math.PI/2,-p.h,0,'YXZ');
