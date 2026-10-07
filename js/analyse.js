@@ -35,15 +35,20 @@ function analyze(rec,ftp,laps,plannedSec,type){
   const zones=[0,0,0,0,0,0,0];
   for(const v of p)zones[zoneOf(v/ftp)-1]++;
   const best={};for(const[w]of BESTS)best[w]=bestEffort(p,w);
-  let score=null;
+  let score=null,miss=null;
   if(type!=='ramptest'){
-    let w=0,acc=0;
-    for(const l of lapStats(rec,laps)){
+    /* heeft de training werkblokken, dan bepalen die het cijfer; bij een duurrit telt het rustige rijden.
+       Warming-up, herstel en cooling-down tellen nauwelijks mee. Elke procent afwijking boven de 2% kost 5 punten. */
+    const LS=lapStats(rec,laps),hasWork=LS.some(l=>l.kind==='work'&&l.d>=20),KW=hasWork?{work:1}:{steady:1};let w=0,acc=0;
+    for(const l of LS){
       if(l.d<20||l.t<=0)continue;
-      const s=clamp(100-Math.max(0,Math.abs(l.dev)-2)*4,0,100);
-      acc+=s*l.d;w+=l.d;
+      const s=clamp(100-Math.max(0,Math.abs(l.dev)-2)*5,0,100),k=l.d*(KW[l.kind]||(hasWork?.04:.3));
+      acc+=s*k;w+=k;
     }
     if(w>0)score=Math.round(acc/w*Math.min(1,n/Math.max(1,plannedSec)));
+    /* welke blokken duidelijk naast het doel zaten, voor de uitleg bij het cijfer */
+    const tel=LS.filter(l=>l.d>=20&&l.t>0&&(hasWork?l.kind==='work':l.kind==='steady')),off=tel.filter(l=>Math.abs(l.dev)>6);
+    if(tel.length)miss={n:off.length,N:tel.length,low:off.filter(l=>l.dev<0).length};
   }
   let decoup=null;
   if(['duur','herstel','souplesse'].includes(type)&&n>=1200&&hrv.length>n*.8){
@@ -54,9 +59,11 @@ function analyze(rec,ftp,laps,plannedSec,type){
   }
   return {dur:n,avgP:Math.round(avg(p)),np:Math.round(np),IF:+IF.toFixed(2),tss:Math.round(n*np*IF/(ftp*3600)*100)||0,
     kj:Math.round(p.reduce((a,b)=>a+b,0)/1000),avgHr:hrv.length?Math.round(avg(hrv)):0,maxHr:hrv.length?Math.max(...hrv):0,
-    avgCad:cv.length?Math.round(avg(cv)):0,zones,best,score,decoup};
+    avgCad:cv.length?Math.round(avg(cv)):0,zones,best,score,miss,decoup};
 }
 
+/* cijfer van 1 tot 10 voor de uitvoering: hoe dicht je bij het doelvermogen bleef en of je de hele training reed */
+const cijfer=r=>r&&r.score!=null?Math.max(1,r.score/10):null;
 /* stap op de opbouwladder na een rit: terug bij te zwaar, omhoog als het goed ging */
 function progStep(r){
   if(r.rpe>=9||(r.score!=null&&r.score<70))return -1;
@@ -130,9 +137,10 @@ function verdict(r,ftp){
   if(r.manual){out.push('Deze rit is met de hand ingevoerd. De belasting is een schatting op basis van duur en zwaarte.');return out}
   const done=r.dur/Math.max(1,r.planned);
   if(r.score!=null){
+    const m=r.miss,wat=m&&m.n?`In ${m.n} van de ${m.N} ${m.N===1?'blok':'blokken'} zat je meer dan 6% ${m.low*2>=m.n?'onder':'boven'} het doel.`:'';
     if(r.score>=90)out.push('Strak uitgevoerd: je bleef in vrijwel elk blok dicht bij het doelvermogen.');
-    else if(r.score>=75)out.push('Grotendeels volgens plan. In een paar blokken week je vermogen merkbaar af van het doel.');
-    else out.push(done<.9?'Je bent eerder gestopt dan gepland, dus de training telt maar gedeeltelijk mee.':'Het doelvermogen was vandaag te hoog gegrepen: in meerdere blokken zat je er duidelijk onder of boven.');
+    else if(r.score>=75)out.push(wat?'Grotendeels volgens plan. '+wat:'Grotendeels volgens plan. In een paar blokken week je vermogen merkbaar af van het doel.');
+    else out.push(done<.9?'Je bent eerder gestopt dan gepland, dus de training telt maar gedeeltelijk mee.':wat?'Het doelvermogen was vandaag te hoog gegrepen. '+wat:'Het doelvermogen was vandaag te hoog gegrepen: in meerdere blokken zat je er duidelijk onder of boven.');
   }
   if(done<.95&&r.score!=null&&r.score>=75)out.push(`Je reed ${Math.round(r.dur/60)} van de ${Math.round(r.planned/60)} geplande minuten.`);
   if(r.decoup!=null&&!r.sim){

@@ -111,12 +111,11 @@ function statusCard(plan,today){
   return `<div class="card ready ${rd.lvl}"><div class="sthead"><div><h2>${rd.label}</h2>${why?`<p class="small muted" style="margin-top:3px">${why}</p>`:''}${note?`<p class="small" style="margin-top:5px">${note}</p>`:''}</div>
       ${H?'':`<button class="ibtn" data-act="openHealth" aria-label="Ziek of geblesseerd melden" title="Ziek of geblesseerd">${ICO.ziek}</button>`}</div>
     ${H?`<div class="row" style="margin-top:12px"><button class="btn small pri" data-act="healthBetter">Ik ben weer beter</button><button class="btn small" data-act="openHealth">Aanpassen</button></div>`:''}
-    ${state.rides.some(r=>!r.sim)?`<div class="mini4"><div><b>${f.ctl}</b><span>Fitheid</span></div><div><b>${f.atl}</b><span>Vermoeidheid</span></div><div><b>${f.tsb>0?'+':''}${f.tsb}</b><span>Vorm</span></div><div><b>${e||'–'}</b><span>eFTP${e?' W':''}</span></div></div>`:''}
     ${e&&e>ftp*1.02?`<p class="small" style="margin-top:10px">Je ritten wijzen op een hogere FTP. <button class="link" data-act="setFtp" data-w="${e}">FTP op ${e} W zetten</button></p>`:''}</div>`;
 }
 function dayCard(d,tk){
   const r=rideOn(d.iso);
-  if(r)return `<button class="wcard" data-act="openRide" data-id="${r.id}"><div class="t"><div><h3>${esc(r.name)}</h3><div class="m">Gereden · ${clock(r.dur)} · ${r.tss} TSS${r.score!=null?` · uitvoering ${r.score}`:''}</div></div><span class="chev">›</span></div></button>`;
+  if(r)return `<button class="wcard" data-act="openRide" data-id="${r.id}"><div class="t"><div><h3>${esc(r.name)}</h3><div class="m">Gereden · ${clock(r.dur)} · ${r.tss} TSS${cijfer(r)!=null?` · cijfer ${nl(cijfer(r).toFixed(1))}`:''}</div></div><span class="chev">›</span></div></button>`;
   if(d.event)return `<div class="wcard"><h3>${esc(d.event)}</h3><div class="m">Evenement</div></div>`;
   if(d.wo){
     const why={tijd:'geen tijd',moe:'te moe',ziek:'ziek'}[d.why],miss=why?`Niet gedaan (${why})`:'Gemist';
@@ -155,7 +154,7 @@ function weekCard(today){
   const rows=plan.days.map(d=>{
     const r=rideOn(d.iso),when=`<span class="when"><b>${DAYS[d.i]}</b>${d.date.getDate()} ${MONTHS[d.date.getMonth()].slice(0,3)}</span>`;
     if(d.event)return `<div class="drow">${when}${dotFor(d)}<span class="w"><b>${esc(d.event)}</b><span>Evenement</span></span><span></span><span></span></div>`;
-    const st=r?`<span class="st ok">Gereden${r.score!=null?' '+r.score:''}</span>`:d.missed?`<span class="st late">${d.why?'Niet gedaan':'Gemist'}</span>`:d.movedFrom!=null?`<span class="st">Van ${DAYS[d.movedFrom]}</span>`:d.wo?`<span class="st">${d.wo.tss} TSS</span>`:'<span class="st"></span>';
+    const st=r?`<span class="st ok">Gereden${cijfer(r)!=null?' · '+nl(cijfer(r).toFixed(1)):''}</span>`:d.missed?`<span class="st late">${d.why?'Niet gedaan':'Gemist'}</span>`:d.movedFrom!=null?`<span class="st">Van ${DAYS[d.movedFrom]}</span>`:d.wo?`<span class="st">${d.wo.tss} TSS</span>`:'<span class="st"></span>';
     return `<button class="drow${d.iso===tk?' today':''}" data-act="openDay" data-iso="${d.iso}">${when}${dotFor(d,r)}<span class="w"><b>${d.wo?esc(d.wo.name):'Rust'}</b><span>${d.wo?durTxt(d.wo.minutes):d.o.skip?'Overgeslagen':''}</span></span>${d.wo?profileSVG(d.wo.segs):'<span></span>'}${st}</button>`}).join('');
   const canEdit=ui.weekOff>=0,open=canEdit&&ui.avOpen;
   return `<div class="card wk"><div class="wkhead"><div><h2>Week ${weekNo(mon)}</h2><p class="small muted">${sub.join(' · ')}</p></div>
@@ -252,21 +251,22 @@ function progressCard(){
     let f=null,fd='';for(const r of real)if(r.date<=e&&r.date>=fd&&r.ftp){f=r.ftp;fd=r.date}for(const x of log)if(x.d<=e&&x.d>=fd){f=x.w;fd=x.d}
     if(w===0)f=state.profile.ftp;
     const s0=iso(addDays(m,-35));let est=0;for(const r of real)if(r.date>=s0&&r.date<=e)est=Math.max(est,ftpEstimate(r));
-    pts.push({m,f,est:est||null})}
-  const vals=pts.flatMap(p=>[p.f,p.est]).filter(v=>v),lo=Math.min(...vals)*.94,hi=Math.max(...vals)*1.04,y=v=>200-(v-lo)/(hi-lo)*200,N=pts.length;
+    /* een schatting ver onder je FTP zegt alleen dat je niet voluit reed; die laten we weg */
+    pts.push({m,f,est:est&&(!f||est>=f*.95)?est:null})}
+  const vals=pts.flatMap(p=>[p.f,p.est]).filter(v=>v),lo=Math.min(...vals)*.85,hi=Math.max(...vals)*1.06,y=v=>200-(v-lo)/(hi-lo)*200,N=pts.length;
   const line=k=>{let d='',pen=false;pts.forEach((p,i)=>{const v=p[k];if(!v){pen=false;return}const X=(i/(N-1)*1000).toFixed(1);d+=k==='f'&&pen?`H${X}V${y(v).toFixed(1)}`:`${pen?'L':'M'}${X},${y(v).toFixed(1)}`;pen=true});return d};
   const tk=[0,.5,1].map(q=>{const m=pts[Math.round(q*(N-1))].m;return `<span class="xl${q===0?' first':q===1?' last':''}" style="left:${q*100}%">${m.getDate()} ${MONTHS[m.getMonth()].slice(0,3)}</span>`}).join('');
   const kg=state.profile.weight||75,now=state.profile.ftp,back=pts[Math.max(0,N-7)].f,est=pts[N-1].est;
-  const diff=back&&N>=7?now-back:null;
-  const txt=`<b>${now} W</b> (${nl((now/kg).toFixed(1))} W/kg)${diff?` · ${diff>0?'+':''}${diff} W in zes weken`:''}${est&&Math.abs(est-now)>=5?` · geschat ${est} W`:''}`;
+  const diff=back&&N>=7?now-back:null,wkg=now/kg;
   /* trede per soort training: stijgt als je een training goed afrondt */
   const seen=new Set(),lv=Object.entries(state.prog||{}).filter(([t,v])=>LADDER[t]&&v).map(([t,v])=>({l:LADDER[t].label,v,n:LADDER[t].steps.length})).sort((a,b)=>b.v/b.n-a.v/a.n).filter(x=>!seen.has(x.l)&&seen.add(x.l));
-  const lvHTML=lv.length?`<div class="stack" style="gap:8px;margin-top:14px"><div class="small muted">Trede per soort training</div>${lv.map(x=>`<div><div class="kvl small"><span>${x.l}</span><span>${x.v} van ${x.n}</span></div><div class="prog"><i style="width:${Math.round(x.v/x.n*100)}%"></i></div></div>`).join('')}</div>`:'';
-  return `<div class="card"><h3 style="margin-bottom:6px">Vooruitgang</h3><p class="small" style="margin-bottom:10px">FTP nu ${txt}</p>
-    <div class="chart" style="height:180px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je FTP door de weken">
+  const lvHTML=lv.length?`<div class="card"><h3 style="margin-bottom:12px">Niveau per training</h3><div class="stack" style="gap:10px">${lv.map(x=>`<div><div class="kvl"><span>${x.l}</span><span><b>${Math.floor(x.v)}</b> van ${x.n}</span></div><div class="prog" style="margin:6px 0 0"><i style="width:${Math.round(x.v/x.n*100)}%"></i></div></div>`).join('')}</div></div>`:'';
+  const ftpCard=`<div class="card"><div class="bignum"><span>FTP</span><b>${now}<i>W</i></b><small>${nl(wkg.toFixed(1))} W/kg · ${levelOf(wkg)}${diff?` · <em class="${diff>0?'up':'down'}">${diff>0?'+':''}${diff} W</em> in zes weken`:''}</small></div>
+    <div class="chart" style="height:120px;margin-top:14px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je FTP door de weken">
       <path d="${line('est')}" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
       <path d="${line('f')}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>${tk}</div>
-    <div class="legend"><span><i style="background:var(--acc)"></i>Ingesteld</span><span><i class="dash"></i>Geschat</span></div>${lvHTML}</div>`;
+    <div class="legend"><span><i style="background:var(--acc)"></i>Ingesteld</span>${pts.some(p=>p.est)?`<span><i class="dash"></i>Geschat uit je ritten${est?` (nu ${est} W)`:''}</span>`:''}</div></div>`;
+  return {ftpCard,lvHTML};
 }
 function recordsCard(sel,pl){
   const all=records(state.rides),recent=records(sel||state.rides.filter(r=>r.date>=iso(addDays(new Date(),-42))));pl=pl||'6 weken';
@@ -301,73 +301,66 @@ function addModal(){
       <div><button class="btn pri" data-act="saveManual">Rit toevoegen</button></div></div>
   </div></div>`;
 }
-/* beloningen: wat deze rit bijzonder maakt ten opzichte van eerdere ritten */
-function awardsOf(r){
-  if(!r.game)return [];
-  const others=state.rides.filter(x=>x.id!==r.id&&x.game&&!!x.sim===!!r.sim&&x.ts<r.ts),out=[];
-  if(r.game.max&&r.game.stars===r.game.max)out.push(['★','Alle blokken drie sterren']);
-  if(others.length){
-    if(r.game.pts>Math.max(...others.map(x=>x.game.pts)))out.push(['🏆','Meeste punten ooit']);
-    if(r.game.streak>=60&&r.game.streak>Math.max(...others.map(x=>x.game.streak)))out.push(['🔥','Langste reeks ooit: '+clock(r.game.streak)]);
-    const same=others.filter(x=>x.name===r.name);
-    if(same.length&&r.game.pts>Math.max(...same.map(x=>x.game.pts)))out.push(['↑','Beter dan je vorige keren op deze training']);
-  }
-  return out;
-}
+/* ---------- een gereden rit ----------
+   Bovenaan wat ertoe doet: je cijfer met de uitleg van de coach en vier kerngetallen.
+   Daaronder het verloop en je zones; de rest (per blok, alle inspanningen, hartslagzones) zit in de diepgaande analyse. */
 function rideView(){
   const r=state.rides.find(x=>x.id===ui.rideId);
   if(!r){ui.view='kalender';return kalenderView()}
-  const d=new Date(r.ts),rec=ui.streams&&ui.streams.id===r.id?ui.streams.rec:null,kg=state.profile.weight||75;
-  const v=verdict(r,state.profile.ftp),est=ftpEstimate(r);
+  const d=new Date(r.ts),rec=ui.streams&&ui.streams.id===r.id?ui.streams.rec:null,kg=state.profile.weight||75,outdoor=r.type==='buiten';
+  const v=verdict(r,state.profile.ftp),est=ftpEstimate(r),c=cijfer(r);
   const ftpBtn=est&&Math.abs(est-state.profile.ftp)>=2&&(r.type==='ramptest'||est>state.profile.ftp*1.02)?`<button class="btn pri" data-act="setFtp" data-w="${est}">FTP bijwerken naar ${est} W</button>`:'';
-  const rpe=`<div class="card stack"><h3>${r.rpe==null?'Hoe zwaar voelde deze training?':'Zo zwaar voelde het'}</h3><div class="rpe">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="rpe" data-n="${n}" aria-pressed="${r.rpe===n}" aria-label="${n} van 10">${n}</button>`).join('')}</div><div class="rpel"><span>Moeiteloos</span><span>Alles gegeven</span></div></div>`;
-  const tot=(r.zones||[]).reduce((a,b)=>a+b,0)||1;
-  const zones=(r.zones||[]).map((s,i)=>`<div class="zrow"><span>${ZN[i+1]}</span><span class="bar"><i style="width:${s/tot*100}%;background:var(--z${i+1})"></i></span><span>${clock(s)} &nbsp;${Math.round(s/tot*100)}%</span></div>`).join('');
-  const prd=new Set((r.prs||[]).map(x=>x.d));
-  const outdoor=r.type==='buiten';
-  let hz='';
-  if(rec&&r.avgHr){
-    const mh=state.profile.maxHr;
-    if(mh){const z=hrZones(rec.hr,mh),ht=z.reduce((a,b)=>a+b,0)||1;
-      hz=`<div class="card"><h3 style="margin-bottom:10px">Tijd per hartslagzone</h3>${z.map((s,i)=>`<div class="zrow"><span>${HZN[i]}</span><span class="bar"><i style="width:${s/ht*100}%;background:var(--z${[1,2,3,5,6][i]})"></i></span><span>${clock(s)} &nbsp;${Math.round(s/ht*100)}%</span></div>`).join('')}
-        ${r.maxHr>mh?`<p class="small muted" style="margin-top:10px">${r.maxHr} bpm gehaald, boven je maximum van ${mh}. Pas het aan bij Profiel.</p>`:''}</div>`}
-    else hz=`<div class="card"><h3 style="margin-bottom:8px">Tijd per hartslagzone</h3><p class="muted">Vul je maximale hartslag in bij Profiel.</p></div>`;
-  }
-  const best=BESTS.filter(([w])=>r.best[w]).map(([w,t])=>`<tr><td>${t}${prd.has(w)?' <span class="badge" style="background:var(--z5);color:#fff">Record</span>':''}</td><td>${r.best[w]} W</td><td>${nl((r.best[w]/kg).toFixed(1))} W/kg</td><td>${Math.round(r.best[w]/r.ftp*100)}%</td></tr>`).join('');
-  let laps='';
-  if(rec){
-    const ls=outdoor?[]:lapStats(rec,r.laps).filter(l=>l.d>=10);
-    const rows=ls.length>40?ls.filter(l=>l.kind!=='rest'):ls;
-    if(rows.length)laps=`<div class="card"><h3 style="margin-bottom:8px">Per blok</h3><div class="scroll"><table><thead><tr><th>Blok</th><th>Duur</th><th>Doel</th><th>Gereden</th><th>Verschil</th><th>Cadans</th><th>Hartslag</th></tr></thead><tbody>
-      ${rows.map(l=>`<tr><td><span class="zchip"><i style="background:var(--z${zoneOf(l.t/r.ftp)})"></i>${esc(l.label)}</span></td><td>${clock(l.d)}</td><td>${l.t} W</td><td>${l.p} W</td><td style="color:${Math.abs(l.dev)>6?'var(--z6)':'inherit'}">${Math.abs(l.dev)<.05?'0,0':(l.dev>0?'+':'')+nl(l.dev.toFixed(1))}%</td><td>${l.cad||'–'}</td><td>${l.hr||'–'}</td></tr>`).join('')}
-      </tbody></table></div></div>`;
+  /* cijfer (of bij een FTP-test de uitkomst) met wat de coach ervan vindt */
+  const mark=r.type==='ramptest'&&est?`<div class="grade"><b>${est}</b><span>W FTP</span></div>`:c!=null?`<div class="grade ${c>=7.5?'hi':c>=5.5?'mid':'lo'}"><b>${nl(c.toFixed(1))}</b><span>cijfer</span></div>`:'';
+  const hero=v.length||mark?`<div class="card hero">${mark}<div class="herotxt"><p>${esc(v[0]||'')}</p>${v.slice(1).map(t=>`<p class="small muted">${esc(t)}</p>`).join('')}${ftpBtn?`<div style="margin-top:12px">${ftpBtn}</div>`:''}</div></div>`:'';
+  const keys=`<div class="keys">
+      <div><span>Duur</span><b>${clock(r.dur)}</b>${!outdoor&&r.planned&&Math.abs(r.planned-r.dur)>30?`<small>van ${clock(r.planned)}</small>`:''}</div>
+      <div><span>Gemiddeld</span><b>${r.avgP||'–'}<i>W</i></b>${r.np?`<small>genormaliseerd ${r.np} W</small>`:''}</div>
+      <div><span>Hartslag</span><b>${r.avgHr||'–'}<i>${r.avgHr?'bpm':''}</i></b>${r.maxHr?`<small>max ${r.maxHr}</small>`:''}</div>
+      <div><span>Belasting</span><b>${r.tss}<i>TSS</i></b></div></div>`;
+  /* gevoel: eerst de vraag; na je antwoord een korte regel die je kunt aanpassen */
+  const scale=`<div class="rpe">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="rpe" data-n="${n}" aria-pressed="${r.rpe===n}" aria-label="${n} van 10">${n}</button>`).join('')}</div><div class="rpel"><span>Moeiteloos</span><span>Alles gegeven</span></div>`;
+  const rpe=r.sim?'':r.rpe==null?`<div class="card stack"><h3>Hoe zwaar voelde deze training?</h3>${scale}</div>`
+    :`<div class="card"><div class="row spread"><span>Gevoel <b>${r.rpe}</b> van 10</span><button class="link small" data-act="rpeEdit">${ui.rpeEdit?'Klaar':'Aanpassen'}</button></div>${ui.rpeEdit?`<div class="stack" style="margin-top:12px">${scale}</div>`:''}</div>`;
+  const prs=r.prs&&r.prs.length?`<div class="card prs"><h3>Nieuw record</h3>${r.prs.map(x=>`<div class="kvl"><span>${x.t}</span><span><b>${x.w} W</b> · was ${x.old} W</span></div>`).join('')}</div>`:'';
+  /* tijd per zone als één balk */
+  const zs=r.zones||[],tot=zs.reduce((a,b)=>a+b,0);
+  const zones=tot?`<div class="card"><h3 style="margin-bottom:12px">Tijd per zone</h3><div class="zstack">${zs.map((s,i)=>s?`<i style="flex:${s};background:var(--z${i+1})" title="${ZN[i+1]}"></i>`:'').join('')}</div>
+      <div class="zlist">${zs.map((s,i)=>s/tot>=.005?`<div><i style="background:var(--z${i+1})"></i><span>${ZN[i+1]}</span><b>${clock(s)}</b><em>${Math.round(s/tot*100)}%</em></div>`:'').join('')}</div></div>`:'';
+  const chart=r.manual?'':`<div class="card"><h3 style="margin-bottom:10px">Verloop</h3>${rec?rideChart(r,rec):'<p class="muted">Geen meetgegevens op dit apparaat.</p>'}</div>`;
+  /* diepgaande analyse */
+  let deep='';
+  if(ui.deep){
+    const prd=new Set((r.prs||[]).map(x=>x.d));
+    const more=`<div class="keys">
+        <div><span>Genormaliseerd</span><b>${r.np||'–'}<i>W</i></b>${r.np?`<small>${nl((r.np/kg).toFixed(1))} W/kg</small>`:''}</div>
+        <div><span>Intensiteit</span><b>${nl(r.IF.toFixed(2))}</b><small>van je FTP</small></div>
+        <div><span>Arbeid</span><b>${r.kj}<i>kJ</i></b></div>
+        <div><span>Cadans</span><b>${r.avgCad||'–'}<i>${r.avgCad?'rpm':''}</i></b></div></div>`;
+    const best=BESTS.filter(([w])=>r.best[w]).map(([w,t])=>`<tr><td>${t}${prd.has(w)?' <span class="badge" style="background:var(--z5);color:#fff">Record</span>':''}</td><td>${r.best[w]} W</td><td>${nl((r.best[w]/kg).toFixed(1))} W/kg</td><td>${Math.round(r.best[w]/r.ftp*100)}%</td></tr>`).join('');
+    let hz='';
+    if(rec&&r.avgHr){const mh=state.profile.maxHr;
+      if(mh){const z=hrZones(rec.hr,mh),ht=z.reduce((a,b)=>a+b,0)||1;
+        hz=`<div class="card"><h3 style="margin-bottom:10px">Tijd per hartslagzone</h3>${z.map((s,i)=>`<div class="zrow"><span>${HZN[i]}</span><span class="bar"><i style="width:${s/ht*100}%;background:var(--z${[1,2,3,5,6][i]})"></i></span><span>${clock(s)} &nbsp;${Math.round(s/ht*100)}%</span></div>`).join('')}
+          ${r.maxHr>mh?`<p class="small muted" style="margin-top:10px">${r.maxHr} bpm gehaald, boven je maximum van ${mh}. Pas het aan bij Profiel.</p>`:''}</div>`}
+      else hz=`<div class="card"><h3 style="margin-bottom:8px">Tijd per hartslagzone</h3><p class="muted">Vul je maximale hartslag in bij Profiel.</p></div>`}
+    let laps='';
+    if(rec){const ls=outdoor?[]:lapStats(rec,r.laps).filter(l=>l.d>=10),rows=ls.length>40?ls.filter(l=>l.kind!=='rest'):ls;
+      /* per blok: wat je reed tegenover het doel; afwijkingen van meer dan 6% in rood */
+      if(rows.length)laps=`<div class="card"><h3 style="margin-bottom:6px">Per blok</h3><div class="laps">
+        ${rows.map(l=>{const dv=Math.abs(l.dev)<.05?'0,0%':(l.dev>0?'+':'−')+nl(Math.abs(l.dev).toFixed(1))+'%';
+          return `<div class="lap${l.kind==='work'?' work':''}"><i style="background:var(--z${zoneOf(l.t/r.ftp)})"></i><span class="ln"><b>${esc(l.label)}</b><small>${clock(l.d)} · doel ${l.t} W${l.hr?' · '+l.hr+' bpm':''}${l.cad?' · '+l.cad+' rpm':''}</small></span><span class="lv"><b>${l.p} W</b><small class="${Math.abs(l.dev)>6?'bad':''}">${dv}</small></span></div>`}).join('')}
+        </div></div>`}
+    deep=`<div class="stack">${more}${laps}<div class="cols"><div class="card"><h3 style="margin-bottom:8px">Beste inspanningen</h3><table><tbody>${best||'<tr><td class="muted">Geen vermogensgegevens.</td></tr>'}</tbody></table></div>${hz||'<div></div>'}</div>
+      ${rec?'<div><button class="btn" data-act="csv">Download meetgegevens</button></div>':''}</div>`;
   }
   const from=TABS.find(t=>t[0]===tabOf('ride'))||TABS[1];
   return `<button class="back" data-act="nav" data-v="${from[0]}">‹ ${from[1]}</button>
-    <div class="head"><div><h1>${esc(r.name)}${r.sim?' <span class="badge" style="vertical-align:middle">Demo</span>':''}</h1><p>${dateLong(d)} ${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}</p></div>${ftpBtn}</div>
-    <div class="stack">
-    ${awardsOf(r).length?`<div class="awards">${awardsOf(r).map(([i,t])=>`<span><b>${i}</b>${esc(t)}</span>`).join('')}</div>`:''}
-    ${r.prs&&r.prs.length?`<p class="notice" style="border-color:var(--z5)"><b style="font-weight:600">Nieuw record.</b> ${r.prs.map(x=>`${x.t}: ${x.w} W, was ${x.old} W`).join('. ')}.</p>`:''}
-    ${r.rpe==null&&!r.sim?rpe:''}
-    <div class="stats">
-      <div><b>${clock(r.dur)}</b><span>${outdoor?'Duur':'Gepland '+clock(r.planned)}</span></div>
-      ${r.score!=null?`<div><b>${r.score}<small>/100</small></b><span>Uitvoering</span></div>`:''}
-      ${r.game?`<div><b>${r.game.pts.toLocaleString('nl-NL')}</b><span>Punten</span></div><div><b>${r.game.stars}<small>/${r.game.max}</small></b><span>Sterren, langste reeks ${clock(r.game.streak)}</span></div>`:''}
-      <div><b>${r.avgP||'–'}<small>W</small></b><span>Gemiddeld</span></div>
-      <div><b>${r.np||'–'}<small>W</small></b><span>Genormaliseerd${r.np?', '+nl((r.np/kg).toFixed(1))+' W/kg':''}</span></div>
-      <div><b>${nl(r.IF.toFixed(2))}</b><span>Intensiteit</span></div>
-      <div><b>${r.tss}</b><span>TSS</span></div>
-      <div><b>${r.kj}<small>kJ</small></b><span>Arbeid</span></div>
-      <div><b>${r.avgHr||'–'}<small>${r.maxHr?'max '+r.maxHr:''}</small></b><span>Hartslag</span></div>
-      <div><b>${r.avgCad||'–'}<small>rpm</small></b><span>Cadans</span></div>
-    </div>
-    ${v.length?`<div class="card verdict"><h3 style="margin-bottom:8px">Wat deze training zegt</h3>${v.map(t=>`<p>${esc(t)}</p>`).join('')}</div>`:''}
-    ${r.manual?'':`<div class="card"><h3 style="margin-bottom:10px">Verloop</h3>${rec?rideChart(r,rec):'<p class="muted">Geen meetgegevens op dit apparaat.</p>'}</div>`}
-    <div class="cols"><div class="card"><h3 style="margin-bottom:10px">Tijd per zone</h3>${zones}</div>
-      <div class="card"><h3 style="margin-bottom:8px">Beste inspanningen</h3><table><tbody>${best||'<tr><td class="muted">Geen vermogensgegevens.</td></tr>'}</tbody></table></div></div>
-    ${hz}${laps}
-    ${r.rpe!=null&&!r.sim?rpe:''}
-    <div class="row">${rec?'<button class="btn" data-act="csv">Download meetgegevens</button>':''}<button class="btn warn" data-act="delRide">${ui.confirm==='ride'?'Klik nog eens om te verwijderen':'Rit verwijderen'}</button></div></div>`;
+    <div class="head"><div><h1>${esc(r.name)}${r.sim?' <span class="badge" style="vertical-align:middle">Demo</span>':''}</h1><p>${dateLong(d)} ${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}</p></div></div>
+    <div class="stack">${hero}${keys}${r.rpe==null?rpe:''}${prs}${chart}${zones}
+      <button class="btn deepbtn" data-act="deep" aria-expanded="${!!ui.deep}">Diepgaande analyse<span aria-hidden="true">${ui.deep?'▴':'▾'}</span></button>
+      ${deep}${r.rpe!=null?rpe:''}
+      <div><button class="btn warn" data-act="delRide">${ui.confirm==='ride'?'Klik nog eens om te verwijderen':'Rit verwijderen'}</button></div></div>`;
 }
 
 /* ---------- profiel ---------- */
@@ -453,6 +446,7 @@ function render(){
 }
 async function openRide(id){
   if(ui.view!=='ride')ui.rideFrom=tabOf(ui.view);
+  if(ui.rideId!==id){ui.deep=false;ui.rpeEdit=false}
   ui.view='ride';ui.rideId=id;ui.confirm='';
   if(!ui.streams||ui.streams.id!==id){ui.streams=null;render();const rec=await idb.get('s:'+id)||await syncGetStream(id);if(rec&&ui.rideId===id){ui.streams={id,rec};render()}}
   else render();

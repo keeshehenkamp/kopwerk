@@ -254,7 +254,7 @@ async function storeRide(a){
   markRecords(ride);
   state.rides.push(ride);save();
   await idb.put('s:'+ride.id,a.rec);await idb.del('active');
-  ui.rideFrom=tabOf(ui.view);ui.streams={id:ride.id,rec:a.rec};ui.view='ride';ui.rideId=ride.id;
+  ui.rideFrom=tabOf(ui.view);ui.deep=false;ui.rpeEdit=false;ui.streams={id:ride.id,rec:a.rec};ui.view='ride';ui.rideId=ride.id;
 }
 async function finishRide(){
   if(!P||P.mode==='done')return;

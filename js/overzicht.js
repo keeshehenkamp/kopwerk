@@ -61,20 +61,6 @@ function fitChart(path){
       ${dateTick(all[0].d,0)}${now>0&&now<N-1?`<span class="xl" style="left:${now/(N-1)*100}%">vandaag</span>`:''}${dateTick(all[N-1].d,1)}</div>
     <div class="legend"><span><i style="background:var(--acc)"></i>Fitheid</span><span><i style="background:var(--muted)"></i>Vermoeidheid</span><span><i class="dash"></i>Verwacht</span></div>`;
 }
-/* vorm = fitheid min vermoeidheid, rond de nullijn */
-function formChart(path){
-  const all=path.past.concat(path.fut),N=all.length,now=path.past.length-1;if(N<2)return '';
-  const v=all.map(x=>x.ctl-x.atl),lo=Math.min(-30,...v)*1.1,hi=Math.max(20,...v)*1.1,y=t=>200-(t-lo)/(hi-lo)*200,y0=y(0).toFixed(1);
-  const part=(a,b)=>v.map((t,i)=>i>=a&&i<=b?t:null),xn=(now/(N-1)*1000).toFixed(1);
-  return `<div class="chart" style="height:150px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Vorm">
-      <line x1="0" x2="1000" y1="${y0}" y2="${y0}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>
-      <line x1="${xn}" x2="${xn}" y1="0" y2="200" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>
-      <path d="${pathOf(part(0,now),y)}" fill="none" stroke="var(--ink)" stroke-width="2" vector-effect="non-scaling-stroke"/>
-      <path d="${pathOf(part(now,N-1),y)}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/></svg>
-      ${dateTick(all[0].d,0)}${dateTick(all[N-1].d,1)}</div>
-    <div class="legend"><span>Boven 0: fris</span><span>Onder 0: vermoeid</span></div>`;
-}
-
 /* ---------- Kalender: alle ritten en geplande trainingen per maand ---------- */
 function kalenderView(){
   if(!state.setup)return setupView();
@@ -116,9 +102,10 @@ function prestatiesView(){
     ${any?`<div class="scroll"><table><thead><tr><th>Duur</th><th>Fris</th><th>Na 1.000 kJ</th><th>Na 2.000 kJ</th></tr></thead><tbody>
       ${KJ_DUR.map(([w,t])=>`<tr><td>${t}</td><td>${fresh[w]?fresh[w].w+' W':'–'}</td><td>${cell(1000,w)}</td><td>${cell(2000,w)}</td></tr>`).join('')}</tbody></table></div>`
       :`<p class="small muted">Nog geen rit boven 1.000 kJ in deze periode.</p>`}</div>`;
-  const top=state.rides.filter(r=>r.game&&!r.sim&&(!cut||r.date>=cut)).sort((a,b)=>b.game.pts-a.game.pts).slice(0,5);
-  const best=top.length?`<div class="card"><h3 style="margin-bottom:6px">Je beste ritten</h3><div class="list">${top.map((r,i)=>{const d=new Date(r.ts);
-    return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${i+1}</b></span><span class="w"><b>${esc(r.name)}</b><span>${d.getDate()} ${MONTHS[d.getMonth()]} · ★ ${r.game.stars}/${r.game.max}</span></span><span class="r">${r.game.pts.toLocaleString('nl-NL')}</span></button>`}).join('')}</div></div>`:'';
+  /* best uitgevoerd: de hoogste cijfers in de gekozen periode */
+  const top=state.rides.filter(r=>cijfer(r)!=null&&!r.sim&&(!cut||r.date>=cut)).sort((a,b)=>b.score-a.score||b.ts-a.ts).slice(0,5);
+  const best=top.length?`<div class="card"><h3 style="margin-bottom:6px">Best uitgevoerd</h3><div class="list">${top.map((r,i)=>{const d=new Date(r.ts);
+    return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${i+1}</b></span><span class="w"><b>${esc(r.name)}</b><span>${d.getDate()} ${MONTHS[d.getMonth()]}</span></span><span class="r"><b class="gr">${nl(cijfer(r).toFixed(1))}</b></span></button>`}).join('')}</div></div>`:'';
   return `${head}<div class="stack">${chips}${recordsCard(sel,lbl)||''}${best?`<div class="cols">${dur}${best}</div>`:dur}</div>`;
 }
 
@@ -127,9 +114,10 @@ function voortgangView(){
   if(!state.setup)return setupView();
   const today=new Date(),head=`<div class="head"><div><h1>Voortgang</h1></div></div>`;
   if(!state.rides.some(r=>!r.sim))return `${head}<div class="card"><p class="muted">Je voortgang verschijnt na je eerste rit.</p></div>`;
-  const path=fitnessPath(today,horizonDays(today)),f=path.now,kg=state.profile.weight||75,e=eftpAt(today),wkg=(e||state.profile.ftp)/kg;
-  const tiles=`<div class="stats"><div><b>${f.ctl}</b><span>Fitheid</span></div><div><b>${f.atl}</b><span>Vermoeidheid</span></div><div><b>${f.tsb>0?'+':''}${f.tsb}</b><span>Vorm: ${formOf(f.tsb)}</span></div>
-    <div><b>${e?e+'<small>W</small>':'–'}</b><span>eFTP${e?'':', nog geen schatting'}</span></div><div><b>${nl(wkg.toFixed(1))}<small>W/kg</small></b><span>Niveau: ${levelOf(wkg)}</span></div></div>`;
+  const path=fitnessPath(today,horizonDays(today)),f=path.now;
+  const pc=progressCard()||{ftpCard:'',lvHTML:''};
+  /* fitheid en vermoeidheid: de stand van nu groot, de lijn eronder; vorm is het verschil */
+  const fit=`<div class="card"><div class="trio"><div class="bignum"><span>Fitheid</span><b>${f.ctl}</b></div><div class="bignum"><span>Vermoeidheid</span><b>${f.atl}</b></div><div class="bignum"><span>Vorm</span><b>${f.tsb>0?'+':f.tsb<0?'−':''}${Math.abs(f.tsb)}</b><small>${formOf(f.tsb)}</small></div></div>${fitChart(path)}</div>`;
   /* belasting per week: gereden tegenover gepland */
   const mon=mondayOf(today),bars=[];let mx=1;
   for(let w=7;w>=0;w--){const m=addDays(mon,-7*w),s=iso(m),en=iso(addDays(m,6));
@@ -137,8 +125,5 @@ function voortgangView(){
     mx=Math.max(mx,done,pl);bars.push({m,done,pl})}
   const load=`<div class="card"><h3 style="margin-bottom:14px">Belasting per week</h3><div class="bars">${bars.map(b=>`<div class="b"><span class="num">${b.done||''}</span><div class="col" style="height:${Math.max(2,Math.max(b.pl,b.done)/mx*100)}%${b.pl?'':';border-color:transparent'}"><i style="height:${Math.round(b.done/Math.max(1,Math.max(b.pl,b.done))*100)}%"></i></div><span>wk ${weekNo(b.m)}</span></div>`).join('')}</div>
     <div class="legend"><span><i style="background:var(--acc)"></i>Gereden</span><span><i class="box"></i>Gepland</span></div></div>`;
-  return `${head}<div class="stack">${tiles}
-    <div class="cols"><div class="card"><h3 style="margin-bottom:10px">Fitheid en vermoeidheid</h3>${fitChart(path)}</div>
-      <div class="card"><h3 style="margin-bottom:10px">Vorm</h3>${formChart(path)}</div></div>
-    <div class="cols">${progressCard()||'<div></div>'}${load}</div></div>`;
+  return `${head}<div class="stack"><div class="cols">${pc.ftpCard}${fit}</div><div class="cols">${load}${pc.lvHTML||'<div></div>'}</div></div>`;
 }

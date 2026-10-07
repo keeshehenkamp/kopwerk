@@ -122,6 +122,8 @@ const actions={
   },
   extend(){if(!P||P.mode==='ready'||P.free)return;P.wo.segs.push(S(300,.45,null,'Extra uitrijden','cooldown'));rebuild();renderPlayer();toast('5 minuten uitrijden toegevoegd.')},
   toggleCad(){ui.showCad=!ui.showCad;render()},
+  deep(){ui.deep=!ui.deep;render()},
+  rpeEdit(){ui.rpeEdit=!ui.rpeEdit;render()},
   rpe(d){
     const r=state.rides.find(x=>x.id===ui.rideId);if(!r)return;
     r.rpe=+d.n;
@@ -133,7 +135,7 @@ const actions={
       state.prog=state.prog||{};
       state.prog[r.type]=clamp(r.lvl+progStep(r),1,LADDER[r.type].steps.length);
     }
-    save();render();
+    ui.rpeEdit=false;save();render();
   },
   aiSaveKey(){
     const k=(document.getElementById('ai-key').value||'').trim();
