@@ -15,9 +15,51 @@ const isDark=()=>{const t=document.documentElement.dataset.theme;return t?t==='d
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(getTheme()==='auto'&&!P)render()});
 /* elke FTP-wijziging met datum, voor de lijn in Vooruitgang (per dag alleen de laatste) */
 function logFtp(w){const d=iso(new Date()),l=state.ftpLog||(state.ftpLog=[]),x=l.find(e=>e.d===d);if(x)x.w=w;else l.push({d,w})}
+/* ---------- adres in de browser ----------
+   Elk scherm heeft een eigen adres (#/kalender, #/rit/<id>, #/dag/<datum>). Daardoor werken terug en vooruit
+   in de browser en op je telefoon, en blijf je na verversen op hetzelfde scherm. */
+let routeKey=null,routeIdx=0,routeLock=false;
+const ROUTE_VIEWS=['kalender','prestaties','voortgang','profiel','lib'];
+function routeOf(){
+  const v=ui.view,d=ui.detail;
+  if(v==='ride'&&ui.rideId)return '#/rit/'+encodeURIComponent(ui.rideId);
+  if(v==='training'&&d)return d.kind==='day'?'#/dag/'+d.iso:`#/training/${d.type}/${d.min}/${d.L}`;
+  return ROUTE_VIEWS.includes(v)?'#/'+v:'#/';
+}
+const routeState=()=>({view:ui.view,detail:ui.detail,rideId:ui.rideId,rideFrom:ui.rideFrom,i:routeIdx});
+function routeParse(h){
+  let p=[];try{p=(h||'').replace(/^#\/?/,'').split('/').map(decodeURIComponent)}catch(e){}
+  if(p[0]==='rit'&&p[1]&&state.rides.some(r=>r.id===p[1]))return {view:'ride',rideId:p[1],rideFrom:'kalender'};
+  if(p[0]==='dag'&&/^\d{4}-\d{2}-\d{2}$/.test(p[1]||''))return {view:'training',detail:{kind:'day',iso:p[1],from:'vandaag'}};
+  if(p[0]==='training'&&TYPES[p[1]])return {view:'training',detail:{kind:'wo',type:p[1],min:+p[2]||60,L:p[3]==null?1:+p[3]||0,from:'lib'}};
+  return {view:ROUTE_VIEWS.includes(p[0])?p[0]:'vandaag'};
+}
+/* na elke render: is het scherm veranderd, dan komt er een stap in de geschiedenis bij */
+function routeSync(){
+  if(!state.setup||P)return;
+  const k=routeOf();if(k===routeKey)return;
+  try{if(routeKey===null||routeLock)history.replaceState(routeState(),'',k);else{routeIdx++;history.pushState(routeState(),'',k)}}catch(e){}
+  routeKey=k;
+}
+function routeApply(s){
+  ui.view=s.view||'vandaag';ui.detail=s.detail||null;ui.modal=null;ui.confirm='';ui.draft=null;
+  if(s.rideFrom)ui.rideFrom=s.rideFrom;
+  routeLock=true;
+  if(ui.view==='ride'&&s.rideId)openRide(s.rideId);else render();
+  routeLock=false;
+}
+/* de terugknop in de app doet hetzelfde als die van de browser, zolang er een vorig scherm is */
+function routeBack(){const s=history.state;if(s&&s.i>0&&!P){history.back();return true}return false}
+window.addEventListener('popstate',e=>{
+  const s=e.state,here=s&&typeof s.i==='number'?s.i:0;
+  /* tijdens een rit blijf je waar je bent; een open venster sluit */
+  if(P||ui.modal){routeIdx=here+1;try{history.pushState(routeState(),'',routeKey||'#/')}catch(_){}
+    if(!P&&ui.modal){ui.modal=null;render()}return}
+  routeIdx=here;routeApply(s&&s.view?s:routeParse(location.hash));
+});
 const actions={
   nav(d){ui.view=d.v;ui.modal=null;ui.confirm='';ui.draft=null;render();window.scrollTo(0,0)},
-  back(){ui.view=(ui.detail&&ui.detail.from)||'vandaag';render();window.scrollTo(0,0)},
+  back(d){if(routeBack())return;ui.view=(d&&d.v)||(ui.detail&&ui.detail.from)||'vandaag';render();window.scrollTo(0,0)},
   week(d){ui.weekOff=+d.d?ui.weekOff+(+d.d):0;render()},
   openDay(d){ui.detail={kind:'day',iso:d.iso,from:tabOf(ui.view)};ui.view='training';render();window.scrollTo(0,0)},
   /* je tijd per dag: dag kiezen, wiel bewaart zodra het stilstaat */
@@ -179,7 +221,8 @@ const actions={
   async delRide(){
     if(ui.confirm!=='ride'){ui.confirm='ride';return render()}
     const id=ui.rideId;state.rides=state.rides.filter(r=>r.id!==id);state.deleted=(state.deleted||[]).concat(id);save();await idb.del('s:'+id);
-    ui.confirm='';ui.view=ui.rideFrom||'kalender';ui.streams=null;render();
+    /* de verwijderde rit hoort niet in de geschiedenis: dit scherm vervangt hem */
+    ui.confirm='';ui.view=ui.rideFrom||'kalender';ui.streams=null;routeLock=true;render();routeLock=false;
   },
   csv(){
     const r=state.rides.find(x=>x.id===ui.rideId),s=ui.streams;if(!r||!s)return;
@@ -194,20 +237,25 @@ const actions={
   restore(d,el){
     const f=el.files&&el.files[0];if(!f)return;
     const rd=new FileReader();
-    rd.onload=async()=>{
+    /* eerst lezen en controleren, dan vragen: terugzetten vervangt alles */
+    rd.onload=()=>{
       try{
         const o=JSON.parse(rd.result);
         if(!o||o.app!=='kopwerk'||!o.state||!Array.isArray(o.state.rides)||!o.state.profile)throw 0;
-        state=Object.assign(defaults(),o.state,{strava:state.strava});save();
-        for(const[id,s]of Object.entries(o.streams||{}))if(s&&Array.isArray(s.p))await idb.put('s:'+id,s);
-        ui.streams=null;render();toast('Back-up teruggezet.');
-      }catch(e){toast('Dit bestand is geen back-up van Kopwerk.')}
+        ui.modal={kind:'restore',o,name:f.name};render();
+      }catch(e){el.value='';toast('Dit bestand is geen back-up van Kopwerk.')}
     };
     rd.readAsText(f);
   },
-  async wipe(){
-    if(ui.confirm!=='wipe'){ui.confirm='wipe';return render()}
-    state=defaults();save();await idb.clear();ui.confirm='';ui.view='vandaag';ui.streams=null;ui.pending=null;render();
+  async restoreGo(){
+    const o=ui.modal&&ui.modal.kind==='restore'&&ui.modal.o;if(!o)return;
+    state=Object.assign(defaults(),o.state,{strava:state.strava});save();
+    for(const[id,s]of Object.entries(o.streams||{}))if(s&&Array.isArray(s.p))await idb.put('s:'+id,s);
+    ui.modal=null;ui.streams=null;render();toast('Back-up teruggezet.');
+  },
+  wipe(){ui.modal={kind:'wipe'};render()},
+  async wipeGo(){
+    state=defaults();save();await idb.clear();ui.modal=null;ui.confirm='';ui.view='vandaag';ui.detail=null;ui.streams=null;ui.pending=null;routeKey=null;render();
   },
   async pendSave(){const a=ui.pending;ui.pending=null;if(a){await storeRide(a);render()}},
   async pendDrop(){ui.pending=null;await idb.del('active');render()},
@@ -248,8 +296,13 @@ document.addEventListener('keydown',e=>{
 window.addEventListener('beforeunload',e=>{if(P&&(P.mode==='run'||P.mode==='pause')){e.preventDefault();e.returnValue=''}});
 
 (async function init(){
-  load();render();
+  load();
+  /* verversen of een bewaard adres: open het scherm dat in de adresbalk staat */
+  if(state.setup){const s=routeParse(location.hash),h=history.state;routeIdx=h&&typeof h.i==='number'?h.i:0;
+    ui.view=s.view;ui.detail=s.detail||null;if(s.rideId){ui.rideId=s.rideId;ui.rideFrom=(h&&h.rideFrom)||s.rideFrom}}
+  render();
   await idb.open();
+  if(ui.view==='ride'&&ui.rideId&&!P)openRide(ui.rideId);
   try{
     let ch=false;
     for(const r of state.rides){

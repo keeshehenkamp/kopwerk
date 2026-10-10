@@ -40,8 +40,10 @@ a{color:inherit}
 .btn.pri:hover{filter:brightness(1.08)}
 .btn.big{padding:12px 22px;font-size:16px}
 .btn.warn{color:var(--bad)}
+.btn.danger{background:var(--bad);border-color:var(--bad);color:var(--surface);font-weight:600}
+.btn.danger:hover{filter:brightness(1.08)}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
-.btn.icon{padding:8px 13px}
+.btn.icon{padding:8px 10px;display:inline-flex;align-items:center;justify-content:center}
 .btn.small{padding:4px 11px;font-size:13.5px}
 .link{background:none;border:0;padding:0;color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--hover)}
 select,input[type=number],input[type=text],input[type=date],input[type=password]{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 11px;max-width:100%}
@@ -55,7 +57,7 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .profile polygon.n,.pchart polygon.n{stroke:none}
 .dot{display:block;width:10px;height:10px;border-radius:50%;flex:none}
 .dot.rest{background:transparent;border:1.5px solid var(--line);width:8px;height:8px}
-.dot.done{background:none;width:auto;height:auto;color:var(--ok);font-weight:700;font-size:13px;line-height:10px}
+.dot.done{background:none;width:14px;height:14px;margin:0 -2px;color:var(--ok)}.dot.done .ic{width:14px;height:14px;stroke-width:3}
 .dot.ev{background:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
 
 /* navigatie: onderin op de telefoon, links op de laptop */
@@ -64,12 +66,12 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .side.off{display:none}
 .tabs{display:flex;justify-content:space-around;height:var(--tabbar)}
 .tabs button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:0;color:var(--muted);font-size:11px;font-weight:600}
-.tabs svg{width:23px;height:23px}
+.tabs svg{width:22px;height:22px}
 .tabs button[aria-current="page"]{color:var(--acc)}
 .main{max-width:1180px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(var(--tabbar) + 30px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px))}
 .head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:6px 2px 16px}
 .head p{color:var(--muted);font-size:14px;margin-top:3px}
-.back{background:none;border:0;padding:4px 0;color:var(--muted);font-weight:600;font-size:15px;margin-bottom:6px}
+.back{display:inline-flex;align-items:center;gap:2px;margin-left:-5px;background:none;border:0;padding:4px 0;color:var(--muted);font-weight:600;font-size:15px;margin-bottom:6px}
 @media (min-width:960px){
   .side{top:0;right:auto;width:var(--side);border-top:0;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:22px 14px}
   .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:19px;padding:0 10px 24px;letter-spacing:-.01em}
@@ -120,7 +122,7 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .wcard .t{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .wcard h3{font-size:18px}
 .wcard .m{font-size:13.5px;color:var(--muted);margin-top:3px}
-.wcard .chev{font-size:24px;line-height:1;color:var(--muted)}
+.wcard .chev{color:var(--muted);flex:none}.wcard .chev .ic{width:20px;height:20px}
 .wcard .profile{height:74px;margin-top:12px}
 .note{font-size:13px;font-weight:600;margin-top:6px}
 .note.late{color:var(--bad)}.note.moved{color:var(--acc)}
@@ -289,6 +291,11 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 /* vensters */
 .veil{position:fixed;inset:0;background:rgba(9,9,11,.55);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto;z-index:20}
 .modal{background:var(--surface);border:1px solid var(--edge);border-radius:12px;width:min(720px,100%);padding:24px}
+.modal.narrow{width:min(460px,100%)}
+/* Profiel: wissen staat los van de back-up, in een eigen vak */
+.dzone{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;border-color:color-mix(in srgb,var(--bad) 35%,var(--edge))}
+/* zonder Bluetooth (iPhone): uitleg waar je rijdt, met 'Lukt niet' als gewone knop ernaast */
+.noride{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:10px}
 
 /* player */
 .player{position:fixed;inset:0;background:var(--bg);z-index:30;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
@@ -436,3 +443,28 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .cal-i.ev{color:var(--acc)}.cal-i.miss{color:var(--muted);text-decoration:line-through}.cal-i.miss i{opacity:.35}
 .cal-m{color:var(--muted);font-variant-numeric:tabular-nums}
 @media (max-width:700px){.cal-d{min-height:52px;padding:5px 4px}.cal-i{font-size:0;gap:0}.cal-i i{width:9px;height:9px}.cal-i.done::before{font-size:12px}.cal-m{display:none}.mini4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ---------- iconen ---------- */
+.ic{display:block;width:18px;height:18px;flex:none}
+.modal:focus{outline:none}
+/* ---------- beweging: kort en zacht, alleen waar iets verandert ---------- */
+.btn,.ibtn,.wcard,.avd,.cal-d,.tabs button{transition:background-color .15s,border-color .15s,color .15s,transform .1s}
+.btn:not([disabled]):active,.ibtn:active,.wcard:active{transform:scale(.98)}
+.main.enter{animation:scr-in .22s cubic-bezier(.2,.7,.3,1)}
+.veil.enter{animation:veil-in .16s ease-out}.veil.enter .modal{animation:modal-in .2s cubic-bezier(.2,.7,.3,1)}
+@keyframes scr-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes veil-in{from{opacity:0}to{opacity:1}}
+@keyframes modal-in{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.main.enter,.veil.enter,.veil.enter .modal{animation:none}}
+/* ---------- aanraken: knoppen van minstens 44 px hoog, met de duim te raken ---------- */
+@media (pointer:coarse){
+  .btn{padding:12px 16px}
+  .btn.small{padding:11px 14px;font-size:14px}
+  .btn.big{padding:14px 22px}
+  .btn.icon{padding:12px 13px}
+  .ibtn{width:44px;height:44px}
+  .back{padding:12px 0;margin-bottom:0}
+  .why summary,.evbox summary{padding:10px 0}
+  .rpe button{height:46px}
+  select,input[type=number],input[type=text],input[type=date],input[type=password]{padding:11px 12px;min-height:44px}
+}

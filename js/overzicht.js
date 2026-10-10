@@ -80,7 +80,7 @@ function kalenderView(){
   const tools=`<div class="row"><button class="btn" data-act="nav" data-v="lib">Trainingen</button>${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Buitenrit toevoegen</button></div>`;
   return `<div class="head"><div><h1>Kalender</h1></div>${tools}</div>
     <div class="card"><div class="row spread" style="margin-bottom:12px"><h2>${title}</h2>
-      <div class="wnav"><button class="btn icon" data-act="calNav" data-d="-1" aria-label="Vorige maand">‹</button>${ui.calOff?'<button class="btn" data-act="calNav" data-d="0">Vandaag</button>':''}<button class="btn icon" data-act="calNav" data-d="1" aria-label="Volgende maand">›</button></div></div>
+      <div class="wnav"><button class="btn icon" data-act="calNav" data-d="-1" aria-label="Vorige maand">${I.l}</button>${ui.calOff?'<button class="btn" data-act="calNav" data-d="0">Vandaag</button>':''}<button class="btn icon" data-act="calNav" data-d="1" aria-label="Volgende maand">${I.r}</button></div></div>
       <div class="cal"><div class="cal-w cal-h">${DAYS.map(x=>`<span>${x}</span>`).join('')}</div>${rows}</div></div>
     ${phaseStrip(today)?`<div style="margin-top:16px">${phaseStrip(today)}</div>`:''}`;
 }
