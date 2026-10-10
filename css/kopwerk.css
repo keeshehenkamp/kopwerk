@@ -468,3 +468,9 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
   .rpe button{height:46px}
   select,input[type=number],input[type=text],input[type=date],input[type=password]{padding:11px 12px;min-height:44px}
 }
+
+/* wissel tussen onderdelen van één tab (Voortgang: Fitheid en Prestaties) */
+.vtabs{display:inline-flex;gap:2px;background:var(--sunk);border-radius:10px;padding:3px}
+.vtabs button{border:0;background:none;border-radius:8px;padding:7px 14px;font-size:14.5px;font-weight:500;color:var(--muted);transition:background-color .15s,color .15s}
+.vtabs button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+@media (pointer:coarse){.vtabs button{padding:10px 16px}}

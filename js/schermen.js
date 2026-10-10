@@ -20,9 +20,13 @@ const ICON={
   lib:ic('<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>'),
   profiel:ic('<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>')
 };
-const TABS=[['vandaag','Home'],['kalender','Kalender'],['prestaties','Prestaties'],['voortgang','Voortgang'],['profiel','Profiel']];
-ICON.kalender=ICON.schema;ICON.prestaties=ICON.lib;ICON.voortgang=ICON.ritten;
-const TAB_OF={ride:'kalender',schema:'kalender',ritten:'kalender',lib:'kalender',analyse:'voortgang',settings:'profiel'};
+/* vijf tabs: Trainingen heeft een eigen plek; Prestaties is een onderdeel van Voortgang (wissel bovenaan dat scherm) */
+const TABS=[['vandaag','Home'],['kalender','Kalender'],['lib','Trainingen'],['voortgang','Voortgang'],['profiel','Profiel']];
+ICON.kalender=ICON.schema;ICON.voortgang=ICON.ritten;
+ICON.lib=ic('<circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>');
+/* wissel tussen de twee schermen onder de tab Voortgang */
+const vtabs=()=>`<div class="vtabs" role="group" aria-label="Onderdeel">${[['voortgang','Fitheid'],['prestaties','Prestaties']].map(([v,t])=>`<button data-act="nav" data-v="${v}" aria-pressed="${ui.view===v}">${t}</button>`).join('')}</div>`;
+const TAB_OF={ride:'kalender',schema:'kalender',ritten:'kalender',prestaties:'voortgang',analyse:'voortgang',settings:'profiel'};
 const tabOf=v=>v==='training'?TAB_OF[(ui.detail&&ui.detail.from)||'vandaag']||(ui.detail&&ui.detail.from)||'vandaag':v==='ride'?ui.rideFrom||'kalender':TAB_OF[v]||v;
 const dayShort=d=>`${DAYS[dow(d)]} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}`;
 /* zwaarste blok van een training, voor het gekleurde stipje */

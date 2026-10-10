@@ -77,7 +77,7 @@ function kalenderView(){
         body=`<span class="cal-i${d.iso<tk?' miss':''}"><i style="background:var(--z${woZone(d.wo)})"></i>${esc(d.wo.name)}</span><span class="cal-m">${durTxt(d.wo.minutes)}</span>`}
       return `<button class="cal-d${out?' out':''}${d.iso===tk?' today':''}${r?' rode':''}" ${act}><b>${d.date.getDate()}</b>${body}</button>`}).join('')}</div>`}
   const title=MONTHS[first.getMonth()].replace(/^./,c=>c.toUpperCase())+(first.getFullYear()!==today.getFullYear()?' '+first.getFullYear():'');
-  const tools=`<div class="row"><button class="btn" data-act="nav" data-v="lib">Trainingen</button>${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Buitenrit toevoegen</button></div>`;
+  const tools=`<div class="row">${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Buitenrit toevoegen</button></div>`;
   return `<div class="head"><div><h1>Kalender</h1></div>${tools}</div>
     <div class="card"><div class="row spread" style="margin-bottom:12px"><h2>${title}</h2>
       <div class="wnav"><button class="btn icon" data-act="calNav" data-d="-1" aria-label="Vorige maand">${I.l}</button>${ui.calOff?'<button class="btn" data-act="calNav" data-d="0">Vandaag</button>':''}<button class="btn icon" data-act="calNav" data-d="1" aria-label="Volgende maand">${I.r}</button></div></div>
@@ -89,7 +89,7 @@ function kalenderView(){
 const PERIODS=[[42,'6 weken'],[91,'3 maanden'],[365,'1 jaar'],[0,'Alles']];
 function prestatiesView(){
   if(!state.setup)return setupView();
-  const head=`<div class="head"><div><h1>Prestaties</h1></div></div>`,real=state.rides.filter(r=>!r.sim);
+  const head=`<div class="head"><div><h1>Prestaties</h1></div>${vtabs()}</div>`,real=state.rides.filter(r=>!r.sim);
   if(!real.length)return `${head}<div class="card"><p class="muted">Je records verschijnen na je eerste rit.</p></div>`;
   fillKj();
   const per=ui.perf??91,cut=per?iso(addDays(new Date(),-per)):'',sel=real.filter(r=>!cut||r.date>=cut),lbl=(PERIODS.find(([v])=>v===per)||PERIODS[1])[1];
@@ -112,7 +112,7 @@ function prestatiesView(){
 /* ---------- Voortgang: fitheid, vermoeidheid, vorm, eFTP en niveau door de tijd ---------- */
 function voortgangView(){
   if(!state.setup)return setupView();
-  const today=new Date(),head=`<div class="head"><div><h1>Voortgang</h1></div></div>`;
+  const today=new Date(),head=`<div class="head"><div><h1>Voortgang</h1></div>${vtabs()}</div>`;
   if(!state.rides.some(r=>!r.sim))return `${head}<div class="card"><p class="muted">Je voortgang verschijnt na je eerste rit.</p></div>`;
   const path=fitnessPath(today,horizonDays(today)),f=path.now;
   const pc=progressCard()||{ftpCard:'',lvHTML:''};
