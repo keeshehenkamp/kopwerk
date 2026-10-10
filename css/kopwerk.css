@@ -486,3 +486,11 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
   .cal-list .today{background:var(--sunk);border-radius:8px;border-bottom-color:transparent}
   .cal-list .miss .w b{color:var(--muted);text-decoration:line-through;font-weight:500}
 }
+
+/* melding met 'Ongedaan maken' */
+.toast{display:flex;align-items:center;gap:16px;width:max-content;max-width:calc(100vw - 32px)}.toast[hidden]{display:none}
+.tundo{flex:none;background:none;border:0;padding:6px 0;color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+/* welkom in drie stappen */
+.setup{max-width:580px;margin:0 auto}
+.steps{display:flex;gap:6px;margin:0 2px 18px}.steps i{flex:1;height:4px;border-radius:2px;background:var(--line);transition:background-color .2s}.steps i.on{background:var(--acc)}
+.stack>.setupnav{margin-top:18px}

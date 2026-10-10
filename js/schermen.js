@@ -46,7 +46,9 @@ function shell(body){
 /* ---------- formulier met je gegevens (eerste keer en Profiel) ---------- */
 function settingsForm(first){
   const p=state.profile,ev=state.event||{};
-  const save=`<button class="btn pri big" data-act="saveSettings">Maak mijn schema</button>`;
+  /* de eerste keer in drie stappen; alle velden blijven in de pagina staan, alleen de stap van nu is zichtbaar */
+  const st=first?ui.step||0:-1,hid=i=>first&&st!==i?' hidden':'';
+  const save=`<div class="row spread setupnav">${st>0?`<button class="btn big" data-act="setupStep" data-s="${st-1}">Terug</button>`:'<span></span>'}${st<2?`<button class="btn pri big" data-act="setupStep" data-s="${st+1}">Verder</button>`:'<button class="btn pri big" data-act="saveSettings">Maak mijn schema</button>'}</div>`;
   /* doelen: 'gewoon beter worden' voorop; een evenement is optioneel */
   const goals=['fit','ftp','klimmen','duur','koers'].filter(k=>GOALS[k]).map(k=>[k,GOALS[k].name]);
   const event=`<details class="evbox"${ev.date?' open':''}><summary>Ik train voor een evenement</summary>
@@ -57,9 +59,9 @@ function settingsForm(first){
         <div><label class="f" for="s-evkm">Afstand in km</label><input type="number" id="s-evkm" min="20" max="400" value="${ev.km||''}" placeholder="optioneel" style="width:120px"></div>
       </div>${first?'':`<div class="row" style="margin-top:12px"><button class="btn" data-act="aiResearch"${ui.aiBusy?' disabled':''}>${ui.aiBusy?'De coach onderzoekt je evenement':'Laat de coach je evenement onderzoeken'}</button>${ui.aiBusy?'<span class="small muted">Een tot twee minuten</span>':''}</div>`}</details>`;
   return `<div class="stack">
-    <div class="card stack"><h2>Wat wil je bereiken?</h2>
+    <div class="card stack"${hid(0)}><h2>Wat wil je bereiken?</h2>
       <div class="form"><div><label class="f" for="s-goal">Doel</label>${sel('id="s-goal"',goals,p.goal||'fit')}</div></div>${event}</div>
-    <div class="card stack"><h2>Jij</h2>
+    <div class="card stack"${hid(1)}><h2>${first?'Over jou':'Jij'}</h2>${first?'<p class="small muted">Weet je je FTP niet? Laat het veld leeg, dan plant de coach eerst een FTP-test.</p>':''}
       <div class="form">
         <div><label class="f" for="s-ftp">FTP in watt</label><input type="number" id="s-ftp" min="60" max="600" value="${first&&!state.setup?'':p.ftp}" placeholder="weet ik niet" style="width:120px"></div>
         <div><label class="f" for="s-w">Gewicht in kg</label><input type="number" id="s-w" min="35" max="200" value="${p.weight}" style="width:120px"></div>
@@ -67,11 +69,13 @@ function settingsForm(first){
         <div><label class="f" for="s-snd">Geluid bij blokwissel</label>${sel('id="s-snd"',[[1,'Aan'],[0,'Uit']],p.sound?1:0)}</div>`}
       </div>
 </div>
-    ${first?`<div class="card"><h2 style="margin-bottom:12px">Wanneer kun je fietsen?</h2>${availEditor('setup')}</div>`:''}
-    ${first?`<div>${save}</div>`:''}</div>`;
+    ${first?`<div class="card"${hid(2)}><h2 style="margin-bottom:4px">Wanneer kun je fietsen?</h2><p class="small muted" style="margin-bottom:12px">Tik op een dag en kies hoeveel tijd je hebt. Dit pas je later per week aan.</p>${availEditor('setup')}</div>`:''}
+    ${first?save:''}</div>`;
 }
 function setupView(){
-  return `<div class="head"><div><h1>Welkom bij Kopwerk</h1></div></div>${settingsForm(true)}`;
+  const st=ui.step||0;
+  return `<div class="setup"><div class="head"><div><h1>Welkom bij Kopwerk</h1><p>Stap ${st+1} van 3</p></div></div>
+    <div class="steps" aria-hidden="true">${[0,1,2].map(i=>`<i class="${i<=st?'on':''}"></i>`).join('')}</div>${settingsForm(true)}</div>`;
 }
 
 /* ---------- je tijd per dag ----------

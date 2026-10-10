@@ -254,8 +254,10 @@ const actions={
     ui.modal=null;ui.streams=null;render();toast('Back-up teruggezet.');
   },
   wipe(){ui.modal={kind:'wipe'};render()},
+  /* welkom: drie stappen; wat je invulde blijft staan (ui.draft en ui.setupAvail) */
+  setupStep(d){ui.step=clamp(+d.s||0,0,2);render();window.scrollTo(0,0)},
   async wipeGo(){
-    state=defaults();save();await idb.clear();ui.modal=null;ui.confirm='';ui.view='vandaag';ui.detail=null;ui.streams=null;ui.pending=null;routeKey=null;render();
+    state=defaults();save();await idb.clear();ui.modal=null;ui.confirm='';ui.step=0;ui.view='vandaag';ui.detail=null;ui.streams=null;ui.pending=null;routeKey=null;render();
   },
   async pendSave(){const a=ui.pending;ui.pending=null;if(a){await storeRide(a);render()}},
   async pendDrop(){ui.pending=null;await idb.del('active');render()},
@@ -278,9 +280,13 @@ const actions={
   erg(){if(!P)return;P.erg=!P.erg;if(P.erg)P.sent=-1;else setGrade(P.grade);renderPlayer()},
   grade(d){if(!P)return;P.grade=clamp(P.grade+(+d.d),-5,15);setGrade(P.grade);renderPlayer()}
 };
+/* acties die je met één tik kunt terugdraaien: de melding erna krijgt 'Ongedaan maken' */
+const UNDO=new Set(['stravaOff','healthDrop','healthUndo','healthBetter','saveHealth','missedWhy','setFtp']);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;
-  const a=actions[el.dataset.act];if(a)a(el.dataset,el,e);
+  const k=el.dataset.act,a=actions[k];if(!a)return;
+  if(UNDO.has(k)){undoArm=JSON.stringify(state);try{a(el.dataset,el,e)}finally{undoArm=null}}
+  else a(el.dataset,el,e);
 });
 /* getypte waarden in je gegevens bewaren tot je opslaat */
 document.addEventListener('input',e=>{const el=e.target;if(el&&el.id&&/^s-(?!theme)/.test(el.id))(ui.draft=ui.draft||{})[el.id]=el.value});

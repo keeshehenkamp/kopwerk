@@ -102,7 +102,14 @@ function zip(files){
 
 /* ================= downloads ================= */
 let toastT=0;
-function toast(msg){let t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';t.setAttribute('role','status');document.body.appendChild(t)}t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true},3800)}
+/* Een melding onderin. Staat undoArm klaar (de stand van voor de actie, zie acties.js), dan krijgt de melding
+   een knop 'Ongedaan maken' en blijft ze langer staan. Is er daarna nog iets veranderd, dan kan het niet meer. */
+let undoArm=null;
+function toast(msg){let t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';t.setAttribute('role','status');document.body.appendChild(t)}
+  const before=undoArm;undoArm=null;t.textContent=msg;
+  if(before){const after=JSON.stringify(state),u=document.createElement('button');u.className='tundo';u.textContent='Ongedaan maken';
+    u.onclick=()=>{if(JSON.stringify(state)!==after)return toast('Ongedaan maken kan niet meer.');state=JSON.parse(before);save();render();toast('Teruggezet.')};t.appendChild(u)}
+  t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true},before?8000:3800)}
 function saveFile(filename,data){
   const blob=data instanceof Blob?data:new Blob([data]);
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();
