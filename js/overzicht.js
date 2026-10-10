@@ -67,21 +67,28 @@ function kalenderView(){
   const today=new Date(),tk=iso(today),first=new Date(today.getFullYear(),today.getMonth()+(ui.calOff||0),1),last=new Date(first.getFullYear(),first.getMonth()+1,0);
   const ev=state.event&&state.event.date&&state.event.date>=tk?state.event.date:null,until=ev||iso(addDays(today,56));
   const m0=mondayOf(first),nW=Math.round(dayDiff(m0,mondayOf(last))/7)+1;
-  let rows='';
-  for(let w=0;w<nW;w++){const p=planWeek(state,addDays(m0,7*w),today);
+  /* laptop: maandraster. Telefoon: dezelfde dagen als lijst per week, alleen de dagen waarop iets staat. */
+  let rows='',list='';
+  for(let w=0;w<nW;w++){const wm=addDays(m0,7*w),p=planWeek(state,wm,today);let wl='';
     rows+=`<div class="cal-w">${p.days.map(d=>{
       const r=rideOn(d.iso),out=d.date.getMonth()!==first.getMonth();let act='disabled',body='';
       if(r){act=`data-act="openRide" data-id="${r.id}"`;body=`<span class="cal-i done">${esc(r.name)}</span><span class="cal-m">${clock(r.dur)}</span>`}
       else if(d.event)body=`<span class="cal-i ev">${esc(d.event)}</span>`;
       else if(d.wo&&(d.iso>=tk?d.iso<=until:!!d.logged)){act=`data-act="openDay" data-iso="${d.iso}"`;
         body=`<span class="cal-i${d.iso<tk?' miss':''}"><i style="background:var(--z${woZone(d.wo)})"></i>${esc(d.wo.name)}</span><span class="cal-m">${durTxt(d.wo.minutes)}</span>`}
-      return `<button class="cal-d${out?' out':''}${d.iso===tk?' today':''}${r?' rode':''}" ${act}><b>${d.date.getDate()}</b>${body}</button>`}).join('')}</div>`}
+      if(!out&&body){const when=`<span class="when"><b>${DAYS[d.i]}</b>${d.date.getDate()} ${MONTHS[d.date.getMonth()].slice(0,3)}</span>`,td=d.iso===tk?' class="today"':'';
+        wl+=r?`<button data-act="openRide" data-id="${r.id}"${td}>${when}<span class="dot done">${I.check}</span><span class="w"><b>${esc(r.name)}</b><span>Gereden · ${clock(r.dur)}</span></span><span class="r">${r.tss} TSS</span></button>`
+          :d.event?`<div class="li${d.iso===tk?' today':''}">${when}<span class="dot ev"></span><span class="w"><b>${esc(d.event)}</b><span>Evenement</span></span></div>`
+          :`<button data-act="openDay" data-iso="${d.iso}" class="${d.iso<tk?'miss':d.iso===tk?'today':''}">${when}<span class="dot" style="background:var(--z${woZone(d.wo)})"></span><span class="w"><b>${esc(d.wo.name)}</b><span>${d.iso<tk?'Niet gedaan':durTxt(d.wo.minutes)}</span></span><span class="r">${d.iso<tk?'':d.wo.tss+' TSS'}</span></button>`}
+      return `<button class="cal-d${out?' out':''}${d.iso===tk?' today':''}${r?' rode':''}" ${act}><b>${d.date.getDate()}</b>${body}</button>`}).join('')}</div>`;
+    if(wl)list+=`<div class="sec">Week ${weekNo(wm)}</div><div class="card"><div class="list">${wl}</div></div>`}
   const title=MONTHS[first.getMonth()].replace(/^./,c=>c.toUpperCase())+(first.getFullYear()!==today.getFullYear()?' '+first.getFullYear():'');
   const tools=`<div class="row">${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Buitenrit toevoegen</button></div>`;
   return `<div class="head"><div><h1>Kalender</h1></div>${tools}</div>
-    <div class="card"><div class="row spread" style="margin-bottom:12px"><h2>${title}</h2>
+    <div class="card cal-card"><div class="row spread" style="margin-bottom:12px"><h2>${title}</h2>
       <div class="wnav"><button class="btn icon" data-act="calNav" data-d="-1" aria-label="Vorige maand">${I.l}</button>${ui.calOff?'<button class="btn" data-act="calNav" data-d="0">Vandaag</button>':''}<button class="btn icon" data-act="calNav" data-d="1" aria-label="Volgende maand">${I.r}</button></div></div>
       <div class="cal"><div class="cal-w cal-h">${DAYS.map(x=>`<span>${x}</span>`).join('')}</div>${rows}</div></div>
+    <div class="cal-list">${list||'<div class="card" style="margin-top:12px"><p class="muted">Deze maand staat er niets gepland.</p></div>'}</div>
     ${phaseStrip(today)?`<div style="margin-top:16px">${phaseStrip(today)}</div>`:''}`;
 }
 
