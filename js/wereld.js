@@ -66,7 +66,7 @@ const ROUTES=[
   {id:'bos',name:'Bossen en meren',km:18,zones:[['bos',5],['meer',4],['polder',4],['bos',5]],klim:[[2,1.2,2.5],[13.4,1,3.5]],roll:1.5},
   {id:'heuvel',name:'Heuvelland',km:22,zones:[['polder',3],['heuvels',8],['bos',4],['heuvels',7]],klim:[[3.6,1.6,4.5],[7.2,.9,8],[10.2,1.2,5],[16,2,5.5],[19.8,.7,9]],roll:3},
   {id:'provence',name:'Provence',km:26,zones:[['provence',9],['heuvels',6],['provence',11]],klim:[[2.5,5,4.2],[13.5,2.5,5.5],[20.5,1.4,3.5]],roll:2.5},
-  {id:'col',name:'De Col',km:30,zones:[['bos',4.5],['bergen',16.5],['bos',4],['meer',5]],klim:[[4.5,9.5,6.8]],roll:1.5,hp:[[5.4,7],[10,9]]}
+  {id:'col',name:'De Col',km:11,ontwerp:'col'}
 ];
 const ROUTE_KEY='kopwerk.route';
 const routeId=()=>{let v='';try{v=localStorage.getItem(ROUTE_KEY)||''}catch(e){}return ROUTES.some(r=>r.id===v)?v:'heuvel'};
@@ -76,6 +76,7 @@ const wrapD=(C,d)=>((d%C.L)+C.L)%C.L;
 const kAt=(C,d)=>Math.round(wrapD(C,d)/STEP)%C.N;
 function buildCourse(id){
   const R=ROUTES.find(x=>x.id===(id||routeId()))||ROUTES[0],L=R.km*1000,N=Math.round(L/STEP);
+  if(R.ontwerp&&typeof designCourse==='function')return designCourse(R);
   const seed=[...R.id].reduce((a,c)=>a*31+c.charCodeAt(0)|0,7),r=rng(seed),C={L,lap:L,lapKm:R.km,N,seed,ph:r()*6,route:R,hp:[]};
   const zones=[];let zd=0;for(const [ty,km] of R.zones){zones.push({ty,a:zd,b:zd+km*1000,v:r()});zd+=km*1000}zones[zones.length-1].b=L;C.zones=zones;
   /* hoogte: klimmen omhoog, daarna een afdaling tot hooguit 2,5 keer de klimlengte of tot de volgende klim; wat overblijft wordt over de ronde verdeeld */
@@ -735,6 +736,9 @@ function poseRider(R,dt,cad,spd,stand){
 /* ---------- wereld opbouwen ---------- */
 /* licht en weer: past bij het tijdstip van de rit, af en toe bewolkt of een bui */
 function pickMood(){
+  /* een ontworpen route heeft een vaste sfeer: elke rit hetzelfde licht */
+  const RR=ROUTES.find(x=>x.id===routeId()),SF=RR&&RR.ontwerp&&typeof ROUTE_DESIGN!=='undefined'&&ROUTE_DESIGN[RR.ontwerp]&&ROUTE_DESIGN[RR.ontwerp].sfeer;
+  if(SF)return Object.assign({top:'#2f8ae6',hor:'#cfe8f7',sun:'#ffdcae',si:3.3,hemi:1.55,sky:'#e2f0ff',gr:'#566a32',dir:[-70,75,-120],disc:'#fff6d8',exp:1.25,ring:['#a9bfd2','#93abc0'],fog:[70,330],rain:false,disc_on:true,cloud:'#ffffff',name:'dag'},SF);
   const t=new Date(),h=t.getHours()+t.getMinutes()/60,u=rng(Math.floor(Date.now()/36e5)*7+3)();
   const m={top:'#2f8ae6',hor:'#cfe8f7',sun:'#ffdcae',si:3.3,hemi:1.55,sky:'#e2f0ff',gr:'#566a32',dir:[-70,75,-120],disc:'#fff6d8',exp:1.25,ring:['#a9bfd2','#93abc0'],fog:[70,330],rain:false,disc_on:true,cloud:'#ffffff',name:'dag'};
   if(h>=5&&h<9.5)Object.assign(m,{top:'#5b8fc6',hor:'#f2dcc2',sun:'#ffcf96',si:2.9,hemi:1.3,dir:[-60,32,-140],disc:'#ffe2b0',ring:['#c4b9c4','#a9a9bd'],name:'ochtend'});
@@ -803,9 +807,9 @@ function paintClouds(){
       c.save();c.globalCompositeOperation='destination-out';const gb=c.createLinearGradient(0,oy+168,0,oy+196);gb.addColorStop(0,'rgba(0,0,0,0)');gb.addColorStop(1,'rgba(0,0,0,1)');c.fillStyle=gb;c.fillRect(ox,oy+168,512,88);c.restore()}
   });
 }
-function makeClouds(MO){
-  const T=T3,n=MO.name==='bewolkt'||MO.name==='regen'?30:MO.name==='schemer'?9:15,rr=rng(5),pos=[],uv=[],idx=[],Rc=1650;
-  for(let i=0;i<n;i++){const az=i/n*Math.PI*2+rr()*.25,el=.045+rr()*rr()*.3,wq=(420+rr()*480)*(n>20?1.2:1),hq=wq*.5,k=Math.floor(rr()*4),col=k%2,row=Math.floor(k/2);
+function makeClouds(MO,Rc=1650,el0=.045){
+  const T=T3,n=MO.name==='bewolkt'||MO.name==='regen'?30:MO.name==='schemer'?9:15,rr=rng(5),pos=[],uv=[],idx=[];
+  for(let i=0;i<n;i++){const az=i/n*Math.PI*2+rr()*.25,el=el0+rr()*rr()*.3,wq=(420+rr()*480)*(n>20?1.2:1)*Rc/1650,hq=wq*.5,k=Math.floor(rr()*4),col=k%2,row=Math.floor(k/2);
     const cx=Math.cos(az)*Rc,cz=Math.sin(az)*Rc,cy=Math.tan(el)*Rc,tx=-Math.sin(az),tz=Math.cos(az),b=pos.length/3;
     for(const [a,v] of[[-1,-1],[1,-1],[1,1],[-1,1]]){pos.push(cx+tx*a*wq/2,cy+v*hq/2+hq*.2,cz+tz*a*wq/2);uv.push((col+(a+1)/2)/2,1-(row+(1-v)/2)/2)}
     idx.push(b,b+1,b+2,b,b+2,b+3)}
@@ -883,8 +887,8 @@ async function worldLoad(tok){
   ren.domElement.addEventListener('webglcontextrestored',()=>{tok.lost=0});
   const small=Math.min(innerWidth,innerHeight)<600,MO=pickMood();
   /* laptop: scherp tot 2x; zakt de beeldsnelheid, dan gaat dit vanzelf omlaag (zie worldFrame) */
-  ren.setPixelRatio(Math.min(devicePixelRatio||1,small?1.25:2));ANISO=small?4:ren.capabilities.getMaxAnisotropy();ren.toneMapping=T.NeutralToneMapping;ren.toneMappingExposure=MO.exp*.8;ren.shadowMap.enabled=true;ren.shadowMap.type=small?T.PCFSoftShadowMap:T.PCFShadowMap;el.appendChild(ren.domElement);
-  const scene=new T.Scene();scene.background=new T.Color(MO.hor);scene.fog=new T.Fog(MO.hor,MO.fog[0]*(small?1:1.5),MO.fog[1]*(small?1:1.8));
+  ren.setPixelRatio(Math.min(devicePixelRatio||1,small?1.25:2));ANISO=small?4:ren.capabilities.getMaxAnisotropy();ren.toneMapping=T.ACESFilmicToneMapping;ren.toneMappingExposure=MO.exp*.8;ren.shadowMap.enabled=true;ren.shadowMap.type=small?T.PCFSoftShadowMap:T.PCFShadowMap;el.appendChild(ren.domElement);
+  const scene=new T.Scene();scene.background=new T.Color(MO.hor);scene.fog=MO.fogAbs?new T.Fog(MO.hor,MO.fog[0],MO.fog[1]*(small?.75:1)):new T.Fog(MO.hor,MO.fog[0]*(small?1:1.5),MO.fog[1]*(small?1:1.8));
   scene.add(new T.HemisphereLight(MO.sky,MO.gr,MO.hemi));
   const sun=new T.DirectionalLight(MO.sun,MO.si);sun.castShadow=true;sun.shadow.mapSize.set(small?1024:2048,small?1024:2048);
   Object.assign(sun.shadow.camera,small?{left:-30,right:30,top:30,bottom:-30,near:1,far:260}:{left:-38,right:38,top:38,bottom:-38,near:1,far:300});sun.shadow.radius=small?1:2.6;sun.shadow.bias=-.0006;sun.shadow.normalBias=.03;
@@ -1062,6 +1066,11 @@ function worldBuild(){
   const arch=(ar,d)=>{const p=roadAt(C,d);ar.position.set(p.x,p.y,p.z);ar.rotation.y=-p.h;root.add(ar)};
   arch(makeArch('#20242c',C.route.name.toUpperCase(),true),0);
   for(const c of C.climbs){if(c.g<3)continue;const sg=makeSign(Math.round(c.g)),p=roadAt(C,c.a-30);sg.position.set(p.x+Math.cos(p.h)*5.4,p.y,p.z+Math.sin(p.h)*5.4);sg.rotation.y=-p.h;root.add(sg)}
+  /* ontworpen route: één doorlopend hoogteveld, het verre land als één net en de meren */
+  if(C.designed){designTerrain(C);const fm=dzFarMesh(C);root.add(fm);for(const m of dzLakes(C))root.add(m);
+    /* het land loopt kilometers door: verder kijken, en decor en wolken achter de echte bergen */
+    W.cam.far=6500;W.cam.updateProjectionMatrix();W.ring.scale.setScalar(3.6);
+    if(!W.clouds.userData.big){W.scene.remove(W.clouds);W.clouds=makeClouds(W.mood,4800,.1);W.clouds.userData.big=true;W.scene.add(W.clouds)}}
   W.scene.add(root);
   if(W.ready){const c=Math.floor((W.lastD||0)/CH);for(let ci=Math.max(0,c-1);ci<=c+2;ci++)buildChunk(ci)}
 }
@@ -1093,6 +1102,7 @@ function instMesh(key,L){
   m.computeBoundingSphere();if(k==='wolk')m.frustumCulled=false;return m;
 }
 function* chunkJob(ci){
+  if(W.C.designed){yield* dzChunkJob(ci);return}
   const T=T3,C=W.C,M=W.mat,cl=ci%C.lapKm,a=cl*CH;if(a>=C.L||W.chunks.has(ci))return;
   const g=new T.Group(),r=rng(C.seed+cl*7919+3);
   const geo=(pos,idx,col,uv)=>{const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));if(col)g.setAttribute('color',new T.Float32BufferAttribute(col,3));if(uv)g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();return g};
@@ -1515,13 +1525,16 @@ function worldStep(t){
   const CB=4.6,ahead=roadAt(C,d+20),back=d>=CB?roadAt(C,d-CB):(q=>({x:q.x-Math.sin(q.h)*(CB-d),y:q.y,z:q.z+Math.cos(q.h)*(CB-d),h:q.h}))(roadAt(C,0));
   const cp=new T.Vector3(back.x+Math.cos(back.h)*1.35,Math.max(back.y,p.y)+1.95+(run?Math.sin(t/260)*.025:0),back.z+Math.sin(back.h)*.6);
   if(!W.camP)W.camP=cp.clone();else{W.camP.x=cp.x;W.camP.z=cp.z;W.camP.y=clamp(W.camP.y+(cp.y-W.camP.y)*Math.min(1,dt*3),cp.y-.4,cp.y+.4)}
-  W.cam.position.copy(W.camP);W.cam.lookAt(ahead.x+Math.cos(ahead.h)*.5,ahead.y+1.1,ahead.z+Math.sin(ahead.h)*.5);
+  /* het kijkpunt volgt met wat traagheid, zodat de camera in haarspeldbochten en op een rotonde rustig meedraait */
+  {const tx=ahead.x+Math.cos(ahead.h)*.5,ty=ahead.y+1.1,tz=ahead.z+Math.sin(ahead.h)*.5,L=W.lookP;
+    if(!L||Math.hypot(L.x-tx,L.z-tz)>60)W.lookP=new T.Vector3(tx,ty,tz);else{const f=Math.min(1,dt*3.2);L.x+=(tx-L.x)*f;L.y+=(ty-L.y)*f;L.z+=(tz-L.z)*f}}
+  W.cam.position.copy(W.camP);W.cam.lookAt(W.lookP);
   /* zon, lucht en verre bergen reizen mee */
   const md=W.mood.dir,sp=W.lite?p:roadAt(C,d+16);W.sun.position.set(sp.x+md[0],sp.y+md[1],sp.z+md[2]);W.wind.value=t/1000;
   {const L=Math.hypot(...md)/1100;W.sunDisc.position.set(W.cam.position.x+md[0]/L,W.cam.position.y+md[1]/L,W.cam.position.z+md[2]/L)}
   if(W.rain){W.rain.position.copy(W.cam.position);W.rain.position.y-=8;const a=W.rain.geometry.attributes.position,ar=a.array;for(let i=0;i<ar.length;i+=6){ar[i+1]-=24*dt;ar[i+4]-=24*dt;if(ar[i+1]<0){ar[i+1]+=25;ar[i+4]+=25}}a.needsUpdate=true}W.sun.target.position.set(sp.x,sp.y,sp.z);
   W.sky.position.copy(W.cam.position);W.ring.position.set(W.cam.position.x,p.y,W.cam.position.z);W.clouds.position.copy(W.cam.position);const mixNow=landMix(C,d);decorMix(mixNow);
-  for(const s of W.mills)s.rotation.z+=dt*.6;
+  for(const s of W.mills)s.rotation.z+=dt*.6;for(const tx of W.flows||[])tx.offset.y+=dt*1.4;
   const ci=Math.floor(d/CH);
   /* telefoon: minder kilometers vooruit klaarzetten, dat scheelt geheugen */
   const fwd=W.lite?3:5;
@@ -1530,8 +1543,9 @@ function worldStep(t){
   for(const c of W.chunks.keys())if(c<ci-2||c>ci+fwd+2)dropChunk(c);
   /* verre bergtoppen alleen in de Alpen; ze komen geleidelijk op als je de Alpen in rijdt */
   const alps=(mixNow.bergen||0)>.35;W.mat.piek.opacity=clamp(((mixNow.bergen||0)-.35)*5,0,1);
-  for(const [c,gr] of W.chunks){const near=c>=ci-1&&c<=ci+1,vis=near+'/'+alps;if(gr.userData.vis!==vis){gr.userData.vis=vis;for(const ch of gr.children)ch.visible=ch.userData.far?alps:ch.userData.vall||near}}
+  for(const [c,gr] of W.chunks){const near=c>=ci-1&&c<=ci+1,vis=near+'/'+alps;if(gr.userData.vis!==vis){gr.userData.vis=vis;for(const ch of gr.children)ch.visible=ch.userData.far?alps:ch.userData.vall||near||(C.designed&&!ch.isInstancedMesh)}}
   W.lastD=d;worldHud(d);
+  if(W.camHook)W.camHook();
   if(W.comp)W.comp.render(dt);else W.ren.render(W.scene,W.cam);
 }
 function worldHud(d){
