@@ -22,7 +22,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 | `js/wereld.js` | 3D-rit (three.js): routes als rondjes met een eigen hoogteprofiel (`ROUTES`), snelheid uit vermogen, gewicht en helling, landschappen met dorpen en herkenningspunten, publiek, weer en tijd van de dag, tempomaker, punten en sterren, productdemo. Een kilometer wereld wordt in stapjes van een paar ms opgebouwd (`chunkJob`), zodat het beeld niet hapert |
 | `js/grafieken.js` | Grafieken |
 | `models/kenney.bin`, `models/kenney.json` | 46 gratis 3D-modellen van [Kenney](https://kenney.nl) (CC0): bomen, struiken, rotsen, hout, bloemen en auto's, met ingebakken natuurlijke kleuren. Opnieuw maken met `python3 tools/kenney.py <map met uitgepakte Kenney-pakketten>` (Nature Kit en Car Kit) |
-| `js/ai.js` | AI-coach: Claude onderzoekt het evenement (route, hoogtemeters, hellingen); richtvermogen per helling |
+| `js/evenementen.js` | Dertig grote toertochten en cyclo's in Europa (afstanden, hoogtemeters, hellingen); hoe lang de hellingen voor jou duren, welk soort schema daarbij past (korte hellingen, middellange klimmen, lange cols, vlak, kasseien) en of het haalbaar is |
 | `js/schermen.js` | Schermen en vensters |
 | `js/acties.js` | Knoppen, toetsen en het opstarten van de app |
 
@@ -32,7 +32,8 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 - IndexedDB `kopwerk`, store `streams`: meetgegevens per rit (`s:<rit-id>`) en een lopende training (`active`).
 - Sinds de coach bevat de state ook `event.kind` en `event.km` (soort en afstand van het evenement), `started` (eerste dag met een schema) en `plog` (wat er per voorbije dag gepland stond, zodat het verleden niet verschuift), en `prog` (trede per soort training op de opbouwladder, bijgewerkt na elke rit met je gevoel en de uitvoering). Ritten krijgen `lvl`, de trede waarop ze gereden zijn. Dit zijn toevoegingen; oude gegevens werken zonder migratie.
 
-- localStorage-sleutel `kopwerk.ai`: de Claude API-sleutel, los van de state zodat hij niet in back-ups komt. Het onderzochte evenement staat in `event.profile`.
+- Evenement uit de lijst: `event.id` en `event.v` (welke afstand); naam, afstand en hellingen komen uit `js/evenementen.js`. Een eigen evenement heeft `name`, `kind` en `km`. Een oud `event.profile` (van de vroegere AI-coach) wordt nog gelezen. De app verwijdert een oude sleutel `kopwerk.ai` bij het opstarten.
+- `profile.niveau`: beginner, recreant, gevorderd of ervaren. Bepaalt het startvolume en de eerste trede; zodra je FTP bekend is, weegt je watt per kilo mee. De planlog bewaart per dag ook `b`, de blokduur van een lange rit met klimmen.
 
 - `ftpGiven`: de dag waarop je bij de start zelf een FTP invulde. De coach telt dat als test, dus de eerste FTP-test komt pas na zes weken. Ritten krijgen `rpeAdj` als hun trede uit je gevoel komt; pas je je gevoel later aan, dan rekent de coach die trede opnieuw uit (zolang er geen nieuwere rit van die soort is beoordeeld).
 - Van demo-ritten (`sim`) bewaart de app alleen de laatste. Ze tellen niet mee in het schema, de kalender of je beste ritten.

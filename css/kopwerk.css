@@ -231,6 +231,7 @@ tr:last-child td{border:0}
 
 /* profiel */
 .form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px}
+.form .wide{grid-column:1/-1}.form .wide select{width:100%;max-width:520px}
 /* je tijd per dag: dagen als tegels, tijden als knoppen */
 .avdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .avd{background:var(--surface);border:1px solid var(--edge);border-radius:8px;padding:8px 0 9px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;color:var(--muted);min-width:0}
@@ -474,6 +475,11 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .vtabs button{border:0;background:none;border-radius:8px;padding:7px 14px;font-size:14.5px;font-weight:500;color:var(--muted);transition:background-color .15s,color .15s}
 .vtabs button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
 @media (pointer:coarse){.vtabs button{padding:10px 16px}}
+/* filter in de trainingenbibliotheek */
+.cats{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 16px}
+.cats button{border:1px solid var(--edge);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:14px;color:var(--muted)}
+.cats button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+@media (pointer:coarse){.cats button{padding:9px 14px}}
 
 /* kalender op de telefoon: een lijst per week in plaats van het maandraster */
 .cal-list{display:none}

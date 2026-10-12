@@ -43,6 +43,30 @@ function shell(body){
     <main class="main${enterMain?' enter':''}">${ui.saveFail?'<p class="notice small" style="margin-bottom:14px">Opslaan lukt niet in deze browser. Je gegevens blijven staan tot je de pagina sluit; maak een back-up via Profiel.</p>':''}${body}</main>`;
 }
 
+/* ---------- evenement in het formulier ---------- */
+/* wat er nu in het formulier staat: je laatste keuze (ui.draft) of wat er opgeslagen is */
+function formEvent(){
+  const ev=state.event||{},d=ui.draft||{};
+  const id=d['s-evid']!=null?d['s-evid']:ev.id||(ev.name||ev.date?'eigen':'');
+  const v=d['s-evv']!=null&&id===ev.id?+d['s-evv']:id===ev.id?ev.v|0:d['s-evv']!=null?+d['s-evv']:0;
+  return {id,v:EVBY[id]?clamp(v,0,EVBY[id].v.length-1):0,date:d['s-evd']!=null?d['s-evd']:ev.date||'',
+    kind:d['s-evk']!=null?d['s-evk']:ev.kind||'',km:+(d['s-evkm']!=null?d['s-evkm']:ev.km||0)||0};
+}
+/* haalbaar? met wat je net invulde in het formulier (niveau, FTP, gewicht) */
+function evNotice(cur){
+  if(!cur.id||!/^\d{4}-\d{2}-\d{2}$/.test(cur.date))return '';
+  const d=ui.draft||{},P=Object.assign({},state.profile);
+  if(d['s-niv'])P.niveau=d['s-niv'];if(+d['s-ftp'])P.ftp=clamp(+d['s-ftp'],60,600);if(+d['s-w'])P.weight=clamp(+d['s-w'],35,200);
+  if(!P.niveau&&!state.setup)P.niveau='recreant';
+  /* bij het instellen: de tijd per dag die je in stap 3 kiest (ui.setupAvail) */
+  const st=Object.assign({},state,{profile:P},!state.setup?{avail:ui.setupAvail||state.avail,weeks:{}}:{}),ev=Object.assign({},cur,cur.id==='eigen'?{id:undefined}:{});
+  const r=evCheck(st,ev,new Date());if(!r)return '';
+  const h=m=>durTxt(r5(m*60)),E=EVBY[cur.id];
+  if(r.st==='ok')return `<p class="small muted" style="margin-top:10px">Haalbaar. Op de dag ben je ongeveer ${h(r.h)} onderweg. Je langste trainingsrit groeit tot ongeveer ${h(Math.min(r.reach,r.need*1.1))}.${r.day?` Plan wel minstens één dag van ${h(r.need)}; je langste dag is nu ${h(r.day)}.`:''}</p>`;
+  const alt=r.alt?`<button class="btn small" data-act="evAlt" data-v="${r.alt.i}">Kies de ${E.v[r.alt.i].naam?esc(E.v[r.alt.i].naam)+' ('+r.alt.km+' km)':r.alt.km+' km'}</button>`:'';
+  return `<div class="notice small stack" style="margin-top:12px;gap:8px"><p><b style="font-weight:600">${r.st==='krap'?'Krap.':'Waarschijnlijk te zwaar.'}</b> Op de dag ben je ongeveer ${h(r.h)} onderweg. Het advies is een langste trainingsrit van ${h(r.need)}; in ${Math.round(r.weeks)} weken kom je naar verwachting tot ongeveer ${h(r.reach)}.${r.day?` Je langste dag in je week is nu ${h(r.day)}.`:''}</p>
+    <p class="muted">${r.alt?'Een kortere afstand van hetzelfde evenement past wel.':E&&E.v.length>1?'Ook de kortere afstanden zijn krap. Kies een evenement later in het jaar, of rijd rustig en neem de tijd.':'Kies een evenement later in het jaar, of een kortere tocht.'}</p>${alt?`<div>${alt}</div>`:''}</div>`;
+}
 /* ---------- formulier met je gegevens (eerste keer en Profiel) ---------- */
 function settingsForm(first){
   const p=state.profile,ev=state.event||{};
@@ -51,23 +75,32 @@ function settingsForm(first){
   const save=`<div class="row spread setupnav">${st>0?`<button class="btn big" data-act="setupStep" data-s="${st-1}">Terug</button>`:'<span></span>'}${st<2?`<button class="btn pri big" data-act="setupStep" data-s="${st+1}">Verder</button>`:'<button class="btn pri big" data-act="saveSettings">Maak mijn schema</button>'}</div>`;
   /* doelen: 'gewoon beter worden' voorop; een evenement is optioneel */
   const goals=['fit','ftp','klimmen','duur','koers'].filter(k=>GOALS[k]).map(k=>[k,GOALS[k].name]);
-  const event=`<details class="evbox"${ev.date?' open':''}><summary>Ik train voor een evenement</summary>
+  /* evenement: kies uit de lijst, of 'Ander evenement' en vul het zelf in. Wat je net koos (ui.draft) gaat voor. */
+  const cur=formEvent(),E=EVBY[cur.id];
+  const opts=`<option value="">Kies een evenement</option>${EVGROUPS.map(([g,t])=>`<optgroup label="${t}">${EVLIST.filter(e=>e.groep===g).map(e=>`<option value="${e.id}"${cur.id===e.id?' selected':''}>${esc(e.naam)} · ${e.land}</option>`).join('')}</optgroup>`).join('')}<option value="eigen"${cur.id==='eigen'?' selected':''}>Ander evenement</option>`;
+  const event=`<details class="evbox"${cur.id?' open':''}><summary>Ik train voor een evenement</summary>
       <div class="form" style="margin-top:12px">
-        <div><label class="f" for="s-evn">Naam</label><input type="text" id="s-evn" maxlength="40" value="${esc(ev.name||'')}" placeholder="optioneel" style="width:100%"></div>
-        <div><label class="f" for="s-evd">Datum</label><input type="date" id="s-evd" value="${ev.date||''}"></div>
-        <div><label class="f" for="s-evk">Soort</label>${sel('id="s-evk"',EVENT_KINDS,ev.kind||'')}</div>
-        <div><label class="f" for="s-evkm">Afstand in km</label><input type="number" id="s-evkm" min="20" max="400" value="${ev.km||''}" placeholder="optioneel" style="width:120px"></div>
-      </div>${first?'':`<div class="row" style="margin-top:12px"><button class="btn" data-act="aiResearch"${ui.aiBusy?' disabled':''}>${ui.aiBusy?'De coach onderzoekt je evenement':'Laat de coach je evenement onderzoeken'}</button>${ui.aiBusy?'<span class="small muted">Een tot twee minuten</span>':''}</div>`}</details>`;
+        <div class="wide"><label class="f" for="s-evid">Evenement</label><select id="s-evid">${opts}</select></div>
+        ${E&&E.v.length>1?`<div><label class="f" for="s-evv">Afstand</label>${sel('id="s-evv"',E.v.map((x,i)=>[i,evVarTxt(x)]),cur.v)}</div>`:''}
+        ${cur.id==='eigen'?`<div><label class="f" for="s-evn">Naam</label><input type="text" id="s-evn" maxlength="40" value="${esc(ev.id?'':ev.name||'')}" placeholder="optioneel" style="width:100%"></div>`:''}
+        ${cur.id?`<div><label class="f" for="s-evd">Datum</label><input type="date" id="s-evd" value="${ev.date||''}"></div>`:''}
+        ${cur.id==='eigen'?`<div><label class="f" for="s-evk">Soort</label>${sel('id="s-evk"',EVENT_KINDS,ev.id?'':ev.kind||'')}</div>
+        <div><label class="f" for="s-evkm">Afstand in km</label><input type="number" id="s-evkm" min="20" max="400" value="${ev.id?'':ev.km||''}" placeholder="optioneel" style="width:120px"></div>`:''}
+      </div>
+      ${E?`<p class="small muted" style="margin-top:10px">${E.v.length===1?evVarTxt(E.v[0])+'. ':''}Meestal ${esc(E.maand)}. Afstand en hoogtemeters zijn richtwaarden; controleer de datum en route van jouw editie.</p>`:''}
+      ${first?'':evNotice(cur)}</details>`;
+  const niv=p.niveau||'';
   return `<div class="stack">
     <div class="card stack"${hid(0)}><h2>Wat wil je bereiken?</h2>
       <div class="form"><div><label class="f" for="s-goal">Doel</label>${sel('id="s-goal"',goals,p.goal||'fit')}</div></div>${event}</div>
     <div class="card stack"${hid(1)}><h2>${first?'Over jou':'Jij'}</h2>${first?'<p class="small muted">Weet je je FTP niet? Laat het veld leeg, dan plant de coach eerst een FTP-test.</p>':''}
       <div class="form">
+        <div class="wide"><label class="f" for="s-niv">Niveau</label>${sel('id="s-niv"',(niv||first?[]:[['','Nog niet gekozen']]).concat(NIV_KEYS.map(k=>[k,NIVEAU[k].name+' · '+NIVEAU[k].desc.toLowerCase().replace(/\.$/,'')])),niv||(first?'recreant':''))}</div>
         <div><label class="f" for="s-ftp">FTP in watt</label><input type="number" id="s-ftp" min="60" max="600" value="${first&&!state.setup?'':p.ftp}" placeholder="weet ik niet" style="width:120px"></div>
         <div><label class="f" for="s-w">Gewicht in kg</label><input type="number" id="s-w" min="35" max="200" value="${p.weight}" style="width:120px"></div>
         ${first?'':`<div><label class="f" for="s-mhr">Maximale hartslag</label><input type="number" id="s-mhr" min="120" max="230" value="${p.maxHr||''}" placeholder="optioneel" style="width:120px"></div>
         <div><label class="f" for="s-snd">Geluid bij blokwissel</label>${sel('id="s-snd"',[[1,'Aan'],[0,'Uit']],p.sound?1:0)}</div>`}
-      </div>
+      </div>${first?evNotice(cur):''}
 </div>
     ${first?`<div class="card"${hid(2)}><h2 style="margin-bottom:4px">Wanneer kun je fietsen?</h2><p class="small muted" style="margin-bottom:12px">Tik op een dag en kies hoeveel tijd je hebt. Dit pas je later per week aan.</p>${availEditor('setup')}</div>`:''}
     ${first?save:''}</div>`;
@@ -152,15 +185,17 @@ function whyHTML(plan){
   const goal=GOALS[state.profile.goal]||GOALS.ftp,prof=plan.prof,sum=weekSum(plan),K=plan.ctx.kind;
   const phaseTxt={build:'Elke opbouwweek zit er iets meer werk in de zware blokken.',rec:'Minder en lichter, zodat het werk van de afgelopen weken kan landen.',base:'Basisfase: vooral rustige uren en lange blokken onder je drempel.',peak:'Piekfase: de zwaarste weken, gericht op precies wat je evenement vraagt.',taper:'Afbouw: korter trainen op dezelfde intensiteit, zodat je fris wordt zonder scherpte te verliezen.',event:'Alleen korte prikkels. De vorm zit er al in; nu gaat het om fris aan de start staan.'}[K];
   const C=plan.coach,availM=plan.days.reduce((a,d)=>a+(d.event?0:d.minutes),0),idealM=r5(C.weekH*60);
-  const basis=C.hist==null?`Bij je FTP (${nl(C.wkg.toFixed(1))} W/kg) en ${prof===goal?'je doel':'je evenement'} past ongeveer ${durTxt(r5(C.ideal*60))} training per week.`:`De afgelopen vier weken reed je gemiddeld ${durTxt(r5(C.hist*60))} per week; het schema bouwt daar geleidelijk op voort.`;
+  const nv=NIVEAU[state.profile.niveau];
+  const basis=C.hist==null?`Bij ${nv&&!C.known?`je niveau (${nv.name.toLowerCase()})`:nv?`je niveau (${nv.name.toLowerCase()}) en je FTP (${nl(C.wkg.toFixed(1))} W/kg)`:`je FTP (${nl(C.wkg.toFixed(1))} W/kg)`} en ${prof===goal?'je doel':'je evenement'} past ongeveer ${durTxt(r5(C.ideal*60))} training per week.`:`De afgelopen vier weken reed je gemiddeld ${durTxt(r5(C.hist*60))} per week; het schema bouwt daar geleidelijk op voort.`;
   const ruimte=K==='event'?'':availM-sum.m>=60&&idealM-sum.m<45?` Je hebt ${durTxt(availM)} beschikbaar. Meer trainen helpt je deze week niet verder: de vrije dagen zijn nodig om te herstellen.`:idealM-sum.m>=45?` Met meer beschikbare tijd zou deze week ongeveer ${durTxt(idealM)} zijn.`:'';
-  const pf=plan.ctx.toGo!=null&&state.event&&state.event.profile,PS=pf&&profileSummary(pf,state.profile.ftp,state.profile.weight||75);
-  const pfTxt=PS?` Afgestemd op ${esc(pf.naam)}: ${Math.round(pf.afstand_km)} km${pf.hoogtemeters?`, ${Math.round(pf.hoogtemeters)} hoogtemeters`:''}${PS.climbs.length?`, ${PS.climbs.length} hellingen van meestal ${clock(PS.median*60)}`:''}.`:'';
+  const pf=plan.ctx.toGo!=null&&evProfile(state.event),PS=pf&&profileSummary(pf,state.profile.ftp,state.profile.weight||75);
+  const pfTxt=PS?` Afgestemd op ${esc(pf.naam)}: ${Math.round(pf.afstand_km)} km${pf.hoogtemeters?`, ${Math.round(pf.hoogtemeters).toLocaleString('nl-NL')} hoogtemeters`:''}${PS.climbs.length?`, ${PS.climbs.length} hellingen die voor jou meestal ${durTxt(Math.max(1,Math.round(PS.median)))} duren`:''}.`:'';
+  const chk=plan.ctx.toGo!=null&&evCheck(state,state.event,new Date()),chkTxt=chk&&chk.st!=='ok'?`<p class="small"><b style="font-weight:600">${chk.st==='krap'?'Krap':'Waarschijnlijk te zwaar'}:</b> <span class="muted">op de dag ben je ongeveer ${durTxt(r5(chk.h*60))} onderweg. Kijk bij Profiel voor een kortere afstand.</span></p>`:'';
   const adj=state.levelAdj?`<p class="small muted">De zware trainingen staan een stap ${state.levelAdj>0?'zwaarder':'lichter'}. <button class="link" data-act="resetAdj">Terugzetten</button></p>`:'';
   return `<details class="why"><summary>Waarom dit schema?</summary><div class="stack" style="margin-top:10px;max-width:80ch">
       <p class="small muted">${phaseTxt}</p>
       <p class="small"><b style="font-weight:600">${esc(prof===goal?'Doel: '+goal.name.replace(/^[A-Z](?=[a-z])/,c=>c.toLowerCase()):prof.name)}.</b> <span class="muted">${esc(prof.plan)}</span></p>
-      <p class="small muted">${basis}${ruimte}${pfTxt}</p>${adj}</div></details>`;
+      <p class="small muted">${basis}${ruimte}${pfTxt}</p>${chkTxt}${adj}</div></details>`;
 }
 /* de week: fase, voortgang, de dagen en je tijd per dag; met pijlen naar andere weken */
 function weekCard(today){
@@ -249,12 +284,13 @@ function trainingView(){
 
 /* ---------- trainingen ---------- */
 function libView(){
-  const l=ui.lib;
-  const cards=Object.keys(TYPES).map(k=>{const w=buildWorkout(k,l.min,l.L);
+  const l=ui.lib,cat=l.cat||'';
+  const cards=Object.keys(TYPES).filter(k=>!cat||CAT_OF[k]===cat).map(k=>{const w=buildWorkout(k,l.min,l.L);
     return `<button class="wcard" data-act="openWo" data-type="${k}"><h3>${esc(w.name)}</h3><div class="m">${durTxt(w.minutes)} · ${w.tss} TSS</div>${profileSVG(w.segs)}</button>`}).join('');
   return `<div class="head"><div><h1>Trainingen</h1></div>
     <div class="row">${canRide()?'<button class="btn pri" data-act="demo">Bekijk de demo</button>':''}<label class="small muted">Duur ${sel('data-chg="libMin"',[30,45,60,75,90,120].map(m=>[m,durTxt(m)]),l.min)}</label>
     <label class="small muted">Zwaarte ${sel('data-chg="libL"',[[0,'Licht'],[1,'Normaal'],[2,'Zwaar']],l.L)}</label></div></div>
+    <div class="cats" role="group" aria-label="Soort training">${CATS.map(([k,t])=>`<button data-act="libCat" data-c="${k}" aria-pressed="${cat===k}">${t}</button>`).join('')}</div>
     <div class="grid">${cards}</div>`;
 }
 
@@ -382,25 +418,18 @@ function rideView(){
 }
 
 /* ---------- profiel ---------- */
-const hostOf=u=>{try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return ''}};
-/* wat de coach over het evenement heeft gevonden; alle tekst komt van internet en wordt dus ge-escaped */
+/* je evenement: de hellingen met hoe lang ze voor jou duren en met welk vermogen; en welk soort schema daarbij hoort */
 function profileCard(){
-  const ev=state.event,p=ev&&ev.profile;if(!p)return '';
-  const S=profileSummary(p,state.profile.ftp,state.profile.weight||75),at=p.at?parseISO(p.at):null;
+  const ev=state.event,p=evProfile(ev);if(!p)return '';
+  const S=profileSummary(p,state.profile.ftp,state.profile.weight||75),k=evKind(state),K=EVENTS[k];
   const rows=S.climbs.slice(0,15).map(c=>`<tr><td>${esc(c.naam)}</td><td>${nl((+c.lengte_km).toFixed(1))} km</td><td>${nl((+c.gemiddeld_pct).toFixed(1))}%${c.max_pct?` <span class="muted">max ${Math.round(c.max_pct)}%</span>`:''}</td><td>${clock(c.min*60)}</td><td>${c.watt} W</td></tr>`).join('');
-  const src=(p.bronnen||[]).filter(u=>/^https?:\/\//.test(u)).slice(0,4).map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(hostOf(u))}</a>`).join(', ');
-  return `<div class="card stack"><div class="row spread"><div><h2>${esc(p.naam)}</h2>
-      <p class="muted small" style="margin-top:4px">${Math.round(p.afstand_km)} km${p.hoogtemeters?` · ${Math.round(p.hoogtemeters)} hoogtemeters`:''} · ${S.climbs.length} ${S.climbs.length===1?'helling':'hellingen'}${at?` · onderzocht op ${at.getDate()} ${MONTHS[at.getMonth()]}`:''}${p.zekerheid!=='hoog'?` · zekerheid ${esc(p.zekerheid)}`:''}</p></div>
-      <button class="btn small" data-act="aiResearch"${ui.aiBusy?' disabled':''}>Opnieuw onderzoeken</button></div>
+  const how=S.climbs.length?`De hellingen duren voor jou meestal ${durTxt(Math.max(1,Math.round(S.median)))}${S.longest>S.median*1.5?`, de langste ${durTxt(Math.round(S.longest))}`:''}.`:'';
+  return `<div class="card stack"><div><h2>${esc(p.naam)}</h2>
+      <p class="muted small" style="margin-top:4px">${Math.round(p.afstand_km)} km${p.hoogtemeters?` · ${Math.round(p.hoogtemeters).toLocaleString('nl-NL')} hoogtemeters`:''}${S.climbs.length?` · ${S.climbs.length} ${S.climbs.length===1?'helling':'hellingen'}`:''}</p></div>
     <p style="max-width:70ch">${esc(p.kenmerken)}</p>
+    ${K?`<p class="small" style="max-width:70ch"><b style="font-weight:600">Je schema: ${esc(K.name.toLowerCase())}.</b> <span class="muted">${how}</span></p>`:''}
     ${rows?`<div class="scroll"><table><thead><tr><th>Helling</th><th>Lengte</th><th>Stijging</th><th>Jouw tijd</th><th>Richtvermogen</th></tr></thead><tbody>${rows}</tbody></table></div>${S.climbs.length>15?`<p class="small muted">En nog ${S.climbs.length-15} hellingen.</p>`:''}`:''}
-    ${src?`<p class="small muted">Bronnen: ${src}</p>`:''}</div>`;
-}
-function aiCard(){
-  const k=aiKey();
-  return `<div class="card stack"><div><h2>AI-coach</h2><p class="small muted" style="margin-top:4px">Claude-sleutel om je evenement te onderzoeken. Blijft op dit apparaat.</p></div>
-    <div class="row"><input type="password" id="ai-key" autocomplete="off" spellcheck="false" placeholder="${k?'Ingesteld, eindigt op '+esc(k.slice(-4)):'sk-ant-...'}" style="flex:1;min-width:200px;max-width:420px">
-    <button class="btn" data-act="aiSaveKey">Opslaan</button>${k?'<button class="btn warn" data-act="aiDelKey">Wissen</button>':''}</div></div>`;
+    ${p.lijst?'<p class="small muted">Richtwaarden; de route verschilt per jaar iets.</p>':''}</div>`;
 }
 function linkCard(){
   if(!CONFIG.firebase&&!stravaReady())return '';
@@ -416,7 +445,7 @@ function profielView(){
   return `<div class="head"><div><h1>Profiel</h1></div></div>
     <div class="stack">${settingsForm(false)}
     <div class="card stack"><h2>Weergave</h2><div class="form"><div><label class="f" for="s-theme">Licht of donker</label>${sel('id="s-theme" data-chg="theme"',[['auto','Zoals je apparaat'],['light','Licht'],['dark','Donker']],getTheme())}</div></div></div>
-    ${profileCard()}${linkCard()}${aiCard()}
+    ${profileCard()}${linkCard()}
     <div class="card stack"><div><h2>Je gegevens</h2><p class="small muted" style="margin-top:4px">Een back-up bevat je schema, je instellingen en al je ritten.</p></div>
       <div class="row"><button class="btn" data-act="backup">Back-up downloaden</button><label class="btn" style="cursor:pointer">Back-up terugzetten<input type="file" accept=".json,application/json" data-chg="restore" style="position:absolute;opacity:0;width:1px;height:1px"></label></div></div>
     <div class="card dzone"><div><h3>Alles wissen</h3><p class="small muted" style="margin-top:3px">Verwijdert je schema, je instellingen en al je ritten.</p></div>

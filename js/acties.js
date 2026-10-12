@@ -113,18 +113,25 @@ const actions={
   saveSettings(d,el,e,quiet){
     const g=id=>document.getElementById(id);
     const ftp=clamp(Math.round(+g('s-ftp').value)||200,60,600),w=clamp(+g('s-w').value||75,35,200);
-    const mh=g('s-mhr')?Math.round(+g('s-mhr').value)||0:state.profile.maxHr||0,evd=g('s-evd').value,evn=g('s-evn').value.trim();
+    const val=id=>g(id)?g(id).value:'';
+    const mh=g('s-mhr')?Math.round(+g('s-mhr').value)||0:state.profile.maxHr||0,evd=val('s-evd'),evn=val('s-evn').trim(),evid=val('s-evid');
     if(ftp!==state.profile.ftp)logFtp(ftp);
-    state.profile={ftp,weight:w,goal:g('s-goal').value,sound:g('s-snd')?g('s-snd').value==='1':state.profile.sound!==false,maxHr:mh?clamp(mh,120,230):0};
-    const evk=g('s-evk').value,evkm=Math.round(+g('s-evkm').value)||0;
-    const old=state.event,keep=old&&old.profile&&old.name===(evn||'Evenement')&&old.date===evd?{profile:old.profile}:{};
-    state.event=/^\d{4}-\d{2}-\d{2}$/.test(evd)?Object.assign({name:evn||'Evenement',date:evd},EVENTS[evk]?{kind:evk}:{},evkm?{km:clamp(evkm,20,400)}:{},keep):null;
+    const niv=NIVEAU[val('s-niv')]?val('s-niv'):state.profile.niveau;
+    state.profile=Object.assign({ftp,weight:w,goal:g('s-goal').value,sound:g('s-snd')?g('s-snd').value==='1':state.profile.sound!==false,maxHr:mh?clamp(mh,120,230):0},niv?{niveau:niv}:{});
+    const evk=val('s-evk'),evkm=Math.round(+val('s-evkm'))||0,date=/^\d{4}-\d{2}-\d{2}$/.test(evd)?evd:'';
+    const old=state.event;
+    /* uit de lijst: naam, afstand en hellingen komen uit de lijst. Zonder datum blijft je keuze staan, maar plant de coach nog niet naar het evenement. */
+    if(EVBY[evid]){const v=old&&old.id&&old.id!==evid?0:clamp(+val('s-evv')||0,0,EVBY[evid].v.length-1);state.event={id:evid,v,name:EVBY[evid].naam,date}}
+    else if(evid==='eigen'){
+      const keep=old&&!old.id&&old.profile&&old.name===(evn||'Evenement')?{profile:old.profile}:{};
+      state.event=Object.assign({name:evn||'Evenement',date},EVENTS[evk]?{kind:evk}:{},evkm?{km:clamp(evkm,20,400)}:{},keep);
+    }else state.event=null;
     if(!state.setup&&ui.setupAvail)state.avail=ui.setupAvail.slice();
     if(!state.setup){state.setup=true;state.started=iso(new Date());if(g('s-ftp').value.trim())state.ftpGiven=state.started;state.planStart=iso(mondayOf(new Date()));state.weeks[state.planStart]=state.avail.slice();ui.view='vandaag'}
     ui.draft=null;save();
     /* in Profiel wordt elke wijziging meteen bewaard, zonder het scherm opnieuw op te bouwen (dan blijft je toetsenbord open) */
     if(quiet){const f=document.querySelector('.side .ftp b');if(f)f.textContent=state.profile.ftp;return toast('Opgeslagen')}
-    render();toast(state.avail.some(x=>x)?'Opgeslagen':'Opgeslagen. Je hebt nog geen trainingsdagen gekozen.');
+    render();toast(!state.avail.some(x=>x)?'Opgeslagen. Je hebt nog geen trainingsdagen gekozen.':state.event&&!state.event.date?'Opgeslagen. Vul nog de datum van je evenement in; tot dan volgt het schema je doel.':'Opgeslagen');
   },
   openRide(d){ui.modal=null;openRide(d.id)},
   openAdd(){ui.modal={kind:'add'};render()},
@@ -183,30 +190,13 @@ const actions={
     }
     ui.rpeEdit=false;save();render();
   },
-  aiSaveKey(){
-    const k=(document.getElementById('ai-key').value||'').trim();
-    if(!/^sk-ant-/.test(k))return toast('Dit lijkt geen Claude-sleutel. Hij begint met sk-ant-.');
-    if(!aiSetKey(k))return toast('Opslaan lukt niet in deze browser.');
-    render();toast('Sleutel opgeslagen in deze browser.');
+  /* een kortere afstand van hetzelfde evenement kiezen (vanuit de melding 'te zwaar') */
+  evAlt(d){
+    const el=document.getElementById('s-evv');if(el)el.value=d.v;(ui.draft=ui.draft||{})['s-evv']=String(d.v);
+    if(state.setup&&ui.view==='profiel'){if(state.event)state.event.v=+d.v;save();toast('Afstand aangepast. Je schema is erop afgestemd.')}
+    render();
   },
-  aiDelKey(){aiSetKey('');render();toast('Sleutel gewist.')},
-  async aiResearch(){
-    if(ui.aiBusy)return;
-    const g=id=>document.getElementById(id);
-    if(!g('s-evn').value.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(g('s-evd').value))return toast('Vul eerst de naam en de datum van je evenement in.');
-    if(!aiKey())return toast('Vul eerst je Claude-sleutel in, onderaan deze pagina.');
-    actions.saveSettings();
-    ui.aiBusy=true;render();
-    try{
-      const ev=state.event,p=await aiResearchEvent(ev);
-      p.at=iso(new Date());
-      if(state.event&&state.event.name===ev.name&&state.event.date===ev.date){
-        state.event.profile=p;state.event.kind=p.soort;if(!state.event.km)state.event.km=Math.round(p.afstand_km);
-        save();toast('Je evenement is onderzocht. Het schema is erop aangepast.');
-      }
-    }catch(e){toast(aiError(e))}
-    ui.aiBusy=false;render();
-  },
+  libCat(d){ui.lib.cat=d.c||'';render()},
   syncLogin(){syncLogin()},
   syncHide(){try{localStorage.setItem('kopwerk.synchint','0')}catch(e){}render()},
   syncLogout(){syncLogout()},
@@ -291,7 +281,14 @@ document.addEventListener('click',e=>{
 /* getypte waarden in je gegevens bewaren tot je opslaat */
 document.addEventListener('input',e=>{const el=e.target;if(el&&el.id&&/^s-(?!theme)/.test(el.id))(ui.draft=ui.draft||{})[el.id]=el.value});
 document.addEventListener('change',e=>{
-  if(state.setup&&ui.view==='profiel'&&/^s-(goal|ftp|w|mhr|snd|evn|evd|evk|evkm)$/.test(e.target.id||''))return actions.saveSettings(null,null,null,true);
+  const id=e.target.id||'';
+  /* evenement, afstand, datum en niveau veranderen wat er in het formulier staat (afstanden, haalbaarheid): opnieuw opbouwen */
+  if(/^s-(evid|evv|evd|niv)$/.test(id)){
+    if(id==='s-evid'&&ui.draft)delete ui.draft['s-evv'];
+    if(state.setup&&ui.view==='profiel')actions.saveSettings(null,null,null,true);
+    return render();
+  }
+  if(state.setup&&ui.view==='profiel'&&/^s-(goal|ftp|w|mhr|snd|evn|evk|evkm)$/.test(id))return actions.saveSettings(null,null,null,true);
   const el=e.target.closest('[data-chg]');if(!el)return;
   const a=actions[el.dataset.chg];if(a)a(el.dataset,el,e);
 });
@@ -303,6 +300,8 @@ window.addEventListener('beforeunload',e=>{if(P&&(P.mode==='run'||P.mode==='paus
 
 (async function init(){
   load();
+  /* de AI-coach is weg: een eventueel bewaarde Claude-sleutel van dit apparaat verwijderen */
+  try{localStorage.removeItem('kopwerk.ai')}catch(e){}
   /* verversen of een bewaard adres: open het scherm dat in de adresbalk staat */
   if(state.setup){const s=routeParse(location.hash),h=history.state;routeIdx=h&&typeof h.i==='number'?h.i:0;
     ui.view=s.view;ui.detail=s.detail||null;if(s.rideId){ui.rideId=s.rideId;ui.rideFrom=(h&&h.rideFrom)||s.rideFrom}}
