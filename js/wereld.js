@@ -603,6 +603,36 @@ const KITS={
   geel:{base:'#F4D03F',acc:'#16191f',acc2:'#16191f',pat:'plain',helmet:'#F4D03F',hstripe:'#16191f',frame:['#16191f','#F4D03F'],bar:'#F4D03F',bottle:'#16191f',logo:'',hair:'#7a4a2a'},
   paars:{base:'#9B5DE5',acc:'#ffffff',acc2:'#f15bb5',pat:'chevron',helmet:'#ffffff',hstripe:'#9B5DE5',frame:['#f2f2f2','#9B5DE5'],bar:'#ffffff',bottle:'#f15bb5',logo:'LAVENDEL',hair:'#3b2a1e'},
   bollen:{base:'#ffffff',acc:'#d62828',acc2:'#d62828',pat:'dots',helmet:'#ffffff',hstripe:'#d62828',frame:['#d62828','#ffffff'],bar:'#d62828',bottle:'#ffffff',logo:'',hair:'#c99a4e'}};
+/* ---------- je eigen outfit: gekozen bij de eerste 3D-rit, bewaard in state.profile.kit ---------- */
+const KIT_OPT={
+  base:['#FF6A2B','#D63031','#2563EB','#1F9D55','#F4C430','#1C1F26','#F4F4F2','#E8559A','#7C3AED','#0EA5A4'],
+  acc:['#16191f','#ffffff','#FF6A2B','#2563EB','#F4C430','#D63031','#1F9D55'],
+  pat:[['band','Band'],['hoops','Strepen'],['sash','Sjerp'],['chevron','Pijlen'],['dots','Stippen'],['plain','Effen']],
+  helmet:['#ffffff','#16191f','base','#9aa0a6'],
+  frame:['base','#16191f','#f2f2f2','#9aa0a6','#b3262d','#1f4f8c'],
+  skin:['#f1c7a8','#e0a283','#c68a62','#8d5a3b','#5c3a24'],
+  hair:['#2e241c','#5a3b26','#a8743e','#d8b46a','#8a8f96']
+};
+const kitPick=()=>Object.assign({base:'#FF6A2B',acc:'#16191f',pat:'band',helmet:'#ffffff',frame:'base',skin:'#e0a283',hair:'#5a3b26'},ui.kitDraft||(state.profile&&state.profile.kit)||{});
+function myKit(){
+  const p=kitPick(),col=v=>v==='base'?p.base:v,light=new T3.Color(p.acc).getHSL({}).l>.6;
+  return Object.assign({},KITS.me,{base:p.base,acc:p.acc,acc2:light?'#16191f':'#ffffff',pat:p.pat,helmet:col(p.helmet),hstripe:p.base,frame:[col(p.frame),p.acc],bar:'#16191f',bottle:p.base,skin:p.skin,hair:p.hair});
+}
+/* fietser opnieuw opbouwen na een andere keuze */
+function kitApply(){
+  if(!W||!W.me||!W.scene)return;const old=W.me;W.scene.remove(old.g);
+  W.me=makeRider(myKit(),false);W.me.g.traverse(o=>{if(o.isMesh)o.castShadow=true});W.scene.add(W.me.g);W.me.g.position.copy(old.g.position);W.me.g.rotation.copy(old.g.rotation);
+}
+const kitOpen=()=>!!(P&&P.mode==='ready'&&view3d()&&(ui.kitOpen||(state.profile.kit==null&&!ui.kitSkip)));
+function kitHTML(){
+  const p=kitPick(),sw=(k,list)=>list.map(v=>{const c=v==='base'?p.base:v;return `<button class="kitsw${p[k]===v?' on':''}" data-act="kitSet" data-k="${k}" data-v="${v}" style="background:${c}" aria-label="${k} ${c}" aria-pressed="${p[k]===v}"></button>`}).join('');
+  const row=(t,inner)=>`<div class="kitrow"><span>${t}</span><div>${inner}</div></div>`;
+  return `<div class="zkit stack"><div><h3>Je outfit</h3><p class="small muted">${state.profile.kit==null?'Kies hoe je fietser eruitziet. Later aan te passen met de knop Outfit.':'Pas aan hoe je fietser eruitziet.'}</p></div>
+    ${row('Shirt',sw('base',KIT_OPT.base))}${row('Tweede kleur',sw('acc',KIT_OPT.acc))}
+    ${row('Patroon',KIT_OPT.pat.map(([v,t])=>`<button class="btn small${p.pat===v?' pri':''}" data-act="kitSet" data-k="pat" data-v="${v}">${t}</button>`).join(''))}
+    ${row('Helm',sw('helmet',KIT_OPT.helmet))}${row('Fiets',sw('frame',KIT_OPT.frame))}${row('Huid',sw('skin',KIT_OPT.skin))}${row('Haar',sw('hair',KIT_OPT.hair))}
+    <div class="row"><button class="btn pri" data-act="kitDone">Klaar</button></div></div>`;
+}
 const shadeC=(c,l)=>'#'+new T3.Color(c).offsetHSL(0,0,l).getHexString();
 /* plaatje per renner: boven het shirt (rondom: voorkant, linkerzij, rug, rechterzij), linksonder de helm, rechtsonder het opschrift en een wit vlak */
 function kitTex(k){
@@ -656,7 +686,7 @@ const tubeM=(a,b)=>{const T=T3,A=new T.Vector3(...a),B=new T.Vector3(...b),d=B.c
 const RM=(x,y,z,rx,ry,rz,sx,sy,sz)=>new T3.Matrix4().compose(new T3.Vector3(x,y,z),new T3.Quaternion().setFromEuler(new T3.Euler(rx||0,ry||0,rz||0)),new T3.Vector3(sx??1,sy??1,sz??1));
 function makeRider(k,ghost){
   const T=T3,mat=riderMat(k,ghost),g=new T.Group(),c=new T.Color();
-  const K='#16191f',S='#e0a283',Bk='#141619',Cb='#22252b',Al='#b9bec5',Wt='#f4f4f2',Gl='#1b1d22',F0=k.frame[0],F1=k.frame[1],ACC=k.acc==='#ffffff'?k.base:k.acc;
+  const K='#16191f',S=k.skin||'#e0a283',Bk='#141619',Cb='#22252b',Al='#b9bec5',Wt='#f4f4f2',Gl='#1b1d22',F0=k.frame[0],F1=k.frame[1],ACC=k.acc==='#ffffff'?k.base:k.acc;
   const mesh=(parts,parent,len)=>{const m=new T.Mesh(riderGeo(parts),mat);m.userData.len=len||0;(parent||g).add(m);return m};
   /* ledemaat langs y met kleur per ring (mouw, boord, broekspijp, sok) en eventueel per kant (zijpaneel); L = lengte */
   const lathe=(prof,L,side)=>{const geo=new T.LatheGeometry(prof.map(([r,y])=>new T.Vector2(r,(y-.5)*L)),16),cl=[],np=prof.length,seg=16;
@@ -947,7 +977,7 @@ async function worldLoad(tok){
   if(!small){try{const [{EffectComposer},{RenderPass},{UnrealBloomPass},{OutputPass}]=await Promise.all(['postprocessing/EffectComposer.js','postprocessing/RenderPass.js','postprocessing/UnrealBloomPass.js','postprocessing/OutputPass.js'].map(f=>import('three/addons/'+f)));
     comp=new EffectComposer(ren,new T.WebGLRenderTarget(innerWidth,innerHeight,{type:T.HalfFloatType,samples:4}));comp.addPass(new RenderPass(scene,cam));comp.addPass(new UnrealBloomPass(new T.Vector2(innerWidth,innerHeight),.3,.5,.9));comp.addPass(new OutputPass())}catch(e){comp=null}}
   if(gone())return;
-  Object.assign(tok,{el,ren,scene,cam,sun,sky,ring,clouds,sunDisc,mood:MO,rain,lite:small,comp,wind:{value:0},G:propGeos(),root:null,C:null,total:-1,me:makeRider(KITS.me,false),pace:makeRider(KITS.pace,true),vs:0,
+  Object.assign(tok,{el,ren,scene,cam,sun,sky,ring,clouds,sunDisc,mood:MO,rain,lite:small,comp,wind:{value:0},G:propGeos(),root:null,C:null,total:-1,me:makeRider(myKit(),false),pace:makeRider(KITS.pace,true),vs:0,
      npcs:[KITS.rood,KITS.groen,KITS.geel,KITS.paars,KITS.bollen].slice(0,small?3:5).map(kt=>({R:makeRider(kt,false),d:null,f:1,off:2.25,cad:82+Math.random()*14})),
      disp:0,extra:0,gap:2,last:performance.now(),camP:null,mills:[],raf:0,jobs:new Map(),tex:worldTextures(small)});
   delete tok.loading;
@@ -1528,8 +1558,12 @@ function worldStep(t){
     W.v=(W.v||0)+(vt-(W.v||0))*Math.min(1,dt*(vt<(W.v||0)?.5:.8));W.dist=d0+W.v*dt*(P.sim?P.speed:1)}
   const d=W.dist,p=roadAt(C,d);
   const pos=Math.min(P.pos,P.total-1),tgt=P.free?0:tgtAt(pos),pw=dispPower();
-  const dev=pw==null||!tgt?0:clamp(pw/tgt-1,-.3,.3),want=P.mode==='ready'?4:clamp(2-dev*150,-2.5,45);
-  W.gap+=(want-W.gap)*Math.min(1,dt*.6);
+  /* De tempomaker trekt rustig op: in de eerste acht seconden van een blok telt een achterstand maar geleidelijk mee
+     (jij en de trainer hebben even nodig om op vermogen te komen), en hij rijdt hooguit ~3 km/u harder weg dan jij, zodat je erachteraan kunt. */
+  const tsG=P.sim&&P.mode==='run'?Math.max(1,P.speed):1,into=P.free?99:P.pos-P.starts[segAt(pos)];
+  let dev=pw==null||!tgt?0:clamp(pw/tgt-1,-.3,.3);if(dev<0)dev*=clamp(into/8,0,1);
+  const want=P.mode==='ready'?4:clamp(2-dev*150,-2.5,45);
+  {const st=(want-W.gap)*Math.min(1,dt*.5*tsG);W.gap+=clamp(st,-1.6*dt*tsG,.85*dt*tsG)}
   const slope=dd=>(roadAt(C,dd+6).y-roadAt(C,dd).y)/6*100;
   const lane=(R,dd,off,cad,spd,stand)=>{const q=roadAt(C,dd);R.g.position.set(q.x+Math.cos(q.h)*off,q.y,q.z+Math.sin(q.h)*off);R.g.rotation.y=-q.h;
     const q2=roadAt(C,dd+3);R.g.rotation.x=Math.atan2(q2.y-q.y,3);R.g.rotation.z=clamp(-q.k*spd*spd*.012,-.25,.25);poseRider(R,dt,cad,spd,stand)};
@@ -1563,6 +1597,8 @@ function worldStep(t){
   {const tx=ahead.x+Math.cos(ahead.h)*.5,ty=ahead.y+1.1,tz=ahead.z+Math.sin(ahead.h)*.5,L=W.lookP;
     if(!L||Math.hypot(L.x-tx,L.z-tz)>60)W.lookP=new T.Vector3(tx,ty,tz);else{const f=Math.min(1,dt*3.2*tS);L.x+=(tx-L.x)*f;L.y+=(ty-L.y)*f;L.z+=(tz-L.z)*f}}
   W.cam.position.copy(W.camP);W.cam.lookAt(W.lookP);
+  /* outfit kiezen: de camera schuin voor je fietser */
+  if(kitOpen()){const q=roadAt(C,d),a=q.h+.7,m=W.me.g.position;W.cam.position.set(m.x+Math.sin(a)*3.3,m.y+1.35,m.z-Math.cos(a)*3.3);W.cam.lookAt(m.x,m.y+.95,m.z)}
   /* zon, lucht en verre bergen reizen mee */
   const md=W.mood.dir,sp=W.lite?p:roadAt(C,d+16);W.sun.position.set(sp.x+md[0],sp.y+md[1],sp.z+md[2]);W.wind.value=t/1000;
   {const L=Math.hypot(...md)/1100;W.sunDisc.position.set(W.cam.position.x+md[0]/L,W.cam.position.y+md[1]/L,W.cam.position.z+md[2]/L)}

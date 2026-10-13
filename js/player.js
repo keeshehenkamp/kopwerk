@@ -168,7 +168,7 @@ function playerHTML(){
   const hr=ble.hrOn?`<span class="dotst on"></span>${esc(ble.hrName)}`:'';
   const status=P.sim?'<span class="badge">Demo zonder trainer</span>':`<span class="small muted">${tr}${hr?' &nbsp; '+hr:''}</span>`;
   const readyBox=ready?`<div class="pready stack">
-      <div class="seg" role="group" aria-label="Weergave"><button class="btn small" data-act="view" data-v="3d" aria-pressed="${v3}">3D-wereld</button><button class="btn small" data-act="view" data-v="cijfers" aria-pressed="${!v3}">Alleen cijfers</button></div>
+      <div class="row"><div class="seg" role="group" aria-label="Weergave"><button class="btn small" data-act="view" data-v="3d" aria-pressed="${v3}">3D-wereld</button><button class="btn small" data-act="view" data-v="cijfers" aria-pressed="${!v3}">Alleen cijfers</button></div>${v3?'<button class="btn small" data-act="kitOpen">Outfit</button>':''}</div>
       ${v3?(()=>{const rp=routeProfile(routeId());return `<div class="rpick"><select id="p-route" data-chg="route" aria-label="Route">${ROUTES.map(x=>{const q=routeProfile(x.id);return `<option value="${x.id}"${x.id===routeId()?' selected':''}>${esc(x.name)} · ${q.km} km · ${q.hm} hm</option>`}).join('')}</select>${rp.svg}</div>`})():''}
       ${P.vrij?vrijReadyHTML():''}
       ${navigator.bluetooth?`<div class="row">
@@ -205,7 +205,7 @@ function playerHTML(){
     <div class="zlist"><div class="zlh"><b>${P.vrij?'Rit':'Schema'}</b><span>${P.vrij?'':'nog '}<b id="p-rest">${clock(P.total)}</b></span></div><div id="p-list"></div>
       <div class="zcur"><span id="p-seg"></span><div class="zct"><span><b id="p-target">–</b><i>W</i></span><b id="p-left"></b></div><span id="p-next" class="znext"></span></div></div>
     ${hud?`<div class="zside">${hud}</div>`:''}${load}
-    ${readyBox?`<div class="zready">${readyBox}</div>`:''}
+    ${ready&&kitOpen()?kitHTML():readyBox?`<div class="zready">${readyBox}</div>`:''}
     <div class="zchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
     <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>
     <div class="pctl zctl" id="p-ctl">${ctl}</div>
