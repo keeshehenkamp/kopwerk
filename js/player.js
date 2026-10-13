@@ -12,7 +12,7 @@ function openPlayer(wo){
   wo=Object.assign({},wo,{segs:wo.segs.map(s=>Object.assign({},s))});
   P={wo,planned:wo.sec,tr:[],free:false,freeSec:0,ftp:state.profile.ftp,starts,total:t,maxI,mode:'ready',sim:false,speed:1,clock:0,pos:0,si:-1,bias:1,erg:true,grade:1,sent:-1,
      rec:{p:[],hr:[],cad:[],tgt:[]},game:gameNew(wo),laps:[],trace:'',last:now(),zero:0,auto:false,startTs:0,simP:0,simH:70,lastSave:0,stopArm:false,drawn:-1};
-  ui.modal=null;ui.bleMsg='';
+  ui.modal=null;ui.bleMsg='';ui.startTab=null;
   P.timer=setInterval(tick,200);
   render();
 }
@@ -33,6 +33,7 @@ const fracAt=(i,pos)=>{const s=P.wo.segs[i];return s.a+(s.b-s.a)*clamp((pos-P.st
 const tgtAt=pos=>Math.round(fracAt(segAt(pos),pos)*P.ftp*P.bias);
 function startRide(sim){
   if(!P||P.mode!=='ready')return;
+  if(state.profile.kit==null&&view3d()){state.profile.kit=kitPick();save()}
   try{audio=audio||new (window.AudioContext||window.webkitAudioContext)()}catch(e){}
   P.sim=!!sim;P.mode='run';P.startTs=Date.now();P.last=now();P.sent=-1;
   if(P.sim){P.simP=P.vrij?P.ftp*.5:tgtAt(0);if(P.vrij&&samenOn())P.speed=1}
@@ -167,20 +168,30 @@ function playerHTML(){
   const tr=ble.on?`<span class="dotst on"></span>${esc(ble.name)}`:`<span class="dotst"></span>Geen trainer gekoppeld`;
   const hr=ble.hrOn?`<span class="dotst on"></span>${esc(ble.hrName)}`:'';
   const status=P.sim?'<span class="badge">Demo zonder trainer</span>':`<span class="small muted">${tr}${hr?' &nbsp; '+hr:''}</span>`;
-  const readyBox=ready?`<div class="pready stack">
-      <div class="row"><div class="seg" role="group" aria-label="Weergave"><button class="btn small" data-act="view" data-v="3d" aria-pressed="${v3}">3D-wereld</button><button class="btn small" data-act="view" data-v="cijfers" aria-pressed="${!v3}">Alleen cijfers</button></div>${v3?'<button class="btn small" data-act="kitOpen">Outfit</button>':''}</div>
-      ${v3?(()=>{const rp=routeProfile(routeId());return `<div class="rpick"><select id="p-route" data-chg="route" aria-label="Route">${ROUTES.map(x=>{const q=routeProfile(x.id);return `<option value="${x.id}"${x.id===routeId()?' selected':''}>${esc(x.name)} · ${q.km} km · ${q.hm} hm</option>`}).join('')}</select>${rp.svg}</div>`})():''}
-      ${P.vrij?vrijReadyHTML():''}
-      ${navigator.bluetooth?`<div class="row">
+  /* voor de start: weergave, route, vrij/samen rijden, trainer koppelen en starten */
+  const viewSeg=`<div class="seg" role="group" aria-label="Weergave"><button class="btn small" data-act="view" data-v="3d" aria-pressed="${v3}">3D-wereld</button><button class="btn small" data-act="view" data-v="cijfers" aria-pressed="${!v3}">Alleen cijfers</button></div>`;
+  const bleRow=navigator.bluetooth?`<div class="row">
         <button class="btn" data-act="connect">${ble.on?'Andere trainer':'Trainer koppelen'}</button>
         <button class="btn" data-act="connectHr">${ble.hrOn?'Andere hartslagmeter':'Hartslagmeter koppelen'}</button>
         <button class="btn pri big" data-act="go" ${ble.on?'':'disabled'}>${P.vrij?'Start':'Start training'}</button>
-      </div>`:`<p class="notice small">${NO_BLE}</p>`}
-      ${ui.bleMsg?`<p class="notice small">${esc(ui.bleMsg)}</p>`:''}
-      <div class="row small"${samenOn()?' hidden':''}>
+      </div>`:`<p class="notice small">${NO_BLE}</p>`;
+  const bleMsg=ui.bleMsg?`<p class="notice small">${esc(ui.bleMsg)}</p>`:'';
+  const demoRow=`<div class="row small"${samenOn()?' hidden':''}>
         <button class="btn small" data-act="goSim">Demo zonder trainer</button>
         <select id="simspeed" aria-label="Snelheid van de demo"><option value="1">1×</option><option value="10">10×</option><option value="60" selected>60×</option></select>
-      </div></div>`:'';
+      </div>`;
+  const readyBox=ready&&!v3?`<div class="pready stack"><div class="row">${viewSeg}</div>${P.vrij?vrijReadyHTML():''}${bleRow}${bleMsg}${demoRow}</div>`:'';
+  /* startscherm in 3D: links een paneel met twee tabbladen (Rit en Fietser), rechts je fietser om omheen te draaien */
+  const tab=startTab();
+  const startBox=ready&&v3?`<div class="zstart">
+      <div class="zsh"><div><h2>${esc(w.name)}</h2><span class="small muted">${P.vrij?'Geen schema, de trainer volgt de weg':`${Math.round(P.total/60)} minuten`}</span></div><button class="btn small" data-act="closePlayer">Sluiten</button></div>
+      <div class="seg zstab" role="tablist">${[['rit','Rit'],['fietser','Fietser']].map(([v,t])=>`<button class="btn small" role="tab" data-act="startTab" data-v="${v}" aria-selected="${tab===v}" aria-pressed="${tab===v}">${t}</button>`).join('')}</div>
+      <div class="zsbody stack">${tab==='fietser'?kitHTML():`
+        <div class="row">${viewSeg}</div>
+        ${(()=>{const rp=routeProfile(routeId());return `<div class="rpick"><select id="p-route" data-chg="route" aria-label="Route">${ROUTES.map(x=>{const q=routeProfile(x.id);return `<option value="${x.id}"${x.id===routeId()?' selected':''}>${esc(x.name)} · ${q.km} km · ${q.hm} hm</option>`}).join('')}</select>${rp.svg}</div>`})()}
+        ${P.vrij?vrijReadyHTML():`<div class="zsprev"><span class="small muted">Verloop van de training</span><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}</svg></div>`}`}</div>
+      <div class="zsfoot stack">${status}${bleRow}${bleMsg}${demoRow}</div>
+    </div><div class="zorbit">Sleep om je fietser te draaien</div>`:'';
   const ctl=ready?'':`<div class="row"${P.vrij&&(v3||!ble.cp)?' hidden':''}>
         ${P.vrij?'':`<button class="btn icon" data-act="bias" data-d="-0.05" aria-label="Lichter">−</button>
         <span class="num" style="font-size:22px;min-width:58px;text-align:center">${Math.round(P.bias*100)}%</span>
@@ -195,7 +206,7 @@ function playerHTML(){
       </div>`;
   const hud=v3&&P.game.on?`<div class="phud"><b id="p-pts">0</b><span>punten</span><span id="p-mult" class="pmult"></span><span id="p-stars" class="pstars">★ 0</span></div><div class="ppop" id="p-pop" hidden></div>`:'';
   const load=v3?'<div class="pload" id="p-load" hidden><span>Wereld laden</span><b><i></i></b></div><div class="pprof"><canvas id="p-prof" width="360" height="84"></canvas><span id="p-proft"></span></div><div class="pcd" id="p-cd" hidden></div>':'';
-  if(v3)return `<div class="player w3${P.vrij?' vrij':''}">
+  if(v3)return `<div class="player w3${P.vrij?' vrij':''}${ready?' start':''}">
     <div class="zpow"><i class="zband" id="p-zone"></i><div class="zp1"><b id="p-power">–</b><i>W</i></div>
       <div class="zp2"><span><b id="p-cad">–</b><i>rpm</i></span><span><b id="p-hr">–</b><i>bpm</i></span></div>
       <div class="zgauge" aria-hidden="true"><span class="ok"></span><span class="mid"></span><span class="dot" id="p-dot"></span></div><span id="p-cadl" hidden></span></div>
@@ -205,7 +216,7 @@ function playerHTML(){
     <div class="zlist"><div class="zlh"><b>${P.vrij?'Rit':'Schema'}</b><span>${P.vrij?'':'nog '}<b id="p-rest">${clock(P.total)}</b></span></div><div id="p-list"></div>
       <div class="zcur"><span id="p-seg"></span><div class="zct"><span><b id="p-target">–</b><i>W</i></span><b id="p-left"></b></div><span id="p-next" class="znext"></span></div></div>
     ${hud?`<div class="zside">${hud}</div>`:''}${load}
-    ${ready&&kitOpen()?kitHTML():readyBox?`<div class="zready">${readyBox}</div>`:''}
+    ${startBox}
     <div class="zchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
     <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>
     <div class="pctl zctl" id="p-ctl">${ctl}</div>
@@ -243,7 +254,10 @@ function paintList(i){
   el.innerHTML=segs.slice(a,b).map((s,j)=>{const k=a+j,st=g.by&&g.by[k];
     return `<div class="zrow${k===i?' on':''}${k<i?' done':''}"><i style="background:var(--z${zoneOf((s.a+s.b)/2)})"></i><span>${st!=null?'<em>'+'★'.repeat(st)+'</em>':''}${esc(s.label)}</span><b>${clock(s.d)}</b><b>${Math.round(s.a*P.ftp*P.bias)} W</b></div>`}).join('');
 }
-function renderPlayer(){if(!P)return;document.getElementById('app').innerHTML=playerHTML();P.drawn=-1;paintPlayer();worldSync()}
+function renderPlayer(){if(!P)return;const sb=document.querySelector('.zsbody'),top=sb?sb.scrollTop:0;
+  document.getElementById('app').innerHTML=playerHTML();const nb=document.querySelector('.zsbody');if(nb)nb.scrollTop=top;P.drawn=-1;paintPlayer();worldSync()}
+/* eerste keer in 3D: eerst je fietser kiezen */
+const startTab=()=>ui.startTab||(state.profile.kit==null?'fietser':'rit');
 function markRecords(ride){
   if(ride.sim)return;
   const old=records(state.rides),prs=[];

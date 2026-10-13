@@ -596,49 +596,66 @@ function makeSign(pct){
    Wat samen beweegt is één vorm (17 tekenopdrachten per fietser). Shirt, helm en het opschrift op de fiets komen uit één plaatje per renner;
    de andere delen gebruiken een wit stukje van dat plaatje en hun eigen kleur per hoekpunt. */
 const KITS={
-  me:{base:'#FF6A2B',acc:'#16191f',acc2:'#ffffff',pat:'band',helmet:'#ffffff',hstripe:'#FF6A2B',frame:['#FF6A2B','#16191f'],bar:'#16191f',bottle:'#ffffff',logo:'KOPWERK',hair:'#5a3b26'},
-  pace:{base:'#3D8BD4',acc:'#ffffff',acc2:'#1d2a44',pat:'band',helmet:'#3D8BD4',hstripe:'#ffffff',frame:['#3D8BD4','#1d2a44'],bar:'#ffffff',bottle:'#3D8BD4',logo:'TEMPO',hair:'#2e241c'},
-  rood:{base:'#E04848',acc:'#ffffff',acc2:'#16191f',pat:'hoops',helmet:'#ffffff',hstripe:'#E04848',frame:['#f2f2f2','#E04848'],bar:'#E04848',bottle:'#ffffff',logo:'ROOD',hair:'#c99a4e'},
-  groen:{base:'#2EAA6E',acc:'#16191f',acc2:'#f4d03f',pat:'sash',helmet:'#16191f',hstripe:'#2EAA6E',frame:['#16191f','#2EAA6E'],bar:'#16191f',bottle:'#2EAA6E',logo:'POLDER',hair:'#2e241c'},
-  geel:{base:'#F4D03F',acc:'#16191f',acc2:'#16191f',pat:'plain',helmet:'#F4D03F',hstripe:'#16191f',frame:['#16191f','#F4D03F'],bar:'#F4D03F',bottle:'#16191f',logo:'',hair:'#7a4a2a'},
-  paars:{base:'#9B5DE5',acc:'#ffffff',acc2:'#f15bb5',pat:'chevron',helmet:'#ffffff',hstripe:'#9B5DE5',frame:['#f2f2f2','#9B5DE5'],bar:'#ffffff',bottle:'#f15bb5',logo:'LAVENDEL',hair:'#3b2a1e'},
-  bollen:{base:'#ffffff',acc:'#d62828',acc2:'#d62828',pat:'dots',helmet:'#ffffff',hstripe:'#d62828',frame:['#d62828','#ffffff'],bar:'#d62828',bottle:'#ffffff',logo:'',hair:'#c99a4e'}};
-/* ---------- je eigen outfit: gekozen bij de eerste 3D-rit, bewaard in state.profile.kit ---------- */
-const KIT_OPT={
-  base:['#FF6A2B','#D63031','#2563EB','#1F9D55','#F4C430','#1C1F26','#F4F4F2','#E8559A','#7C3AED','#0EA5A4'],
-  acc:['#16191f','#ffffff','#FF6A2B','#2563EB','#F4C430','#D63031','#1F9D55'],
-  pat:[['band','Band'],['hoops','Strepen'],['sash','Sjerp'],['chevron','Pijlen'],['dots','Stippen'],['plain','Effen']],
-  helmet:['#ffffff','#16191f','base','#9aa0a6'],
-  frame:['base','#16191f','#f2f2f2','#9aa0a6','#b3262d','#1f4f8c'],
-  skin:['#f1c7a8','#e0a283','#c68a62','#8d5a3b','#5c3a24'],
-  hair:['#2e241c','#5a3b26','#a8743e','#d8b46a','#8a8f96']
-};
-const kitPick=()=>Object.assign({base:'#FF6A2B',acc:'#16191f',pat:'band',helmet:'#ffffff',frame:'base',skin:'#e0a283',hair:'#5a3b26'},ui.kitDraft||(state.profile&&state.profile.kit)||{});
-function myKit(){
-  const p=kitPick(),col=v=>v==='base'?p.base:v,light=new T3.Color(p.acc).getHSL({}).l>.6;
-  return Object.assign({},KITS.me,{base:p.base,acc:p.acc,acc2:light?'#16191f':'#ffffff',pat:p.pat,helmet:col(p.helmet),hstripe:p.base,frame:[col(p.frame),p.acc],bar:'#16191f',bottle:p.base,skin:p.skin,hair:p.hair});
+  pace:{base:'#3D8BD4',acc:'#ffffff',acc2:'#1d2a44',pat:'band',helmet:'#3D8BD4',hstripe:'#ffffff',frame:['#3D8BD4','#1d2a44'],bar:'#ffffff',bottle:'#3D8BD4',logo:'TEMPO',hair:'#2e241c',skin:'#e0a283'}};
+/* ---------- outfit: vijf vaste tenues (het broekje is altijd zwart, in het shirt zit geen zwart), vrouw of man, huid en haar.
+   Bewaard in state.profile.kit als {o, sex, skin, hair}. De anderen op de weg krijgen de tenues die jij niet draagt. ---------- */
+const OUTFITS=[
+  {id:'kopwerk',name:'Kopwerk',base:'#FF6A2B',acc:'#ffffff',acc2:'#FFD3B8',pat:'band',helmet:'#ffffff',hstripe:'#FF6A2B',frame:['#FF6A2B','#f2f2f2'],bottle:'#ffffff'},
+  {id:'noordzee',name:'Noordzee',base:'#2563EB',acc:'#8FD0F5',acc2:'#ffffff',pat:'chevron',helmet:'#2563EB',hstripe:'#ffffff',frame:['#f2f2f2','#2563EB'],bottle:'#8FD0F5'},
+  {id:'polder',name:'Polder',base:'#1F9D55',acc:'#F4C430',acc2:'#ffffff',pat:'sash',helmet:'#F4C430',hstripe:'#1F9D55',frame:['#1F9D55','#F4C430'],bottle:'#F4C430'},
+  {id:'kers',name:'Kers',base:'#D63031',acc:'#ffffff',acc2:'#FFC2C2',pat:'hoops',helmet:'#ffffff',hstripe:'#D63031',frame:['#f2f2f2','#D63031'],bottle:'#ffffff'},
+  {id:'lavendel',name:'Lavendel',base:'#7C3AED',acc:'#F9A8D4',acc2:'#ffffff',pat:'dots',helmet:'#ffffff',hstripe:'#7C3AED',frame:['#9aa0a6','#7C3AED'],bottle:'#F9A8D4'}];
+const KIT_OPT={skin:['#f1c7a8','#e0a283','#c68a62','#8d5a3b','#5c3a24'],hair:['#2e241c','#5a3b26','#a8743e','#d8b46a','#8a8f96']};
+/* een tenue + een persoon -> alles wat makeRider nodig heeft */
+function kitFrom(p){
+  const o=OUTFITS.find(x=>x.id===p.o)||OUTFITS[0];
+  return Object.assign({},o,{bar:'#16191f',logo:'KOPWERK',sex:p.sex==='v'?'v':'m',skin:p.skin||KIT_OPT.skin[1],hair:p.hair||KIT_OPT.hair[1]});
 }
-/* fietser opnieuw opbouwen na een andere keuze */
+/* je keuze; een outfit uit de oude versie (eigen kleuren) wordt het tenue met dezelfde grondkleur */
+function kitPick(){
+  const k=Object.assign({},state.profile&&state.profile.kit||{});
+  if(!k.o){const old=OUTFITS.find(x=>k.base&&x.base.toLowerCase()===String(k.base).toLowerCase());k.o=old?old.id:'kopwerk'}
+  return {o:k.o,sex:k.sex==='v'?'v':'m',skin:k.skin||KIT_OPT.skin[1],hair:k.hair||KIT_OPT.hair[1]};
+}
+const myKit=()=>kitFrom(kitPick());
+/* de anderen op de weg: de tenues die jij niet draagt, met verschillende mensen erin */
+const NPC_PEOPLE=[['v',2,1],['m',0,3],['m',4,0],['v',1,2],['m',3,1]];
+function npcKits(){
+  const mine=kitPick().o,others=OUTFITS.filter(x=>x.id!==mine);
+  return NPC_PEOPLE.map(([sex,s,h],i)=>kitFrom({o:others[i%others.length].id,sex,skin:KIT_OPT.skin[s],hair:KIT_OPT.hair[h]}));
+}
+/* fietser (en de anderen) opnieuw opbouwen na een andere keuze */
 function kitApply(){
-  if(!W||!W.me||!W.scene)return;const old=W.me;W.scene.remove(old.g);
-  W.me=makeRider(myKit(),false);W.me.g.traverse(o=>{if(o.isMesh)o.castShadow=true});W.scene.add(W.me.g);W.me.g.position.copy(old.g.position);W.me.g.rotation.copy(old.g.rotation);
+  if(!W||!W.me||!W.scene)return;
+  const swap=(old,kit)=>{W.scene.remove(old.g);const R=makeRider(kit,false);R.g.traverse(o=>{if(o.isMesh)o.castShadow=true});W.scene.add(R.g);R.g.position.copy(old.g.position);R.g.rotation.copy(old.g.rotation);return R};
+  W.me=swap(W.me,myKit());const nk=npcKits();W.npcs.forEach((n,i)=>{n.R=swap(n.R,nk[i])});
 }
-const kitOpen=()=>!!(P&&P.mode==='ready'&&view3d()&&(ui.kitOpen||(state.profile.kit==null&&!ui.kitSkip)));
+/* het startscherm laat je fietser zien; je kunt er omheen draaien */
+const startView=()=>!!(P&&P.mode==='ready'&&view3d());
+/* klein shirtje als voorbeeld van een tenue */
+function shirtSVG(o){
+  const pat={band:`<rect x="0" y="17" width="44" height="6" fill="${o.acc}"/>`,hoops:[12,19,26].map(y=>`<rect x="0" y="${y}" width="44" height="3" fill="${o.acc}"/>`).join(''),
+    sash:`<polygon points="10,0 18,0 36,40 28,40" fill="${o.acc}"/>`,chevron:`<polyline points="10,12 22,22 34,12" fill="none" stroke="${o.acc}" stroke-width="4"/>`,
+    dots:[[12,14],[22,14],[32,14],[17,22],[27,22],[12,30],[22,30],[32,30]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="2" fill="${o.acc}"/>`).join('')}[o.pat]||'';
+  const id='sh'+o.id;
+  return `<svg viewBox="0 0 44 40" width="44" height="40" aria-hidden="true"><defs><clipPath id="${id}"><path d="M14 2 L22 6 L30 2 L42 9 L37 17 L33 15 L33 38 L11 38 L11 15 L7 17 L2 9 Z"/></clipPath></defs>
+    <g clip-path="url(#${id})"><rect width="44" height="40" fill="${o.base}"/>${pat}<rect x="0" y="0" width="44" height="3" fill="${o.acc}"/></g></svg>`;
+}
 function kitHTML(){
-  const p=kitPick(),sw=(k,list)=>list.map(v=>{const c=v==='base'?p.base:v;return `<button class="kitsw${p[k]===v?' on':''}" data-act="kitSet" data-k="${k}" data-v="${v}" style="background:${c}" aria-label="${k} ${c}" aria-pressed="${p[k]===v}"></button>`}).join('');
-  const row=(t,inner)=>`<div class="kitrow"><span>${t}</span><div>${inner}</div></div>`;
-  return `<div class="zkit stack"><div><h3>Je outfit</h3><p class="small muted">${state.profile.kit==null?'Kies hoe je fietser eruitziet. Later aan te passen met de knop Outfit.':'Pas aan hoe je fietser eruitziet.'}</p></div>
-    ${row('Shirt',sw('base',KIT_OPT.base))}${row('Tweede kleur',sw('acc',KIT_OPT.acc))}
-    ${row('Patroon',KIT_OPT.pat.map(([v,t])=>`<button class="btn small${p.pat===v?' pri':''}" data-act="kitSet" data-k="pat" data-v="${v}">${t}</button>`).join(''))}
-    ${row('Helm',sw('helmet',KIT_OPT.helmet))}${row('Fiets',sw('frame',KIT_OPT.frame))}${row('Huid',sw('skin',KIT_OPT.skin))}${row('Haar',sw('hair',KIT_OPT.hair))}
-    <div class="row"><button class="btn pri" data-act="kitDone">Klaar</button></div></div>`;
+  const p=kitPick(),sw=(k,list)=>list.map(v=>`<button class="kitsw${p[k]===v?' on':''}" data-act="kitSet" data-k="${k}" data-v="${v}" style="background:${v}" aria-label="${k==='skin'?'Huidskleur':'Haarkleur'} ${v}" aria-pressed="${p[k]===v}"></button>`).join('');
+  return `<div class="zkit stack">
+    <div class="kitrow"><span>Outfit</span><div class="kitout">${OUTFITS.map(o=>`<button class="kito${p.o===o.id?' on':''}" data-act="kitSet" data-k="o" data-v="${o.id}" aria-pressed="${p.o===o.id}">${shirtSVG(o)}<span>${o.name}</span></button>`).join('')}</div></div>
+    <div class="kitrow"><span>Fietser</span><div><div class="seg" role="group" aria-label="Vrouw of man">${[['v','Vrouw'],['m','Man']].map(([v,t])=>`<button class="btn small" data-act="kitSet" data-k="sex" data-v="${v}" aria-pressed="${p.sex===v}">${t}</button>`).join('')}</div></div></div>
+    <div class="kitrow"><span>Huidskleur</span><div>${sw('skin',KIT_OPT.skin)}</div></div>
+    <div class="kitrow"><span>Haar</span><div>${sw('hair',KIT_OPT.hair)}</div></div>
+  </div>`;
 }
 const shadeC=(c,l)=>'#'+new T3.Color(c).offsetHSL(0,0,l).getHexString();
 /* plaatje per renner: boven het shirt (rondom: voorkant, linkerzij, rug, rechterzij), linksonder de helm, rechtsonder het opschrift en een wit vlak */
 function kitTex(k){
   return canvasTex(512,512,(c,w,h)=>{
     const yb=256*(1-.25);c.fillStyle=k.base;c.fillRect(0,0,512,256);
-    c.fillStyle=shadeC(k.base,-.16);c.fillRect(512*.18,0,512*.13,yb);c.fillRect(512*.69,0,512*.13,yb);
+    c.fillStyle=shadeC(k.base,-.06);c.fillRect(512*.18,0,512*.13,yb);c.fillRect(512*.69,0,512*.13,yb);
     c.fillStyle=k.acc;
     if(k.pat==='band'){c.fillRect(0,256*.36,512,22);c.fillStyle=k.acc2;c.fillRect(0,256*.36-7,512,4);c.fillRect(0,256*.36+25,512,4)}
     else if(k.pat==='hoops')for(let i=0;i<5;i++)c.fillRect(0,256*.18+i*30,512,11);
@@ -646,15 +663,17 @@ function kitTex(k){
     else if(k.pat==='chevron'){c.lineWidth=18;c.strokeStyle=k.acc;for(const x0 of[256,0,512]){c.beginPath();c.moveTo(x0-110,256*.2);c.lineTo(x0,256*.5);c.lineTo(x0+110,256*.2);c.stroke()}c.strokeStyle=k.acc2;c.lineWidth=6;for(const x0 of[256,0,512]){c.beginPath();c.moveTo(x0-110,256*.3);c.lineTo(x0,256*.6);c.lineTo(x0+110,256*.3);c.stroke()}}
     else if(k.pat==='dots')for(let y=14;y<yb-6;y+=26)for(let x=(y/26%2)*16;x<512;x+=32){c.beginPath();c.arc(x,y,8,0,7);c.fill()}
     /* kraag, rits, achterzakken en naam op de rug */
-    c.fillStyle=k.acc;c.fillRect(0,0,512,13);c.fillStyle=shadeC(k.base,-.3);c.fillRect(0,0,3,yb);c.fillRect(509,0,3,yb);
-    c.strokeStyle=shadeC(k.base,-.25);c.lineWidth=2;for(const i of[-1,0,1])c.strokeRect(512*(.5+i*.07)-14,yb-38,28,32);
+    c.fillStyle=k.acc;c.fillRect(0,0,512,3);c.fillStyle=shadeC(k.base,-.1);c.fillRect(0,0,3,yb);c.fillRect(509,0,3,yb);
+    c.strokeStyle=shadeC(k.base,-.1);c.lineWidth=2;for(const i of[-1,0,1])c.strokeRect(512*(.5+i*.07)-14,yb-38,28,32);
     if(k.logo){c.fillStyle=k.pat==='band'?k.acc2:k.acc;c.font='800 21px Inter, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(k.logo,256,256*.62)}
     /* broek: zwart met een zijpaneel in de kleur van het shirt */
     c.fillStyle='#16191f';c.fillRect(0,yb,512,256-yb);c.fillStyle=k.base;c.fillRect(512*.23,yb,16,256-yb);c.fillRect(512*.75,yb,16,256-yb);
-    /* helm: grondkleur, een streep van voor naar achter, ventilatiegaten en een donkere rand */
-    c.fillStyle=k.helmet;c.fillRect(0,256,256,256);c.fillStyle=k.hstripe;for(const x of[64,192])c.fillRect(x-9,256,18,150);
-    c.fillStyle='#1b1d22';for(const x of[64,192])for(const dx of[-26,26,-46,46])for(let y=282;y<372;y+=24){c.beginPath();c.ellipse(x+dx,y,5,9,0,0,7);c.fill()}
-    c.fillRect(0,388,256,14);
+    /* helm (u 0-256 rondom, achter op 64, voor op 192; boven y 256, rand y 512): grondkleur, een streep van voor naar achter,
+       lange ventilatiegaten van voor naar achter en een smalle donkere rand */
+    c.fillStyle=k.helmet;c.fillRect(0,256,256,256);c.fillStyle=k.hstripe;for(const x of[64,192])c.fillRect(x-7,256,14,256);
+    c.fillStyle='#262a31';for(const x of[64,192])for(const dx of[-17,17,-36,36,-56,56]){const y0=dx*dx>2000?300:270,y1=x===192?(dx*dx>2000?430:455):(dx*dx>2000?400:420);
+      c.beginPath();c.roundRect(x+dx-4,y0,8,y1-y0,4);c.fill()}
+    c.fillRect(0,496,256,16);
     /* opschrift voor de onderbuis, op beide zijkanten */
     c.fillStyle=k.frame[0];c.fillRect(256,256,256,128);c.fillStyle=k.frame[0]==='#f2f2f2'||k.frame[0]==='#ffffff'?k.frame[1]:'#ffffff';c.font='800 26px Inter, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';
     /* rechterkant: verticaal gespiegeld, linkerkant: horizontaal gespiegeld, zodat het op de buis van beide kanten leesbaar is */
@@ -695,7 +714,7 @@ function makeRider(k,ghost){
   /* buis in twee kleuren lak: van voor naar achter verloopt de kleur */
   const tube=(r,a,b,c0,c1,s)=>{const geo=new T.CylinderGeometry(r,r,1,12).applyMatrix4(tubeM(a,b)),p=geo.attributes.position,cl=[],A=new T.Color(c0),B=new T.Color(c1||c0);
     for(let i=0;i<p.count;i++){c.copy(A).lerp(B,clamp((p.getZ(i)+.35)/.75,0,1));cl.push(c.r,c.g,c.b)}geo.setAttribute('color',new T.Float32BufferAttribute(cl,3));return [geo,null,null,s??1]};
-  const cyl=(r,a,b,col,s)=>[new T.CylinderGeometry(r,r,1,10),col,tubeM(a,b),s];
+  const cyl=(r,a,b,col,s)=>[new T.CylinderGeometry(r,r,1,10),col,tubeM(a,b),s],sph0=r=>new T.SphereGeometry(r,14,10);
   /* wielen: band met bruine zijkant, hoge carbon velg met opdruk, spaken, naaf, cassette of remschijf */
   const wheel=(z,rear)=>{const tyre=new T.TorusGeometry(.322,.016,10,48),tp=tyre.attributes.position,tc=[];
       for(let i=0;i<tp.count;i++){c.set(Math.hypot(tp.getX(i),tp.getY(i))>.331?'#1a1a1a':'#b8935e');tc.push(c.r,c.g,c.b)}tyre.setAttribute('color',new T.Float32BufferAttribute(tc,3));
@@ -728,32 +747,57 @@ function makeRider(k,ghost){
   mesh(B);
   /* crankstel: beide cranks en het blad draaien samen rond de trapas */
   const crank=mesh([cyl(.012,[-.059,0,0],[-.095,.17,0],'#2a2d33',.8),cyl(.012,[.059,0,0],[.095,-.17,0],'#2a2d33',.8),[new T.CylinderGeometry(.1,.1,.008,32),'#2a2d33',RM(.05,0,0,0,0,Math.PI/2),.9],[new T.CylinderGeometry(.075,.075,.009,24),Al,RM(.054,0,0,0,0,Math.PI/2),1]]);crank.position.set(0,.3,.02);
-  /* romp: van heup tot hals een ronde doorsnede die breder wordt naar de schouders, met het shirt erop */
+  /* romp: van heup tot hals een ronde doorsnede die breder wordt naar de schouders, met het shirt erop.
+     Een vrouw heeft wat smallere schouders en iets bredere heupen. */
+  const fem=k.sex==='v',HR=k.hair||'#5a3b26',G0='#33373e';
   const tor=new T.Group();g.add(tor);
   {const R=[[-.12,0,0,-.02],[-.08,.11,.085,-.015],[0,.152,.118,-.01],[.1,.162,.124,0],[.22,.154,.116,.012],[.34,.15,.11,.02],[.48,.164,.118,.024],[.62,.192,.132,.02],[.76,.212,.138,.01],[.86,.204,.13,-.004],[.94,.16,.104,-.02],[1,.075,.062,-.03],[1.03,0,0,-.035]];
     const seg=22,pos=[],uv=[],idx=[];
-    R.forEach(([y,a,b,zc],j)=>{for(let i=0;i<=seg;i++){const ph=i/seg*Math.PI*2,x=-Math.sin(ph)*a,z=-Math.cos(ph)*b+zc;pos.push(x,y*.5,z);uv.push(i/seg,.5+.5*clamp(y,0,1))}
+    R.forEach(([y,a,b,zc],j)=>{if(fem)a*=y>.5?1-.08*clamp((y-.5)/.26,0,1):y<.25?1.03:1;
+      for(let i=0;i<=seg;i++){const ph=i/seg*Math.PI*2,x=-Math.sin(ph)*a,z=-Math.cos(ph)*b+zc;pos.push(x,y*.5,z);uv.push(i/seg,.5+.5*clamp(y,0,1))}
       if(j)for(let i=0;i<seg;i++){const q=(j-1)*(seg+1)+i,q2=q+seg+1;idx.push(q,q+1,q2,q+1,q2+1,q2)}});
     const tg=new T.BufferGeometry();tg.setAttribute('position',new T.Float32BufferAttribute(pos,3));tg.setAttribute('uv',new T.Float32BufferAttribute(uv,2));tg.setIndex(idx);tg.computeVertexNormals();
     mesh([[tg,'#ffffff',null,.25,(u,v)=>[u,v]]],tor)}
-  const neck=mesh([[new T.CylinderGeometry(.05,.05,1,10),S,null,.1]],null,1);
-  /* hoofd: gezicht, oren, haar in de nek, helm met strepen en gaten, zonnebril */
+  const neck=mesh([[new T.CylinderGeometry(.05,.058,1,12),S,null,.1]],null,1);
+  /* hoofd: schedel en kaak, een getekend gezicht (ogen, wenkbrauwen, neus, mond), oren, haar onder de helm (vrouw met paardenstaart),
+     een racehelm die naar achteren uitloopt, met ventilatiegaten, een rand en riempjes onder de kin */
   const head=new T.Group();g.add(head);
-  {const hg=new T.SphereGeometry(.128,26,14,0,Math.PI*2,0,Math.PI*.54),hp=hg.attributes.position;
-    for(let i=0;i<hp.count;i++){const z=hp.getZ(i);hp.setZ(i,z*(1+.22*clamp((z-.03)/.1,0,1)))}hg.computeVertexNormals();
-    mesh([[new T.SphereGeometry(.093,18,14),S,RM(0,-.012,0,0,0,0,.95,1.08,1.05),.1],...[-1,1].map(s=>[new T.SphereGeometry(.022,8,6),S,RM(s*.085,-.015,.01,0,0,0,.5,1,.8),.1]),
-      [new T.SphereGeometry(.09,12,6,Math.PI/2-1.25,2.5,Math.PI*.4,Math.PI*.32),k.hair,RM(0,-.008,.012,0,0,0,1,1,1.05),.15],
-      [hg,'#ffffff',RM(0,.012,.015,0,0,0,1,.9,1.15),.8,(u,v)=>[u*.5,v*.5]],
-      [new T.TorusGeometry(.097,.02,8,24,Math.PI*.9),'#2b3a6b',RM(0,.02,-.005,Math.PI/2+.1,0,Math.PI*.55),1]],head)}
-  /* bovenarm met mouw en boord, onderarm met handschoen */
-  const B0=k.base;
-  const arms=[-1,1].map(s=>({s,up:mesh([[lathe([[0,0,B0],[.056,.018,B0],[.058,.2,B0],[.055,.38,B0],[.0546,.386,ACC],[.054,.45,ACC],[.0515,.456,S],[.05,.6,S],[.042,.97,S],[0,1,S]],1),null,null,.2]],null,1),
-    lo:mesh([[lathe([[0,0,S],[.04,.04,S],[.045,.3,S],[.035,.86,S],[.036,.87,Bk],[.034,.95,Bk],[0,1,Bk]],.28),null,null,.15],[new T.SphereGeometry(.04,12,10),Bk,RM(0,.14,0),.3]],null,.28)}));
-  /* bovenbeen met broekspijp, zijpaneel en boord; onderbeen met sok; witte schoen met zwarte zool */
-  const legs=[-.095,.095].map(x=>{const l={x,th:mesh([[lathe([[0,0,K,B0],[.084,.03,K,B0],[.092,.25,K,B0],[.083,.55,K,B0],[.0795,.6,ACC],[.0765,.69,ACC],[.0723,.702,S],[.058,.95,S],[0,1,S]],1,x>0?1:-1),null,null,.3]],null,1),
-    sh:mesh([[lathe([[0,0,S],[.048,.03,S],[.06,.28,S],[.05,.55,S],[.0386,.83,S],[.039,.834,ACC],[.038,.87,ACC],[.037,.874,Wt],[.036,.92,Wt],[.034,.985,Wt],[0,1,Wt]],1),null,null,.1]],null,1),ftg:new T.Group()};
+  {const sph=(r,w,h)=>new T.SphereGeometry(r,w||16,h||12);
+    const hg=new T.SphereGeometry(.108,30,14,0,Math.PI*2,0,Math.PI*.54),hp=hg.attributes.position;
+    for(let i=0;i<hp.count;i++){let x=hp.getX(i),y=hp.getY(i),z=hp.getZ(i);const bk=clamp(z/.108,0,1),fr=clamp(-z/.108,0,1),t=clamp(1-y/.108,0,1);
+      z*=z>0?1.22:1.08;y-=.045*bk*t*t-.01*fr*t*t;z+=.02*bk*t*t;x*=.96-.06*bk*t;hp.setXYZ(i,x,y,z)}
+    hg.computeVertexNormals();
+    const hair=(th0,th1)=>[new T.SphereGeometry(.1,20,10,Math.PI/2-1.25,2.5,Math.PI*th0,Math.PI*(th1-th0)),HR,RM(0,0,.006,0,0,0,.95,1.04,1.1),.15];
+    /* schedel en kaak in één vorm: onder smaller, met een kin die iets naar voren komt */
+    const sk=sph(.1,28,20),sp=sk.attributes.position;
+    for(let i=0;i<sp.count;i++){const x=sp.getX(i),y=sp.getY(i),z=sp.getZ(i),t=clamp(-y/.1,0,1),f=clamp(-z/.1,0,1);
+      sp.setXYZ(i,x*.9*(1-.3*t*t),y*(1+.22*t),z*1.05*(1-.18*t*t*(1-f))-.01*t*f)}
+    sk.computeVertexNormals();
+    const P=[[sk,S,RM(0,0,.004),.1],[sph(.013,10,8),S,RM(0,-.018,-.104,-.35,0,0,.75,1.25,.9),.1],
+      ...[-1,1].flatMap(s=>[[sph(.021,10,8),S,RM(s*.086,-.016,.012,0,0,0,.45,1,.75),.1],
+        [sph(.014,10,8),'#f7f5ef',RM(s*.034,.004,-.09,0,0,0,1,.82,.55),.6],[sph(.0085,8,6),'#2a1d14',RM(s*.034,.003,-.096,0,0,0,1,1.05,.5),.9],
+        [new T.BoxGeometry(.032,.0075,.012),HR,RM(s*.035,.029,-.092,-.25,0,s*-.14),.1]]),
+      [new T.TorusGeometry(.014,.0028,5,12,Math.PI*.7),fem?'#b4505a':'#a5493f',RM(0,-.03,-.099,-.25,0,Math.PI*1.15),.3],
+      hair(.36,fem?.72:.64)];
+    /* vrouw: paardenstaart onder de helm uit, met een elastiekje in de kleur van het shirt, en wimpers */
+    if(fem)P.push([sph(.036,14,12),HR,RM(0,-.088,.122,-.42,0,0,1,2.1,.85),.15],[new T.TorusGeometry(.021,.007,6,12),k.base,RM(0,-.045,.108,-.42+Math.PI/2,0,0),.4],
+      ...[-1,1].map(s=>[new T.BoxGeometry(.012,.004,.006),'#2a1d14',RM(s*.047,.014,-.088,0,0,s*.5),.2]));
+    P.push([hg,'#ffffff',RM(0,.04,.008,0,0,0,1,.9,1),.8,(u,v)=>[u*.5,v*.5]],
+      ...[-1,1].map(s=>cyl(.003,[s*.082,.01,.0],[s*.045,-.09,.0],'#4a4f57',.3)));
+    mesh(P,head)}
+  /* bovenarm met schouder, mouw en boord; onderarm met elleboog en handschoen. Gewrichten zijn bollen, zodat er geen gaten vallen. */
+  const B0=k.base,SW=fem?.158:.17;
+  const arms=[-1,1].map(s=>({s,up:mesh([[lathe([[0,0,B0],[.05,.02,B0],[.058,.12,B0],[.055,.38,B0],[.0546,.386,ACC],[.054,.45,ACC],[.0515,.456,S],[.05,.6,S],[.044,.97,S],[0,1,S]],.3),null,null,.2],
+        [sph0(.051),B0,RM(0,-.125,0,0,0,0,1,1.15,1),.2]],null,.3),
+    lo:mesh([[lathe([[0,0,S],[.04,.03,S],[.046,.25,S],[.034,.8,S],[.035,.82,G0],[.036,.9,G0],[0,1,G0]],.28),null,null,.15],[sph0(.045),S,RM(0,-.14,0),.15],
+        [sph0(.04),G0,RM(0,.148,-.008,0,0,0,1.05,1.25,1.3),.3]],null,.28)}));
+  /* bovenbeen met broekspijp, zijpaneel en boord; onderbeen met knie, kuit en sok; witte schoen met zwarte zool */
+  const legs=[-.095,.095].map(x=>{const l={x,th:mesh([[lathe([[0,0,K,B0],[.086,.03,K,B0],[.094,.2,K,B0],[.084,.55,K,B0],[.0795,.6,ACC],[.0765,.69,ACC],[.0723,.702,S],[.06,.95,S],[0,1,S]],.46,x>0?1:-1),null,null,.3],
+        [sph0(.088),K,RM(0,-.2,0),.3]],null,.46),
+    sh:mesh([[lathe([[0,0,S],[.05,.03,S],[.062,.25,S],[.052,.5,S],[.0386,.83,S],[.039,.834,ACC],[.038,.87,ACC],[.037,.874,Wt],[.036,.92,Wt],[.034,.985,Wt],[0,1,Wt]],.42),null,null,.1],
+        [sph0(.058),S,RM(0,-.2,0),.1]],null,.42),ftg:new T.Group()};
     g.add(l.ftg);mesh([[new T.CapsuleGeometry(.043,.17,4,10),Wt,RM(0,.026,-.03,Math.PI/2,0,0,1,1,.78),.5],[new T.BoxGeometry(.075,.018,.25),'#1b1d22',RM(0,-.005,-.03),.4],[new T.BoxGeometry(.03,.012,.12),ACC,RM(x>0?.035:-.035,.03,-.05),.5],[new T.BoxGeometry(.09,.015,.07),Gl,RM(0,-.03,0),1]],l.ftg);return l});
-  return {g,legs,arms,tor,neck,head,wr,wf,crank,a:Math.random()*6,stand:0,t:0};
+  return {g,legs,arms,tor,neck,head,wr,wf,crank,sw:SW,a:Math.random()*6,stand:0,t:0};
 }
 function setLimb(m,a,b){
   const T=T3,A=new T.Vector3(...a),B=new T.Vector3(...b),d=B.clone().sub(A),len=d.length(),L=m.userData.len||0;
@@ -774,9 +818,9 @@ function poseRider(R,dt,cad,spd,stand){
   /* romp van heup naar schouders */
   const T=T3,dir=new T.Vector3(sh[0]-hip[0],sh[1]-hip[1],sh[2]-hip[2]),len=dir.length();
   R.tor.position.set(...hip);R.tor.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),dir.normalize());R.tor.scale.set(1,len/.5,1);R.tor.rotateY(sway*.25);
-  const hd=[sh[0],sh[1]+.13,sh[2]-.09];setLimb(R.neck,[sh[0],sh[1]-.03,sh[2]-.01],hd);
-  R.head.position.set(hd[0],hd[1]+.05,hd[2]-.03);R.head.rotation.set(-.05+st*.1,0,sway*.08);
-  for(const A of R.arms){const s=[sh[0]+A.s*.17,sh[1]-.02,sh[2]+.02],hand=[A.s*.2,.99-st*.02,-.6],el=joint(s,hand,.3,.28,[A.s*.12,-.3,.5]);
+  const hd=[sh[0],sh[1]+.095,sh[2]-.09];setLimb(R.neck,[sh[0],sh[1]-.03,sh[2]-.01],hd);
+  R.head.position.set(hd[0],hd[1]+.045,hd[2]-.03);R.head.rotation.set(-.05+st*.1,0,sway*.08);
+  for(const A of R.arms){const s=[sh[0]+A.s*(R.sw||.17),sh[1]-.02,sh[2]+.02],hand=[A.s*.2,.99-st*.02,-.6],el=joint(s,hand,.3,.28,[A.s*.12,-.3,.5]);
     setLimb(A.up,s,el);setLimb(A.lo,el,hand)}
   R.crank.rotation.x=-R.a;
   R.legs.forEach((l,i)=>{
@@ -978,7 +1022,7 @@ async function worldLoad(tok){
     comp=new EffectComposer(ren,new T.WebGLRenderTarget(innerWidth,innerHeight,{type:T.HalfFloatType,samples:4}));comp.addPass(new RenderPass(scene,cam));comp.addPass(new UnrealBloomPass(new T.Vector2(innerWidth,innerHeight),.3,.5,.9));comp.addPass(new OutputPass())}catch(e){comp=null}}
   if(gone())return;
   Object.assign(tok,{el,ren,scene,cam,sun,sky,ring,clouds,sunDisc,mood:MO,rain,lite:small,comp,wind:{value:0},G:propGeos(),root:null,C:null,total:-1,me:makeRider(myKit(),false),pace:makeRider(KITS.pace,true),vs:0,
-     npcs:[KITS.rood,KITS.groen,KITS.geel,KITS.paars,KITS.bollen].slice(0,small?3:5).map(kt=>({R:makeRider(kt,false),d:null,f:1,off:2.25,cad:82+Math.random()*14})),
+     npcs:npcKits().slice(0,small?3:5).map(kt=>({R:makeRider(kt,false),d:null,f:1,off:2.25,cad:82+Math.random()*14})),
      disp:0,extra:0,gap:2,last:performance.now(),camP:null,mills:[],raf:0,jobs:new Map(),tex:worldTextures(small)});
   delete tok.loading;
   {const kg=kenneyGeos();Object.assign(tok.G,kg.out);tok.KC=kg.cats;tok.KCAT=kg.catOf}
@@ -1597,8 +1641,15 @@ function worldStep(t){
   {const tx=ahead.x+Math.cos(ahead.h)*.5,ty=ahead.y+1.1,tz=ahead.z+Math.sin(ahead.h)*.5,L=W.lookP;
     if(!L||Math.hypot(L.x-tx,L.z-tz)>60)W.lookP=new T.Vector3(tx,ty,tz);else{const f=Math.min(1,dt*3.2*tS);L.x+=(tx-L.x)*f;L.y+=(ty-L.y)*f;L.z+=(tz-L.z)*f}}
   W.cam.position.copy(W.camP);W.cam.lookAt(W.lookP);
-  /* outfit kiezen: de camera schuin voor je fietser */
-  if(kitOpen()){const q=roadAt(C,d),a=q.h+.7,m=W.me.g.position;W.cam.position.set(m.x+Math.sin(a)*3.3,m.y+1.35,m.z-Math.cos(a)*3.3);W.cam.lookAt(m.x,m.y+.95,m.z)}
+  /* startscherm: de camera draait om je fietser (slepen = draaien, scrollen = dichterbij). Het beeld schuift opzij,
+     zodat de fietser midden in het vrije deel staat en niet achter het paneel. */
+  if(startView()){const O=W.orb||(W.orb={yaw:.7,pitch:.14,dist:innerWidth<innerHeight?4.4:3.3}),q=roadAt(C,d),a=q.h+O.yaw,m=W.me.g.position,cp=Math.cos(O.pitch)*O.dist;
+    W.cam.position.set(m.x+Math.sin(a)*cp,m.y+.95+Math.sin(O.pitch)*O.dist,m.z-Math.cos(a)*cp);W.cam.lookAt(m.x,m.y+.95,m.z);
+    if(now()-(W.offT||0)>300){W.offT=now();const pn=document.querySelector('.zstart'),r=pn&&pn.getBoundingClientRect(),vw=innerWidth,vh=innerHeight;
+      W.off=!r||!r.width?null:vw>760?[-Math.round(r.right/2),0]:[0,Math.round((vh-r.top)/2)]}
+  }
+  {const w=innerWidth,h=innerHeight,o=startView()&&W.off||[0,Math.round(h*(w<h?.04:.02))],v=W.cam.view;
+    if(!v||v.offsetX!==o[0]||v.offsetY!==o[1]||v.fullWidth!==w||v.fullHeight!==h)W.cam.setViewOffset(w,h,o[0],o[1],w,h)}
   /* zon, lucht en verre bergen reizen mee */
   const md=W.mood.dir,sp=W.lite?p:roadAt(C,d+16);W.sun.position.set(sp.x+md[0],sp.y+md[1],sp.z+md[2]);W.wind.value=t/1000;
   {const L=Math.hypot(...md)/1100;W.sunDisc.position.set(W.cam.position.x+md[0]/L,W.cam.position.y+md[1]/L,W.cam.position.z+md[2]/L)}
@@ -1666,4 +1717,14 @@ function worldSync(){
   if(!P)return worldClose();
   if(view3d()){if(!W)worldOpen();else if(!W.loading){W.el.hidden=false;worldHud(W.lastD||0)}}
   else if(W&&W.el)W.el.hidden=true;
+}
+/* startscherm: slepen over het beeld draait de camera om je fietser, scrollen zoomt in en uit */
+{let drag=null;
+  const orb=()=>W.orb||(W.orb={yaw:.7,pitch:.14,dist:innerWidth<innerHeight?4.4:3.3});
+  const onBg=e=>!!(W&&startView()&&e.target&&e.target.closest&&(e.target.classList.contains('w3')||e.target.closest('.zorbit')));
+  document.addEventListener('pointerdown',e=>{if(!onBg(e))return;drag={x:e.clientX,y:e.clientY,id:e.pointerId};e.preventDefault()});
+  document.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id||!W)return;const O=orb();
+    O.yaw-=(e.clientX-drag.x)*.008;O.pitch=clamp(O.pitch+(e.clientY-drag.y)*.005,-.05,1.1);drag.x=e.clientX;drag.y=e.clientY});
+  addEventListener('pointerup',e=>{if(drag&&e.pointerId===drag.id)drag=null});addEventListener('pointercancel',()=>{drag=null});
+  document.addEventListener('wheel',e=>{if(!onBg(e))return;const O=orb();O.dist=clamp(O.dist*Math.exp(e.deltaY*.0015),1.4,7);e.preventDefault()},{passive:false});
 }

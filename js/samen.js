@@ -42,7 +42,6 @@ function botsStep(C,d,dt,rate,run,lane,slope){
 
 /* ---------- samen rijden ---------- */
 const SAMEN={code:null,host:false,go:null,cd:0,riders:new Map(),unsub:[],sent:0,name:''};
-const SAMEN_KITS=['groen','geel','paars','bollen','rood'];
 const samenOn=()=>!!SAMEN.code;
 function samenName(){const u=fb&&fb.auth&&fb.auth.currentUser;const n=(u&&(u.displayName||u.email))||'Fietser';return n.split(/[ @]/)[0].slice(0,14)}
 const sRef=(...p)=>fb.F.doc(fb.db,'samen',...p);
@@ -63,7 +62,7 @@ const samenErr=e=>/permission/i.test(e&&(e.code||e.message)||'')?'Samen rijden s
 async function samenListen(code){
   const host=SAMEN.host;samenStop(true);SAMEN.host=host;SAMEN.code=code;SAMEN.go=null;SAMEN.name=samenName();ui.samenCode='';
   const F=fb.F,me=syncInfo.user.uid;
-  await F.setDoc(sRef(code,'rijders',me),{n:SAMEN.name,d:0,v:0,w:0,t:Date.now(),st:'wacht'});
+  await F.setDoc(sRef(code,'rijders',me),{n:SAMEN.name,d:0,v:0,w:0,t:Date.now(),st:'wacht',k:kitPick()});
   SAMEN.unsub.push(F.onSnapshot(sRef(code),s=>{
     const g=s.data();if(!g||!P)return;
     if(!SAMEN.host&&g.route&&g.route!==routeId()){setRoute(g.route);if(P.mode==='ready')renderPlayer()}
@@ -79,8 +78,8 @@ async function samenListen(code){
       if(ch.type==='removed'){samenDrop(id);roster=true;return}
       /* het bericht is al even onderweg: tel die tijd mee (volgens de klok van de ander, hooguit 1,5 s) */
       const v=ch.doc.data(),r=SAMEN.riders.get(id),at=now()-clamp(Date.now()-(v.t||Date.now()),0,1500);
-      if(!r){SAMEN.riders.set(id,{n:v.n,d:v.d,v:v.v,w:v.w,st:v.st,at,sd:v.d,kit:SAMEN_KITS[SAMEN.riders.size%SAMEN_KITS.length],R:null,off:[-.85,1.95,-1.9,.2][SAMEN.riders.size%4]});roster=true}
-      else{if(r.st!==v.st||r.n!==v.n)roster=true;Object.assign(r,{n:v.n,d:v.d,v:v.v,w:v.w,st:v.st,at})}
+      if(!r){SAMEN.riders.set(id,{n:v.n,d:v.d,v:v.v,w:v.w,st:v.st,at,sd:v.d,k:v.k||null,ix:SAMEN.riders.size,R:null,off:[-.85,1.95,-1.9,.2][SAMEN.riders.size%4]});roster=true}
+      else{if(r.st!==v.st||r.n!==v.n)roster=true;Object.assign(r,{n:v.n,d:v.d,v:v.v,w:v.w,st:v.st,at,k:v.k||r.k})}
     });
     if(roster&&P&&P.mode==='ready')renderPlayer();
   }));
@@ -118,13 +117,15 @@ function samenCopy(){
 /* elke ~2 seconden je plek doorgeven */
 function samenSend(run){
   if(!SAMEN.code||!syncInfo.user||now()-SAMEN.sent<2000)return;SAMEN.sent=now();
-  fb.F.setDoc(sRef(SAMEN.code,'rijders',syncInfo.user.uid),{n:SAMEN.name,d:Math.round((W.dist||0)*10)/10,v:Math.round((W.v||0)*100)/100,w:dispPower()||0,t:Date.now(),st:run?'rijdt':'pauze'}).catch(()=>{});
+  fb.F.setDoc(sRef(SAMEN.code,'rijders',syncInfo.user.uid),{n:SAMEN.name,d:Math.round((W.dist||0)*10)/10,v:Math.round((W.v||0)*100)/100,w:dispPower()||0,t:Date.now(),st:run?'rijdt':'pauze',k:kitPick()}).catch(()=>{});
 }
 function samenRiders(C,d,dt,run,lane,slope){
   const out=[];
   for(const r of SAMEN.riders.values()){
     if(r.st==='wacht'){if(r.R)r.R.g.visible=false;continue}
-    if(!r.R||r.R.w!==W){r.R=makeRider(KITS[r.kit],false);r.R.w=W;r.R.g.traverse(o=>{if(o.isMesh)o.castShadow=true});r.tag=nameTag(r.n);r.R.g.add(r.tag);W.scene.add(r.R.g)}
+    /* in de outfit die de ander zelf koos (oudere versies van de app sturen die niet mee: dan een tenue op volgorde) */
+    const kk=JSON.stringify(r.k||r.ix);if(r.R&&r.R.kk!==kk){r.R.g.parent&&r.R.g.parent.remove(r.R.g);r.R=null}
+    if(!r.R||r.R.w!==W){r.R=makeRider(r.k?kitFrom(r.k):kitFrom({o:OUTFITS[(r.ix+1)%OUTFITS.length].id}),false);r.R.w=W;r.R.kk=kk;r.R.g.traverse(o=>{if(o.isMesh)o.castShadow=true});r.tag=nameTag(r.n);r.R.g.add(r.tag);W.scene.add(r.R.g)}
     /* naamkaartje even groot op het scherm, dichtbij en ver weg */
     {const k=clamp(W.cam.position.distanceTo(r.R.g.position)/9,1,7);r.tag.scale.set(1.5*k,.375*k,1);r.tag.position.y=2.1+.2*k}
     /* doorrekenen met de laatst bekende snelheid (hooguit 4 s). De fietser rijdt zelf met die snelheid door en schuift
