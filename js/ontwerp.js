@@ -199,7 +199,7 @@ function designTerrain(C){
      afgetrokken en na afloop overal opgeteld: zo blijven weg, beken en ruggen precies op hun hoogte en krijgt de rest karakter. */
   const NZ=dzNoise(C.seed),A0=TD.ruis||20,NF=new Float32Array(n);
   for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const c=j*nx+i;if(FX[c]===2)continue;const x=x0+i*cs,z=z0+j*cs,dd=Math.min(RD[c],QD[c]),amp=clamp((dd-12)/150,0,1),fine=clamp((dd-7)/25,0,1);
-    NF[c]=amp*A0*((NZ.r(x/620,z/620,3)*2.2-.95)+.6*(NZ.r(x/170+3.1,z/170-5.3,3)*1.6-.62))+fine*(NZ.f(x/48,z/48,2)*2.6+NZ.f(x/14,z/14,1)*.5)}
+    NF[c]=amp*A0*((NZ.r(x/620,z/620,3)*2.2-.95)+.6*(NZ.r(x/170+3.1,z/170-5.3,3)*1.6-.62))+fine*(NZ.f(x/48,z/48,2)*2.6+NZ.f(x/21,z/21,2)*1.5+NZ.f(x/14,z/14,1)*.5)}
   for(let c=0;c<n;c++)if(FX[c])VS[c]-=NF[c];
   /* grof naar fijn: Laplace met over-relaxatie */
   const lv=[{nx,nz,FX,V:VS}];
@@ -243,22 +243,34 @@ function dzPolyDist(P,x,z){let m=1e9;for(let i=0,j=P.length-1;i<P.length;j=i++){
 /* ---------- 3. kleur van de grond ---------- */
 /* Kleur per punt plus drie gewichten voor de textuur (sp): rots, bos (kruinen van ver), sneeuw */
 const DZC={};
-function dzGround(C,x,z,y,out,sp,land){
+/* hoeveel van het bos-uit-de-ruis echt bos is, per landschap langs de weg (op de alm en de pas bijna niets) */
+/* open bergwei: hier komen extra graspollen, stenen en bloemen */
+const ALPWEI=new Set(['alpen','pas','alm','boomgrens','rots','bosrand']);
+const DZFM={alpen:.15,pas:0,boomgrens:.55,alm:.6,dal:.6,westdal:.6,dorp:.25,rots:.85,bosrand:.9};
+function dzGround(C,x,z,y,out,sp,land,fmul=1){
   const T=C.T,TH=T3;if(!DZC.wei)for(const [k,v] of Object.entries({wei:'#6caa45',bergwei:'#86a653',alp:'#93ad5c',droog:'#b3ab68',fris:'#5f9c3f',bos:'#3a5f2e',bodem:'#4a4a2e',rots:'#7f7b76',puin:'#a39c90',sneeuw:'#eef2f7'}))DZC[k]=new TH.Color(v);
-  const sl=T.slope(x,z),n=T.NZ.f(x/38,z/38,2),n2=T.NZ.f(x/9,z/9,1);let f=T.forest(x,z,y);
+  const sl=T.slope(x,z),n=T.NZ.f(x/38,z/38,2),n2=T.NZ.f(x/9,z/9,1);let f=T.forest(x,z,y)*fmul;
   if(land==='bos'||land==='loofbos')f=Math.max(f,.85);
   const kaal=land==='pas'?.55:land==='alpen'?.25:0;
   out.copy(DZC.wei).lerp(DZC.bergwei,clamp((y-140)/160,0,1)).lerp(DZC.alp,clamp((y-300)/120,0,1));
   /* vlekken: drogere en frissere stukken wei */
   const n3=T.NZ.f(x/130+7,z/130-3,2);if(n3>.15)out.lerp(DZC.droog,clamp((n3-.15)*2.2,0,.6));else if(n3<-.2)out.lerp(DZC.fris,clamp((-.2-n3)*2.2,0,.55));
   out.lerp(land?DZC.bodem:DZC.bos,f*(land?.9:.8));
-  const rock=clamp(clamp((sl-.92)/.4,0,1)+clamp((y-560)/110,0,1)*.7+clamp((y-380)/80,0,1)*clamp(n*1.5,0,.3)+n2*.08+kaal*clamp(n*1.8+.45,0,1),0,1);
+  /* rots: vanaf ~32 graden komt de rots door het gras, op richels in banden (de ruis volgt de hoogte) */
+  const band=T.NZ.f(x/90,y/7+z/90,2);
+  const rock=clamp(clamp((sl-.62+band*.18)/.38,0,1)+clamp((y-560)/110,0,1)*.7+clamp((y-380)/80,0,1)*clamp(n*1.5,0,.3)+n2*.08+kaal*clamp(n*1.8+.45,0,1),0,1);
   out.lerp(DZC.puin,clamp(rock*.7,0,1)).lerp(DZC.rots,clamp(rock*1.2-.3,0,1));
-  const sn=clamp((y-(660+n*70))/35,0,1)*clamp((1.2-sl)/.35,0,1);out.lerp(DZC.sneeuw,sn);
+  /* sneeuw: dicht boven ~600 m, daaronder vanaf ~300 m losse plekken (de laatste resten in kuilen en op flauwe stukken) */
+  const vl=T.NZ.f(x/46+5,z/46-9,2),plek=clamp((y-300)/140,0,1)*clamp((vl-.32)*5,0,1)*clamp((.95-sl)/.4,0,1);
+  const sn=Math.max(clamp((y-(600+n*80))/40,0,1)*clamp((1.25-sl)/.4,0,1),plek*.95);out.lerp(DZC.sneeuw,sn);
+  /* oever van een meer: een rand van grijs grind en natte stenen net boven het peil */
+  for(const L of C.lakes||[]){if(y>L.peil+3||y<L.peil-2)continue;const dd=dzPolyDist(L.P,x,z);if(dd<16){out.lerp(DZC.oever||(DZC.oever=new TH.Color('#9a958a')),clamp((16-dd)/10,0,1)*clamp((L.peil+3-y)/2,0,1)*.85)}}
   out.offsetHSL(0,0,n*.035+n2*.02);
   if(sp){sp[0]=rock;sp[1]=land?0:f*(1-rock);sp[2]=sn}
   return out;
 }
+/* laagste grond onder een rotsblok: op een helling zakt het blok aan de lage kant anders niet in de grond en zweeft het */
+function dzFoot(T,x,y,z,R){let m=y;for(let i=0;i<8;i++){const a=i*Math.PI/4;m=Math.min(m,T.h(x+Math.cos(a)*R,z+Math.sin(a)*R))}return m}
 /* splat-materiaal: gras, rots (op steile vlakken van opzij geprojecteerd) en boomkruinen gemengd per hoekpunt */
 function dzSplatMat(){
   const TH=T3;if(W.mat.splat)return W.mat.splat;
@@ -270,15 +282,34 @@ function dzSplatMat(){
       for(let i=0;i<520;i++){const x=Math.random()*w,y=Math.random()*h,r=5+Math.random()*9;for(const [dx,dy] of[[0,0],[w,0],[-w,0],[0,h],[0,-h]]){const g=c.createRadialGradient(x+dx-r*.3,y+dy-r*.3,1,x+dx,y+dy,r);g.addColorStop(0,'#a9c09a');g.addColorStop(.6,'#6f8a5e');g.addColorStop(1,'rgba(40,60,36,0)');c.fillStyle=g;c.beginPath();c.arc(x+dx,y+dy,r,0,7);c.fill()}}});
     for(const t of[W.tex.rots,W.tex.kruin]){t.wrapS=t.wrapT=TH.RepeatWrapping;t.colorSpace=TH.SRGBColorSpace;t.anisotropy=ANISO}}
   const m=new TH.MeshLambertMaterial({vertexColors:true,map:W.tex.gras});
-  m.onBeforeCompile=sh=>{sh.uniforms.tRock={value:W.tex.rots};sh.uniforms.tCan={value:W.tex.kruin};
+  m.onBeforeCompile=sh=>{sh.uniforms.tRock={value:W.tex.rots};sh.uniforms.tCan={value:W.tex.kruin};sh.uniforms.uHaze={value:new TH.Color(W.mood.hor)};
     sh.vertexShader='attribute vec3 sp;\nvarying vec3 vSp;\nvarying vec3 vWq;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\nvSp=sp;vWq=(modelMatrix*vec4(transformed,1.)).xyz;');
-    sh.fragmentShader='uniform sampler2D tRock,tCan;\nvarying vec3 vSp;\nvarying vec3 vWq;\n'+sh.fragmentShader.replace('#include <map_fragment>',`
-      vec4 tg=texture2D(map,vMapUv);vec3 nq=normalize(cross(dFdx(vWq),dFdy(vWq)));
+    sh.fragmentShader='uniform sampler2D tRock,tCan;uniform vec3 uHaze;\nvarying vec3 vSp;\nvarying vec3 vWq;\n'+sh.fragmentShader
+      /* luchtperspectief: hoe verder weg, hoe lichter en blauwer het land; zo krijgen bergwanden diepte in plaats van een donkergroene muur */
+      .replace('#include <fog_fragment>','gl_FragColor.rgb=mix(gl_FragColor.rgb,uHaze,smoothstep(120.,5200.,length(vWq-cameraPosition))*.5);\n#include <fog_fragment>')
+      .replace('#include <map_fragment>',`
+      vec3 nq=normalize(cross(dFdx(vWq),dFdy(vWq)));
       vec2 ur=abs(nq.x)>abs(nq.z)?vec2(vWq.z,vWq.y*1.6):vec2(vWq.x,vWq.y*1.6);
-      vec3 tr=texture2D(tRock,ur/11.).rgb*1.15;tr=mix(tr,texture2D(tRock,vWq.xz/13.).rgb*1.15,clamp(abs(nq.y)*1.6-.9,0.,1.));
+      /* gras: grof en fijn over elkaar (scherp dichtbij, geen herhaling van ver), op steile stukken van opzij geprojecteerd zodat het niet uitrekt;
+         daaroverheen grote vlekken warmer en koeler groen, fijner dan het kleurraster van 8 m */
+      float stp=clamp((.8-abs(nq.y))*2.5,0.,1.);
+      vec3 g1=mix(texture2D(map,vWq.xz/14.).rgb,texture2D(map,ur/14.).rgb,stp),g2=mix(texture2D(map,vWq.xz/3.1).rgb,texture2D(map,ur/3.1).rgb,stp);
+      float mac=texture2D(map,vWq.xz/173.+.31).r*.6+texture2D(map,vWq.xz/61.).r*.4;
+      /* grote vlekken: droog geel, sappig donkergroen en op hellingen grijs puin */
+      float pv=texture2D(map,vWq.xz/37.+.7).r*.5+texture2D(map,vWq.zx/89.).r*.5;
+      vec3 vlek=mix(vec3(1.16,1.06,.72),vec3(.78,.98,.86),smoothstep(.74,.93,mac));vlek=mix(vlek,vec3(.72,.9,.7),smoothstep(.86,.97,pv));
+      vec3 gcol=g1*g2*1.32*vlek;gcol=mix(gcol,vec3(.98,.95,.9)*g2*1.15,smoothstep(.83,.95,pv)*clamp((.96-abs(nq.y))*4.,0.,1.)*.9);
+      vec4 tg=vec4(gcol,1.);
+      /* de rotstextuur is lineair gemiddeld ~0,3; twee lagen vermenigvuldigd terugschalen naar ~1, anders wordt elke rotswand bijna zwart */
+      vec3 tr=texture2D(tRock,ur/11.).rgb*texture2D(tRock,ur/2.9).rgb*9.;tr=mix(tr,texture2D(tRock,vWq.xz/13.).rgb*texture2D(tRock,vWq.xz/3.4).rgb*9.,clamp(abs(nq.y)*2.4-.9,0.,1.));
       vec3 tc=texture2D(tCan,vWq.xz/26.).rgb*1.12;
       vec3 tt=mix(tg.rgb,tr,clamp(vSp.x,0.,1.));tt=mix(tt,tc,clamp(vSp.y,0.,1.));tt=mix(tt,vec3(1.),clamp(vSp.z,0.,1.));
-      diffuseColor.rgb*=tt;`)};
+      diffuseColor.rgb*=tt;float hBump=dot(tt,vec3(.33))*(1.+clamp(vSp.x,0.,1.)*2.2);`)
+      /* reliëf in het licht: de textuur als hoogte gebruiken en de normaal per pixel kantelen, zodat gras en rots niet als glad plastic ogen */
+      .replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
+      {vec3 vp=-vViewPosition,dpx=dFdx(vp),dpy=dFdy(vp);float dhx=dFdx(hBump),dhy=dFdy(hBump);
+       vec3 r1=cross(dpy,normal),r2=cross(normal,dpx);float det=dot(dpx,r1);vec3 grd=sign(det)*(dhx*r1+dhy*r2);
+       normal=normalize(abs(det)*normal-grd*1.1);}`)};
   return W.mat.splat=m;
 }
 /* ---------- 4. het verre land: één net over het hele gebied, met een gat rond de weg (daar ligt het fijne land) ---------- */
@@ -291,10 +322,12 @@ function dzFarMesh(C){
   for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const v=j*nx+i,ci=(j*st)*T.nx+i*st,x=T.x0+i*cs,z=T.z0+j*cs,dm=T.RD[ci],ds=T.QD[ci];let y=T.H[ci];
     /* onder het fijne land: het laagste punt in de buurt nemen, zodat het grove net in een geul nooit boven het echte land uitsteekt */
     if(dm<66){let mn=y;for(let dj=-st;dj<=st;dj++)for(let di=-st;di<=st;di++){const ii=i*st+di,jj=j*st+dj;if(ii>=0&&jj>=0&&ii<T.nx&&jj<T.nz)mn=Math.min(mn,T.H[jj*T.nx+ii])}
-      y=dm<56?mn-1.6:y+(mn-1.6-y)*clamp((66-dm)/10,0,1)}
+      y=dm<56?mn-.7:y+(mn-.7-y)*clamp((66-dm)/10,0,1)}
     if(dm<26&&T.RK[ci]>=0)y=Math.min(y,C.Y[T.RK[ci]]-1.6);
     if(ds<22){const sy=T.h(T.QX[ci],T.QZ[ci]);y=Math.min(y,sy-1.3)}
-    dzGround(C,x,z,T.H[ci],c,sp);if(Math.min(dm,ds)<7){c.lerp(asf,.8);sp[1]=0}
+    /* bos van ver zoveel als er langs dat stuk weg echt bomen staan: geen donkere bosvlekken op een kale alm */
+    let fm=1;if(T.RK[ci]>=0&&dm<320){const v0=DZFM[C.secP(T.RK[ci]*STEP).land];if(v0!=null)fm=v0+(1-v0)*clamp((dm-160)/160,0,1)}
+    dzGround(C,x,z,T.H[ci],c,sp,undefined,fm);if(Math.min(dm,ds)<7){c.lerp(asf,.8);sp[1]=0}
     /* bos van ver: het net ligt op kruinhoogte, zodat bosranden en heuvels met bos een silhouet hebben */
     y+=13*sp[1]*clamp((Math.min(dm,ds)-70)/50,0,1);
     pos[v*3]=x;pos[v*3+1]=y;pos[v*3+2]=z;uvs[v*2]=x/14;uvs[v*2+1]=z/14;spa.set(sp,v*3);col[v*3]=c.r;col[v*3+1]=c.g;col[v*3+2]=c.b}
@@ -327,7 +360,7 @@ function* dzChunkJob(ci){
   const C=W.C,T=C.T,M=W.mat,TH=T3,cl=ci%C.lapKm,a=cl*CH;if(a>=C.L||W.chunks.has(ci))return;
   const g=new TH.Group(),r=rng(C.seed+cl*7919+3),end=Math.min(C.L,a+CH),k0=Math.round(a/STEP),k1=Math.round(end/STEP);
   const geo=(pos,idx,col,uv)=>{const q=new TH.BufferGeometry();q.setAttribute('position',new TH.Float32BufferAttribute(pos,3));if(col)q.setAttribute('color',new TH.Float32BufferAttribute(col,3));if(uv)q.setAttribute('uv',new TH.Float32BufferAttribute(uv,2));q.setIndex(idx);q.computeVertexNormals();return q};
-  const tmp=new TH.Color(),berm=new TH.Color('#8a8a6c'),pave=new TH.Color('#a59f94');
+  const tmp=new TH.Color(),berm=new TH.Color('#9a9580'),pave=new TH.Color('#a59f94');
   /* --- fijn land langs de weg, tot 56 m opzij; in een haarspeldbocht afgekapt halverwege het andere been --- */
   {const REL=[-.25,.6,1.7,3.2],ABS=[7.5,10.5,14,19,25,32,40,48,56],rows=Math.ceil((end-a)/DS)+1,pos=[],col=[],uv=[],idx=[],spl=[],sp=[0,0,0];let nc=0;
     for(let j=0;j<rows;j++){if(j%30===29)yield;
@@ -340,7 +373,7 @@ function* dzChunkJob(ci){
         if(ao<=hw+.3)y=p.y-.1;else if(onBr)y=Math.min(p.y-.4,T.h(x,z));else{const t=clamp((ao-hw-.3)/3.4,0,1),th=T.h(x,z);y=p.y-.12+(th-p.y+.12)*t*t*(3-2*t)}
         if(ao>=55)y-=1.8;else if(ao>=47)y-=.3;
         pos.push(x,y,z);uv.push(x/14,z/14);
-        dzGround(C,x,z,y,tmp,sp,land);if(ao<hw+.7){tmp.lerp(berm,.45);sp[0]*=.3}if(land==='dorp'&&ao<hw+2.8)tmp.lerp(pave,.8);
+        dzGround(C,x,z,y,tmp,sp,land,DZFM[land]??1);if(ao<hw+.7){tmp.lerp(berm,.6);sp[0]*=.3;sp[2]=0}else if(ao<hw+1.8&&land!=='dorp'){tmp.lerp(berm,.35);sp[2]*=.3}if(land==='dorp'&&ao<hw+2.8)tmp.lerp(pave,.8);
         col.push(tmp.r,tmp.g,tmp.b);spl.push(sp[0],sp[1],sp[2])}}
     for(let j=0;j<rows-1;j++)for(let i=0;i<nc-1;i++){if(i===nc/2-1)continue;const q=j*nc+i;idx.push(q,q+1,q+nc,q+1,q+nc+1,q+nc)}
     const tg=geo(pos,idx,col,uv);tg.setAttribute('sp',new TH.Float32BufferAttribute(spl,3));const tm=new TH.Mesh(tg,dzSplatMat());tm.receiveShadow=true;g.add(tm)}
@@ -400,6 +433,7 @@ function* dzChunkJob(ci){
   const owns=(x,z)=>{const k=T.near(x,z);return k>=k0&&k<k1};
   /* hoogte van de grond vlak naast de weg, precies zoals het fijne land hierboven */
   const yAt=(p,hw,ao,x,z)=>{if(ao<=hw+.3)return p.y-.1;const t=clamp((ao-hw-.3)/3.4,0,1),th=T.h(x,z);return p.y-.12+(th-p.y+.12)*t*t*(3-2*t)};
+  const foot=(x,y,z,R)=>dzFoot(T,x,y,z,R);
   /* bomen: Poisson-schijf, daarna per punt kijken of hier bos, wei of rots is */
   const PT=yield* dzPoisson(bx0-60,bz0-60,bx1+60,bz1+60,W.lite?6:4.6,r);yield;
   let cnt=0;
@@ -410,19 +444,30 @@ function* dzChunkJob(ci){
     let F=T.forest(x,z,y);if(P.land==='bos'||P.land==='loofbos')F=Math.max(F,.9);
     const ptree=F*V[0]*(.55+.45*(P.dicht??.5))*1.15+V[1];
     if(sl<1.25&&u<ptree){const kind=pick(V[2]),near=dm<22,s=.85+r()*.5;
-      if((kind==='pine'||kind==='den')&&!near&&dm>34&&FARP.length&&r()<.6)put(pick(FARP)+'~',x,y-.1,z,s*1.15,r()*6,tint(.14,.03),s*(1.1+r()*.35));
-      else if(kind==='pine'&&PINES.length)put(pick(PINES)+(near?'*':'~'),x,y-.1,z,s*1.05,r()*6,tint(.14,.03),s*(1+r()*.3));
-      else if(kind==='loof'&&LOOF.length)put(pick(LOOF)+(near?'*':'~'),x,y-.1,z,s,r()*6,tint(.16,.05),s*(.9+r()*.3));
+      /* naaldbomen: eigen sparren in drie vormen, verschillend van hoogte */
+      if(kind==='pine'||kind==='den'){const sk=pick(['spar1','spar2','spar3','spar1','spar2']);put(sk+(near?'*':'~'),x,y-.1,z,s*(.8+r()*.55),r()*6,tint(.3,.06),s*(.9+r()*.6),(r()-.5)*.07);
+        /* ondergroei onder bomen dicht bij de weg: varens en struiken */
+        if(dm<26&&F>.4&&r()<.55){const ux=x+(r()-.5)*3.5,uz=z+(r()-.5)*3.5;if(T.exact(ux,uz)>hw+2.6)put('varen',ux,T.h(ux,uz),uz,.7+r()*.6,r()*6,tint(.2,.05))}}
+      /* in het loofbos de bomen uit de bibliotheek (licht), in de bergen eigen loofbomen tussen de sparren */
+      else if(kind==='loof'&&P.land==='loofbos'&&LOOF.length)put(pick(LOOF)+(near?'*':'~'),x,y-.1,z,s,r()*6,tint(.16,.05),s*(.9+r()*.3));
+      else if(kind==='loof')tree(pick(['boom','berk','boom']),x,y,z,s*(.85+r()*.3),near);
       else if(kind==='alp'&&ALP.length)put(pick(ALP),x,y-.1,z,s*(.45+r()*.35),r()*6,tint(.12,.03));
       else tree(kind,x,y,z,s,near);continue}
     /* geen boom: soms een rots, struik of keien */
     const v=r();
     /* rotsen in groepjes: waar de ruis het zegt, en vooral op steile of hoge plekken */
     const rc=T.NZ.f(x/70+11,z/70-4,2),rp=(rc>.2?.55:.03)*clamp((sl-.45)*2+(y>320?.6:0),0,1);
-    if(v<rp&&sl<1.7){const R2=r()<.55?'rotsblok':'rots',sc=(.7+r()*1.5)*(sl>1.3?1.5:1);put(R2,x,y-.45*sc,z,sc,r()*6,tint(.1,0),sc*(.6+r()*.7))}
-    else if((P.land==='pas'||P.land==='alpen')&&v<(P.land==='pas'?.07:.025)&&dm>hw+5){const sc=2+r()*3.5;put('rotsblok',x,y-.5*sc,z,sc,r()*6,tint(.08,0),sc*(.5+r()*.6))}
+    /* rotspartijen op steile hellingen; dicht bij de weg kleiner, zodat ze nooit over het wegdek hangen */
+    if(sl>.85&&sl<2.2&&v<.1+rc*.22&&dm>hw+6){const sc=Math.min(2.6+r()*3.6,(dm-hw-2)*.45);put(r()<.5?'rotspartij':'rotspartij2',x,foot(x,y,z,sc*1.1)-.35*sc,z,sc,r()*6,tint(.08,0),sc*(.8+r()*.5));continue}
+    if(v<rp&&sl<1.7){const R2=r()<.55?'rotsblok':'rots',sc=(.7+r()*1.5)*(sl>1.3?1.5:1);put(R2,x,foot(x,y,z,sc*.8)-.3*sc,z,sc,r()*6,tint(.1,0),sc*(.6+r()*.7))}
+    else if((P.land==='pas'||P.land==='alpen')&&v<(P.land==='pas'?.07:.025)&&dm>hw+9){const sc=Math.min(1.6+r()*2.6,(dm-hw-4)*.35);put(r()<.5?'rotspartij':'rotspartij2',x,foot(x,y,z,sc*1.1)-.4*sc,z,sc,r()*6,tint(.08,0),sc*(.5+r()*.6))}
     else if(v<.1&&P.land!=='pas'){put(SHR.length&&r()<.6?pick(SHR):'struik',x,y,z,.6+r()*.7,r()*6,tint())}
     else if(v<.13&&y>250&&rc>0)put('keien',x,y,z,.7+r(),r()*6,tint(.15,0));
+    /* open wei: graspollen, stenen op de hellingen en bloemen in plekken, zodat een helling geen kaal groen vlak is */
+    else if(F<.5&&ALPWEI.has(P.land)&&!(C.lakeAt&&C.lakeAt(x,z))){const fl=T.NZ.f(x/40-3,z/40+8,2);
+      {const w=r();if(sl>.35&&w<.22)put('keien',x,y-.05,z,.7+r()*1.1,r()*6,tint(.15,0));
+        else if(fl>.25&&w<.75&&P.land!=='pas')put(r()<.5?'bloem':r()<.5?'madelief':'klaproos',x,y,z,.8+r()*.6,r()*6,tint(.1,.05));
+        else if(w<.85)put('pol',x,y,z,.8+r()*.9,r()*6,tint(.2,.06))}}
   }
   yield;
   /* berm: graspollen, bloemen en paaltjes */
@@ -470,7 +515,11 @@ function dzGeos(){
     for(let i=0;i<5;i++)for(let j=0;j<3-(i>2?1:0);j++)P.push([new TH.CylinderGeometry(.32,.32,7,8),j%2?'#8a6240':'#9b7048',(()=>{const m=new TH.Matrix4().makeRotationX(Math.PI/2);m.setPosition(-9+i*.62,.32+j*.56,0);return m})()]);
     G.zagerij=partsGeo(P)}
   /* pijler van de lawinegalerij */
-  G.pilaar=partsGeo([[new TH.BoxGeometry(.7,5.4,.9),'#b7b3ab',M4(0,2.7,0)],[new TH.BoxGeometry(1.1,.4,1.3),'#a9a59d',M4(0,5.3,0)]]);
+  /* pijler met voet en een schuine schoor naar het dak (zoals bij echte galerijen), beton met wat vlekken */
+  {const sch=new TH.BoxGeometry(.5,2.4,.7);sch.rotateZ(.62);
+    G.pilaar=partsGeo([[new TH.BoxGeometry(.8,5.4,1),'#a29d94',M4(0,2.7,0)],[new TH.BoxGeometry(1.2,.5,1.4),'#8e8a82',M4(0,.25,0)],[new TH.BoxGeometry(1.1,.45,1.3),'#97928a',M4(0,5.25,0)],[sch,'#a29d94',M4(-.75,4.4,0)]])}
+  /* dwarsbalk onder het dak van de galerij */
+  G.galbalk=partsGeo([[new TH.BoxGeometry(10.2,.6,.55),'#9b968e',M4(0,0,0)]]);
   /* richtingbord: gele Franse wegwijzer op twee palen */
   G.paalgrijs=partsGeo([[new TH.CylinderGeometry(.05,.05,2.6,6),'#9aa0a6',M4(0,1.3,0)]]);
   /* telescoop op het uitkijkpunt en een stenen steenman */
@@ -594,8 +643,15 @@ function* dzExtras(X){
       const pos=[],idx=[],side=1;for(let d=d0,i=0;d<=d1+.01;d+=2,i++){const p=roadAt(C,d),hw=C.hwAt(d),nx=Math.cos(p.h),nz=Math.sin(p.h),yt=p.y+5.6;
         for(const [o,dy] of[[-hw-3,.9],[-hw-1.6,.5],[hw+1.4,.5],[hw+1.4,-.3],[hw+1.4,-.6],[-hw-3,-.6]])pos.push(p.x+nx*o,yt+dy,p.z+nz*o);
         if(i){const b=(i-1)*6;for(let k=0;k<5;k++)idx.push(b+k,b+k+6,b+k+1,b+k+1,b+k+6,b+k+7)}
-        if(i%3===0){const o=side*(hw+1.05);put('pilaar',p.x+nx*o,p.y,p.z+nz*o,1,-p.h)}}
-      const gm=new TH.Mesh(geo(pos,idx),M.beton||(M.beton=new TH.MeshLambertMaterial({color:'#b9b5ad',side:TH.DoubleSide})));gm.castShadow=gm.receiveShadow=true;g.add(gm)}}
+        if(i%3===0){const o=side*(hw+1.05);put('pilaar',p.x+nx*o,p.y,p.z+nz*o,1,-p.h);
+          /* dwarsbalk over de hele breedte, net onder het dak */
+          const bo=-.8;put('galbalk',p.x+nx*bo,yt-.15,p.z+nz*bo,1,-p.h)}}
+      const gm=new TH.Mesh(geo(pos,idx),M.beton||(M.beton=new TH.MeshLambertMaterial({color:'#b9b5ad',emissive:'#4a4740',side:TH.DoubleSide})));gm.castShadow=gm.receiveShadow=true;g.add(gm);
+      /* op het dak ligt aarde met gras, met een rommelige rand aan de dalkant */
+      {const tp=[],ti=[],tc=[],tu=[],cg=new TH.Color();for(let d=d0,i=0;d<=d1+.01;d+=2,i++){const p=roadAt(C,d),hw=C.hwAt(d),nx=Math.cos(p.h),nz=Math.sin(p.h),yt=p.y+5.6;
+          for(const [o,dy] of[[-hw-3.2,1.05],[0,.95+.12*Math.sin(d*.7)],[hw+1.2+.25*Math.sin(d*1.3),.75]]){const x=p.x+nx*o,z=p.z+nz*o;tp.push(x,yt+dy,z);cg.set('#6d8a46').multiplyScalar(.85+.25*r());tc.push(cg.r,cg.g,cg.b);tu.push(x/14,z/14)}
+          if(i){const b=(i-1)*3;for(let k=0;k<2;k++)ti.push(b+k,b+k+3,b+k+1,b+k+1,b+k+3,b+k+4)}}
+        const tm=new TH.Mesh(geo(tp,ti,tc,tu),M.lam);tm.receiveShadow=true;g.add(tm)}}}
     if(q.soort==='dam'){const S=C.sideRoads.find(x=>x.soort==='dam');if(S&&inChunk(S.at)){
       /* stuwdam onder de weg over de kruin: meerkant steil, dalkant lang en hol naar de beek */
       const prof=[[-3.2,-12],[-2.6,-.6],[-2.4,.95],[-2.1,.95],[-2.1,.1],[2.1,.1],[2.1,.95],[2.4,.95],[2.6,-.6],[5,-6],[9,-14],[12,-24],[13,-34]];
@@ -648,7 +704,7 @@ function* dzExtras(X){
         for(let d=s0+5;d<s1;d+=7+r()*12){const side=r()<.5?-1:1,A=at(d,side*(C.hwAt(d)+1.2+r()*1));put('loper',A.x,A.q.y+.13,A.z,.95+r()*.1,-A.q.h+(r()<.5?0:Math.PI),new TH.Color().setHSL(r(),.55,.45))}
         for(let d=s0+12;d<s1;d+=30+r()*40){const side=r()<.5?-1:1,A=at(d,side*(C.hwAt(d)-1.1));put('auto',A.x,A.q.y+.02,A.z,1,-A.q.h+(side>0?0:Math.PI),new TH.Color(['#d9d9d9','#1d1f22','#8a8f96','#b3262d','#1f4f8c','#f2f2f2'][Math.floor(r()*6)]))}
         /* plein met kerk, fontein, terras en bomen */
-        if(pl>=s0&&pl<s1){const hw=C.hwAt(pl),A=at(pl,ks*(hw+17));put('plein',A.x,A.y+.03,A.z,1.2,face(A.q.h,ks));
+        if(pl>=s0&&pl<s1){const hw=C.hwAt(pl),A=at(pl,ks*(hw+13));/* op het laagste punt onder het plein, anders zweeft de rand boven een helling */put('plein',A.x,dzFoot(C.T,A.x,A.y,A.z,14)+.03,A.z,.9,face(A.q.h,ks));
           const K=at(pl,ks*(hw+38));put('alpenkerk',K.x,T.h(K.x,K.z)-.4,K.z,1,face(K.q.h,ks));put('blob',K.x,K.y+.06,K.z,11,0);
           const F=at(pl,ks*(hw+15));put('fontein',F.x,F.y+.05,F.z,1,0);
           for(const dd of[-11,-7,8,12]){const E=at(pl+dd,ks*(hw+9+r()*3));put('terras',E.x,E.y+.05,E.z,1,r()*6,new TH.Color().setHSL([0,.08,.55,.33][Math.floor(r()*4)],.65,.55));if(r()<.7)put('loper',E.x+.8,E.y,E.z,1,r()*6,new TH.Color().setHSL(r(),.6,.5))}
@@ -660,7 +716,12 @@ function* dzExtras(X){
   }
   /* --- grote rotsblokken aan de voet van rotswanden --- */
   for(const [a0,b0,side,off,dh] of (D.terrein&&D.terrein.randen)||[]){if(dh<=0)continue;const ra=C.at(a0),rb=C.at(b0);
-    for(let d=Math.max(ra,a)+r()*10;d<Math.min(rb,end);d+=9+r()*16){const o=side*(C.hwAt(d)+1.6+r()*2.4),A=at(d,o),sc=1.2+r()*2.2;put('rotsblok',A.x,A.y-.4*sc,A.z,sc,r()*6,tint(.08,0),sc*(.6+r()*.5))}}
+    const gal=((D.punten||[]).filter(q=>q.soort==='galerij')).map(q=>[C.at(q.van)-12,C.at(q.tot)+12]);
+    for(let d=Math.max(ra,a)+r()*10;d<Math.min(rb,end);d+=9+r()*16){if(gal.some(([g0,g1])=>d>g0&&d<g1))continue;const o=side*(C.hwAt(d)+1.6+r()*2.4),A=at(d,o),sc=1.2+r()*2.2;put('rotsblok',A.x,dzFoot(C.T,A.x,A.y,A.z,sc*.8)-.3*sc,A.z,sc,r()*6,tint(.08,0),sc*(.6+r()*.5))}
+    /* de wand zelf: rotspartijen over de hele hoogte, half in de helling, zodat het een grillige rotswand wordt in plaats van een vlak */
+    for(let d=Math.max(ra,a)+r()*4;d<Math.min(rb,end);d+=4.5+r()*3){const hw=C.hwAt(d),n=Math.max(2,Math.round(dh/3.2));if(gal.some(([g0,g1])=>d>g0&&d<g1))continue;
+      for(let j=0;j<n;j++){const o=side*(hw+2.2+off*(.05+1.1*(j+r()*.6)/n)),q=roadAt(C,d),x=q.x+Math.cos(q.h)*o,z=q.z+Math.sin(q.h)*o,y=C.T.h(x,z),sc=Math.min(1.7+r()*2.2,.8+(Math.abs(o)-hw)*.3);
+        if(C.T.exact(x,z)<hw+2.4)continue;put(r()<.5?'rotspartij':'rotspartij2',x,y-.55*sc,z,sc,r()*6,tint(.08,0),sc*(.9+r()*.6))}}}
   /* --- rotonde: middeneiland met fontein en bloemen --- */
   for(const R0 of C.rounds)if(inChunk(R0.at)){put('fontein',R0.x,R0.y+.35,R0.z,1.3,0);for(let i=0;i<26;i++){const t=i/26*Math.PI*2,rr=R0.r-5.2-r()*2;put(r()<.5?'klaproos':'bloem',R0.x+Math.cos(t)*rr,R0.y+.35,R0.z+Math.sin(t)*rr,.9+r()*.4,r()*6)}}
 }

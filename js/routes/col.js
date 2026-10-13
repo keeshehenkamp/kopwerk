@@ -145,5 +145,5 @@
     ruis:24
   },
   /* vaste sfeer: heldere, koele ochtend; de zon staat laag in het oosten */
-  sfeer:{name:'ochtend',top:'#1f5bc4',hor:'#c9dcee',sun:'#fff0d8',si:3.4,hemi:1.25,sky:'#d4e4f6',gr:'#4f6638',dir:[160,72,70],disc:'#fff4dc',exp:1.3,fog:[700,10500],fogAbs:true,cloud:'#ffffff'}
+  sfeer:{name:'ochtend',top:'#1f5bc4',hor:'#c9dcee',sun:'#fff0d8',si:3.1,hemi:1.85,sky:'#d4e4f6',gr:'#4f6638',dir:[160,72,70],disc:'#fff4dc',exp:1.3,fog:[700,10500],fogAbs:true,cloud:'#ffffff'}
 };
