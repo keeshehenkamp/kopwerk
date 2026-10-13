@@ -129,7 +129,8 @@ function samenRiders(C,d,dt,run,lane,slope){
     /* doorrekenen met de laatst bekende snelheid (hooguit 4 s), en zacht naar die plek toe schuiven */
     const lag=Math.min(4,(now()-r.at)/1000),want=r.d+(r.st==='rijdt'?r.v*lag:0);
     r.sd=Math.abs(want-r.sd)>60?want:r.sd+(want-r.sd)*Math.min(1,dt*2.5);
-    r.R.g.visible=r.st!=='klaar';lane(r.R,r.sd,r.off,r.st==='rijdt'?88:0,r.st==='rijdt'?r.v:0,r.st==='rijdt'&&slope(r.sd)>8);
+    /* niets meer gehoord (verbinding weg of tabblad dicht): na 15 s van de weg */
+    const stale=now()-r.at>15000;r.R.g.visible=r.st!=='klaar'&&!stale;if(stale)continue;lane(r.R,r.sd,r.off,r.st==='rijdt'?88:0,r.st==='rijdt'?r.v:0,r.st==='rijdt'&&slope(r.sd)>8);
     if(r.st!=='klaar')out.push({d:r.sd,off:r.off});
   }
   return out;
@@ -167,7 +168,8 @@ function vrijHud(d){
   if(laps)rows.push(`<div class="vrow"><span>Nog</span><b>${fmtGap(Math.max(0,laps*L-done))}</b></div>`);
   if(W.bots){const g=W.bots.d-d;rows.push(`<div class="vrow"><span>Groepje ${nl(P.wo.bots.toFixed(1))} W/kg</span><b>${g>-6&&g<3?'je zit erin':(g>0?'+':'−')+fmtGap(g)}</b></div>`)}
   for(const r of SAMEN.riders.values()){if(r.st==='wacht')continue;const g=r.sd-d;
-    rows.push(`<div class="vrow"><span>${esc(r.n)}${r.st==='klaar'?' · klaar':''}</span><b>${(g>=0?'+':'−')+fmtGap(g)}</b></div>`)}
+    const stale=now()-r.at>15000;
+    rows.push(`<div class="vrow"><span>${esc(r.n)}${r.st==='klaar'?' · klaar':stale?' · geen verbinding':''}</span><b>${(g>=0?'+':'−')+fmtGap(g)}</b></div>`)}
   const dp=Math.round((W.draft||0)*100);
   rows.push(`<div class="vrow vdraft${dp>=5?' on':''}"><span>Windschaduw</span><b>${dp>=5?`−${dp}% wind`:'geen'}</b></div>`);
   const h=rows.join('');if(el.dataset.h!==h){el.dataset.h=h;el.innerHTML=h}
