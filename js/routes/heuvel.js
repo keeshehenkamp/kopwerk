@@ -5,7 +5,7 @@
    boomgaarden), de steile Keutelberg op, over de kam, omlaag naar het westelijke dal en via de Hoogveldweg en de boomgaarden
    terug naar Mergelrade. Zelfde opbouw als js/routes/col.js; hoogtes in meters boven het dorp. */
 (window.ROUTE_DESIGN=window.ROUTE_DESIGN||{}).heuvel={
-  km:13,koers:90,nl:true,
+  km:13,koers:90,nl:true,water:'#4a6f6a',
   stukken:[
     ["M","start"],
     ["S",120],

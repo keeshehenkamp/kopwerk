@@ -358,7 +358,7 @@ function dzFarMesh(C){
 }
 /* meren als vlak water op het peil */
 function dzLakes(C){
-  const TH=T3,out=[];for(const L of C.lakes||[]){const sh=new TH.Shape(L.P.map(([x,z])=>new TH.Vector2(x,-z)));
+  const TH=T3,out=[];/* elke route zijn eigen waterkleur: bergmeer blauwgroen, vaart en slotgracht donkerder */W.mat.water.color.set(C.design.water||'#2c7d96');for(const L of C.lakes||[]){const sh=new TH.Shape(L.P.map(([x,z])=>new TH.Vector2(x,-z)));
     const g=new TH.ShapeGeometry(sh,8);g.rotateX(-Math.PI/2);g.translate(0,L.peil,0);const m=new TH.Mesh(g,W.mat.water);m.userData.far2=true;out.push(m)}
   return out;
 }
@@ -663,19 +663,20 @@ function* dzExtras(X){
       for(let d=Math.ceil(a/4)*4;d<=Math.min(end,L-.01);d+=4){const ok=isP(d)&&!onBr(d)&&!(C.sideRoads||[]).some(S=>S.at!=null&&Math.abs(S.at-d)<10)&&!(C.rounds||[]).some(R0=>Math.abs(R0.at-d)<40);
         if(!ok){strip(run);run=[];continue}
         const q=roadAt(C,d),o=s*(C.hwAt(d)+(SL.af||4.2)),x=q.x+Math.cos(q.h)*o,z=q.z+Math.sin(q.h)*o;run.push([x,z,Math.cos(q.h)*s,Math.sin(q.h)*s,SL.breed||1.8]);
-        if(r()<.35)put('riet',x+Math.cos(q.h)*s*(r()-.5)*1.4,T.h(x,z)+.04,z+Math.sin(q.h)*s*(r()-.5)*1.4,.6+r()*.5,r()*6);
+        if(r()<.22)put('riet',x+Math.cos(q.h)*s*(r()-.5)*1.4,T.h(x,z)+.04,z+Math.sin(q.h)*s*(r()-.5)*1.4,.38+r()*.3,r()*6,tint(.15,.06),.45+r()*.35);
         /* knotwilgen in blokken langs de sloot */
         const blk=Math.floor(d/120);if(hs(blk,s+5)<(SL.wilgen??.35)&&Math.floor(d)%9<4){const ow=s*(C.hwAt(d)+(SL.af||4.2)+2.2),wx=q.x+Math.cos(q.h)*ow,wz=q.z+Math.sin(q.h)*ow;tree('knotwilg',wx,T.h(wx,wz),wz,.9+r()*.25,true)}}
       strip(run)}
     /* haaks op de weg: de kavelsloten, om de 60-130 m */
-    for(let d=Math.ceil(a/10)*10;d<end;d+=10){if(!isP(d)||onBr(d))continue;const k=Math.floor(d/10);
-      for(const s of[-1,1]){if(hs(k,s)>.12)continue;const q=roadAt(C,d),nx=Math.cos(q.h)*s,nz=Math.sin(q.h)*s,fx=Math.sin(q.h),fz=-Math.cos(q.h),pts=[];
-        for(let o=C.hwAt(d)+(SL.af||4.2)+1;o<(SL.lang||260);o+=8){const x=q.x+nx*o,z=q.z+nz*o;if(T.distSide(x,z)<8||(C.lakeAt&&C.lakeAt(x,z)))break;pts.push([x,z,fx,fz,1.3]);if(o<70&&r()<.3)put('riet',x+fx*.9,T.h(x,z),z+fz*.9,.5+r()*.4,r()*6)}
+    let pk=null;for(let d=Math.ceil(a/6)*6;d<end;d+=6){const q0=roadAt(C,d),K0=D.velden?dzParcel(C,q0.x,q0.z):null,key=K0?K0.iu+'/'+K0.iv:String(Math.floor(d/90)),chg=pk!==null&&key!==pk;pk=key;
+      if(!chg||!isP(d)||onBr(d))continue;
+      for(const s of[-1,1]){const q=roadAt(C,d),nx=Math.cos(q.h)*s,nz=Math.sin(q.h)*s,fx=Math.sin(q.h),fz=-Math.cos(q.h),pts=[];
+        for(let o=C.hwAt(d)+(SL.af||4.2)+1;o<(SL.lang||260);o+=8){const x=q.x+nx*o,z=q.z+nz*o;if(T.distSide(x,z)<8||(C.lakeAt&&C.lakeAt(x,z)))break;pts.push([x,z,fx,fz,1.3]);if(o<70&&r()<.18)put('riet',x+fx*.9,T.h(x,z),z+fz*.9,.35+r()*.3,r()*6,tint(.15,.06),.4+r()*.3)}
         strip(pts)}}
     if(wi.length){const m=new TH.Mesh(geo(wp,wi),M.water);m.receiveShadow=true;g.add(m)}}
   /* riet langs de oevers van meren en vaarten */
   for(const Lk of C.lakes||[]){if(!Lk.riet)continue;const P=Lk.P;for(let i=0;i<P.length;i++){const [ax,az]=P[i],[bx,bz]=P[(i+1)%P.length],len=Math.hypot(bx-ax,bz-az);
-    for(let t=0;t<len;t+=2.5){const x=ax+(bx-ax)*t/len,z=az+(bz-az)*t/len,k=T.near(x,z);if(!(k>=Math.round(a/STEP)&&k<Math.round(end/STEP))||r()<.35||T.exact(x,z)<C.hwAt(k*STEP)+2)continue;put('riet',x+(r()-.5)*2,Lk.peil-.2,z+(r()-.5)*2,.8+r()*.6,r()*6)}}}
+    for(let t=0;t<len;t+=2.5){const x=ax+(bx-ax)*t/len,z=az+(bz-az)*t/len,k=T.near(x,z);if(!(k>=Math.round(a/STEP)&&k<Math.round(end/STEP))||r()<.55||T.exact(x,z)<C.hwAt(k*STEP)+6)continue;const n=1+Math.floor(r()*3);for(let j=0;j<n;j++)put('riet',x+(r()-.5)*2.4,Lk.peil-.15,z+(r()-.5)*2.4,.45+r()*.35,r()*6,tint(.15,.06),.5+r()*.4)}}}
   /* --- borden --- */
   const alt=y=>Math.round((D.hoogteDorp||1000)+y);
   hps.forEach((m,i)=>{const d=m[1]-26;if(!inChunk(d))return;place(makeVirage(hps.length-i,alt(roadAt(C,m[1]).y)),d,C.hwAt(d)+1.3)});
@@ -746,6 +747,9 @@ function* dzExtras(X){
       const dier=q.dier||'koe';for(let i=0;i<(dier==='schaap'?9:5);i++){const E=at(q.d-30+r()*60,s*(C.hwAt(q.d)+af+10+r()*16));put(dier,E.x,T.h(E.x,E.z),E.z,1,r()*6,dier==='koe'?new TH.Color(.82,.62,.45):null)}}
     if(q.soort==='koeien'||q.soort==='schapen'){const sch=q.soort==='schapen',d0=Math.max(C.at(q.van),a),d1=Math.min(C.at(q.tot),end);
       for(let d=d0;d<d1;d+=(sch?8:18)+r()*(sch?14:40)){const s=q.kant||(r()<.5?-1:1),E=at(d,s*(C.hwAt(d)+(q.af||9)+r()*30));if(T.slope(E.x,E.z)<.5&&!(C.lakeAt&&C.lakeAt(E.x,E.z)))put(sch?'schaap':'koe',E.x,T.h(E.x,E.z),E.z,1,r()*6,sch?null:q.bont?new TH.Color().setHSL(0,0,r()<.5?.95:.25):new TH.Color().setHSL(.07,.35,.35+r()*.35))}}
+    /* bootjes op een vaart of meer */
+    if(q.soort==='boten'){const d0=C.at(q.van),d1=C.at(q.tot),s=q.kant||1;for(let i=0;i<(q.n||4);i++){const d=d0+(d1-d0)*(i+.3+r()*.4)/(q.n||4);if(!inChunk(d))continue;
+      const A=at(d,s*(C.hwAt(d)+(q.af||40)+r()*20)),Lk=C.lakeAt&&C.lakeAt(A.x,A.z);if(Lk)put('boot',A.x,Lk.peil,A.z,1,-A.q.h+(r()<.5?0:Math.PI),new TH.Color().setHSL(r(),.5,.5))}}
     /* boomgaard: fruitbomen in rijen evenwijdig aan de weg */
     if(q.soort==='boomgaard'){const d0=Math.max(C.at(q.van),a),d1=Math.min(C.at(q.tot),end),s=q.kant||1;
       for(let d=d0;d<d1;d+=6.5){for(let o=q.af0||8;o<(q.af1||50);o+=6){const A=at(d+(o%13)*.3,s*(C.hwAt(d)+o));if(T.distSide(A.x,A.z)<5||T.exact(A.x,A.z)<C.hwAt(d)+3)continue;tree('fruitboom',A.x,T.h(A.x,A.z),A.z,.85+r()*.25,o<26)}}}
@@ -772,7 +776,7 @@ function* dzExtras(X){
         while(d<s1){const k=list[Math.floor(r()*list.length)],w=WD[k]||8,dp=DP[k]||9,hw=C.hwAt(d);
           if(side===ks&&Math.abs(d-pl)<32&&row===0){d=pl+32;continue}
           const off=side*(hw+(v.klein?5:3.4)+row*(dp+6)+r()*(row?6:2.2)+dp/2),A=at(d+w/2,off);
-          if(T.distSide(A.x,A.z)<dp/2+4||(C.rounds||[]).some(R0=>Math.hypot(R0.x-A.x,R0.z-A.z)<R0.r+dp)){d+=4;continue}
+          if(T.distSide(A.x,A.z)<dp/2+4||(C.lakeAt&&(C.lakeAt(A.x,A.z)||C.lakeAt(A.x+5,A.z)||C.lakeAt(A.x-5,A.z)))||(C.rounds||[]).some(R0=>Math.hypot(R0.x-A.x,R0.z-A.z)<R0.r+dp)){d+=4;continue}
           put(k,A.x,T.h(A.x,A.z)-.5,A.z,1,face(A.q.h,side)+(row?(r()-.5)*.25:0),tint(.16,.05));put('blob',A.x,T.h(A.x,A.z)+.05,A.z,Math.max(w,dp)*.6,0);
           if(row===0&&r()<.3){const B=at(d+w+1.2,side*(hw+2.6));put('lamp',B.x,B.y+.13,B.z,1,face(B.q.h,-side))}
           if(row===1&&r()<.4){const B=at(d+w/2,side*(hw+3.4+dp+3));tree(['berk','boom','fruitboom'][Math.floor(r()*3)],B.x,T.h(B.x,B.z),B.z,.8,false)}

@@ -31,8 +31,8 @@ const gameResult=g=>g&&g.on&&g.stars.length?{pts:g.pts,stars:g.stars.reduce((a,b
 
 /* ---------- productdemo: twee minuten langs alle landschappen ---------- */
 function demoWorkout(){
-  const segs=[S(150,.5,.65,'Warming-up','warmup'),S(120,.75,null,'Tempo door de Provence','steady'),S(150,1.0,null,'Klim door de heuvels','work'),S(60,.55,null,'Herstel','rest'),
-    S(110,1.12,null,'Bergop met haarspeldbochten','work',70),S(50,.5,null,'Herstel','rest'),S(30,1.45,null,'Sprint naar de finish','work',105),S(100,.5,null,'Uitrijden','cooldown')];
+  const segs=[S(150,.5,.65,'Warming-up','warmup'),S(120,.75,null,'Tempo','steady'),S(150,1.0,null,'Klim op drempel','work'),S(60,.55,null,'Herstel','rest'),
+    S(110,1.12,null,'Bergop, lage cadans','work',70),S(50,.5,null,'Herstel','rest'),S(30,1.45,null,'Sprint naar de finish','work',105),S(100,.5,null,'Uitrijden','cooldown')];
   const sec=segs.reduce((x,s)=>x+s.d,0);return {id:'demo',type:'demo',name:'Kopwerk demo',desc:'',segs,sec,minutes:Math.round(sec/60),IF:.8,tss:0,lvl:null};
 }
 function startDemo(){setView3d(true);openPlayer(demoWorkout())}
@@ -63,7 +63,7 @@ function routeProfile(id){
    zones: landschappen in km. klim: [begin km, lengte km, gemiddeld %]; na elke klim volgt een afdaling, zodat de ronde op dezelfde hoogte sluit.
    hp: reeksen haarspeldbochten [begin km, aantal bochten (oneven)]. */
 const ROUTES=[
-  {id:'polder',name:'Polderronde',km:14,zones:[['polder',5],['meer',4],['polder',5]],klim:[[9.4,.5,3]],roll:.6},
+  {id:'polder',name:'Polderronde',km:12,ontwerp:'polder'},
   {id:'heuvel',name:'Heuvelland',km:13,ontwerp:'heuvel'},
   {id:'col',name:'De Col',km:11,ontwerp:'col'}
 ];
@@ -1083,7 +1083,7 @@ function worldBuild(){
     lam:new T.MeshLambertMaterial({vertexColors:true,map:W.tex.gras}),asf:new T.MeshLambertMaterial({map:W.tex.asf,vertexColors:true}),rood:new T.MeshLambertMaterial({map:W.tex.asf,color:new T.Color(2.3,.62,.44),polygonOffset:true,polygonOffsetFactor:-1}),
     lap:new T.MeshLambertMaterial({map:W.tex.asf,color:new T.Color(.8,.8,.82),polygonOffset:true,polygonOffsetFactor:-1}),naad:new T.MeshLambertMaterial({color:'#36373c',polygonOffset:true,polygonOffsetFactor:-1}),
     woord:new T.MeshLambertMaterial({map:roadWords(),transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3}),line:new T.MeshLambertMaterial({color:'#f2f0e8'}),
-    water:new T.MeshPhongMaterial({color:C.designed?'#2c7d96':'#3aa6e0',shininess:90,specular:'#cfefff',transparent:true,opacity:C.designed?.86:.9,side:T.DoubleSide}),inst:new T.MeshPhongMaterial({vertexColors:true,shininess:22,specular:'#262626'}),
+    water:new T.MeshPhongMaterial({color:C.designed?(C.design.water||'#2c7d96'):'#3aa6e0',shininess:90,specular:'#cfefff',transparent:true,opacity:C.designed?.86:.9,side:T.DoubleSide}),inst:new T.MeshPhongMaterial({vertexColors:true,shininess:22,specular:'#262626'}),
     piek:new T.MeshBasicMaterial({vertexColors:true,fog:false,transparent:true}),dal:farFog(new T.MeshLambertMaterial({vertexColors:true})),
     klinker:new T.MeshLambertMaterial({map:W.tex.klinker}),steen:new T.MeshLambertMaterial({map:W.tex.steen}),
     wolk:new T.MeshBasicMaterial({vertexColors:true,color:W.mood.cloud,transparent:true,opacity:.9,fog:false})};if(W.mood.rain)for(const k of['asf','rood','lap'])W.mat[k].color.multiplyScalar(.72)}
