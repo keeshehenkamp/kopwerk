@@ -77,9 +77,10 @@ async function samenListen(code){
     qs.docChanges().forEach(ch=>{
       const id=ch.doc.id;if(id===me)return;
       if(ch.type==='removed'){samenDrop(id);roster=true;return}
-      const v=ch.doc.data(),r=SAMEN.riders.get(id);
-      if(!r){SAMEN.riders.set(id,{n:v.n,d:v.d,v:v.v,w:v.w,st:v.st,at:now(),sd:v.d,kit:SAMEN_KITS[SAMEN.riders.size%SAMEN_KITS.length],R:null,off:[-.85,1.95,-1.9,.2][SAMEN.riders.size%4]});roster=true}
-      else{if(r.st!==v.st||r.n!==v.n)roster=true;Object.assign(r,{n:v.n,d:v.d,v:v.v,w:v.w,st:v.st,at:now()})}
+      /* het bericht is al even onderweg: tel die tijd mee (volgens de klok van de ander, hooguit 1,5 s) */
+      const v=ch.doc.data(),r=SAMEN.riders.get(id),at=now()-clamp(Date.now()-(v.t||Date.now()),0,1500);
+      if(!r){SAMEN.riders.set(id,{n:v.n,d:v.d,v:v.v,w:v.w,st:v.st,at,sd:v.d,kit:SAMEN_KITS[SAMEN.riders.size%SAMEN_KITS.length],R:null,off:[-.85,1.95,-1.9,.2][SAMEN.riders.size%4]});roster=true}
+      else{if(r.st!==v.st||r.n!==v.n)roster=true;Object.assign(r,{n:v.n,d:v.d,v:v.v,w:v.w,st:v.st,at})}
     });
     if(roster&&P&&P.mode==='ready')renderPlayer();
   }));
@@ -126,9 +127,10 @@ function samenRiders(C,d,dt,run,lane,slope){
     if(!r.R||r.R.w!==W){r.R=makeRider(KITS[r.kit],false);r.R.w=W;r.R.g.traverse(o=>{if(o.isMesh)o.castShadow=true});r.tag=nameTag(r.n);r.R.g.add(r.tag);W.scene.add(r.R.g)}
     /* naamkaartje even groot op het scherm, dichtbij en ver weg */
     {const k=clamp(W.cam.position.distanceTo(r.R.g.position)/9,1,7);r.tag.scale.set(1.5*k,.375*k,1);r.tag.position.y=2.1+.2*k}
-    /* doorrekenen met de laatst bekende snelheid (hooguit 4 s), en zacht naar die plek toe schuiven */
-    const lag=Math.min(4,(now()-r.at)/1000),want=r.d+(r.st==='rijdt'?r.v*lag:0);
-    r.sd=Math.abs(want-r.sd)>60?want:r.sd+(want-r.sd)*Math.min(1,dt*2.5);
+    /* doorrekenen met de laatst bekende snelheid (hooguit 4 s). De fietser rijdt zelf met die snelheid door en schuift
+       alleen het verschil zacht weg; anders blijft hij een paar meter achter zijn echte plek hangen (0,4 s x snelheid). */
+    const lag=Math.min(4,(now()-r.at)/1000),rv=r.st==='rijdt'?r.v:0,want=r.d+rv*lag;
+    if(Math.abs(want-r.sd)>60)r.sd=want;else{if(lag<4)r.sd+=rv*dt;r.sd+=(want-r.sd)*Math.min(1,dt*1.5)}
     /* niets meer gehoord (verbinding weg of tabblad dicht): na 15 s van de weg */
     const stale=now()-r.at>15000;r.R.g.visible=r.st!=='klaar'&&!stale;if(stale)continue;lane(r.R,r.sd,r.off,r.st==='rijdt'?88:0,r.st==='rijdt'?r.v:0,r.st==='rijdt'&&slope(r.sd)>8);
     if(r.st!=='klaar')out.push({d:r.sd,off:r.off});
