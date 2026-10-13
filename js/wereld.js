@@ -64,9 +64,7 @@ function routeProfile(id){
    hp: reeksen haarspeldbochten [begin km, aantal bochten (oneven)]. */
 const ROUTES=[
   {id:'polder',name:'Polderronde',km:14,zones:[['polder',5],['meer',4],['polder',5]],klim:[[9.4,.5,3]],roll:.6},
-  {id:'bos',name:'Bossen en meren',km:18,zones:[['bos',5],['meer',4],['polder',4],['bos',5]],klim:[[2,1.2,2.5],[13.4,1,3.5]],roll:1.5},
-  {id:'heuvel',name:'Heuvelland',km:22,zones:[['polder',3],['heuvels',8],['bos',4],['heuvels',7]],klim:[[3.6,1.6,4.5],[7.2,.9,8],[10.2,1.2,5],[16,2,5.5],[19.8,.7,9]],roll:3},
-  {id:'provence',name:'Provence',km:26,zones:[['provence',9],['heuvels',6],['provence',11]],klim:[[2.5,5,4.2],[13.5,2.5,5.5],[20.5,1.4,3.5]],roll:2.5},
+  {id:'heuvel',name:'Heuvelland',km:13,ontwerp:'heuvel'},
   {id:'col',name:'De Col',km:11,ontwerp:'col'}
 ];
 const ROUTE_KEY='kopwerk.route';
