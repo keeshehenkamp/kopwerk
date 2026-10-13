@@ -1535,6 +1535,8 @@ function worldStep(t){
   const lane=(R,dd,off,cad,spd,stand)=>{const q=roadAt(C,dd);R.g.position.set(q.x+Math.cos(q.h)*off,q.y,q.z+Math.sin(q.h)*off);R.g.rotation.y=-q.h;
     const q2=roadAt(C,dd+3);R.g.rotation.x=Math.atan2(q2.y-q.y,3);R.g.rotation.z=clamp(-q.k*spd*spd*.012,-.25,.25);poseRider(R,dt,cad,spd,stand)};
   const spd=W.v*(P.sim?Math.min(P.speed,3):1);
+  /* in een versnelde demo (10x, 60x) moet alles wat 'met traagheid volgt' even zoveel sneller volgen, anders blijft het achter */
+  const tS=P.sim&&run?Math.max(1,P.speed):1,step=W.lastD!=null&&Math.abs(d-W.lastD)<80?d-W.lastD:0;
   /* zonder ERG, of vrij rijden na de training, voelt de trainer de helling van de route */
   if(ble.cp&&!P.sim&&run&&(P.free||!P.erg)){const g=clamp(Math.round(slope(d)*2)/2,-10,20);if(g!==W.gs&&now()-(W.gt||0)>1000){setGrade(g);W.gs=g;W.gt=now()}}
   const cad=now()-live.tP<3000&&live.cad?live.cad:0,seg=P.wo.segs[segAt(pos)];
@@ -1546,16 +1548,17 @@ function worldStep(t){
   W.vs+=(spd-W.vs)*Math.min(1,dt*.8);
   for(const n of W.npcs){
     if(n.d==null||Math.abs(n.d-d)>230){n.f=.82+Math.random()*.36;n.d=n.f<1?d+150+Math.random()*70:d-60-Math.random()*40;n.off=Math.random()<.5?-2.25:2.25}
-    n.d+=W.vs*n.f*dt*(run?1:0);
+    /* meeschuiven met jouw stap (ook bij 60x), plus hun eigen voor- of achterstand op gewone snelheid */
+    n.d+=run?step+W.vs*(n.f-1)*dt:0;
     lane(n.R,n.d,n.off,run?n.cad:0,W.vs*n.f,run&&slope(n.d)>8&&n.f>1);
   }
   /* camera achter de fietser */
   const CB=4.6,ahead=roadAt(C,d+20),back=d>=CB?roadAt(C,d-CB):(q=>({x:q.x-Math.sin(q.h)*(CB-d),y:q.y,z:q.z+Math.cos(q.h)*(CB-d),h:q.h}))(roadAt(C,0));
   const cp=new T.Vector3(back.x+Math.cos(back.h)*1.35,Math.max(back.y,p.y)+1.95+(run?Math.sin(t/260)*.025:0),back.z+Math.sin(back.h)*.6);
-  if(!W.camP)W.camP=cp.clone();else{W.camP.x=cp.x;W.camP.z=cp.z;W.camP.y=clamp(W.camP.y+(cp.y-W.camP.y)*Math.min(1,dt*3),cp.y-.4,cp.y+.4)}
+  if(!W.camP)W.camP=cp.clone();else{W.camP.x=cp.x;W.camP.z=cp.z;W.camP.y=clamp(W.camP.y+(cp.y-W.camP.y)*Math.min(1,dt*3*tS),cp.y-.4,cp.y+.4)}
   /* het kijkpunt volgt met wat traagheid, zodat de camera in haarspeldbochten en op een rotonde rustig meedraait */
   {const tx=ahead.x+Math.cos(ahead.h)*.5,ty=ahead.y+1.1,tz=ahead.z+Math.sin(ahead.h)*.5,L=W.lookP;
-    if(!L||Math.hypot(L.x-tx,L.z-tz)>60)W.lookP=new T.Vector3(tx,ty,tz);else{const f=Math.min(1,dt*3.2);L.x+=(tx-L.x)*f;L.y+=(ty-L.y)*f;L.z+=(tz-L.z)*f}}
+    if(!L||Math.hypot(L.x-tx,L.z-tz)>60)W.lookP=new T.Vector3(tx,ty,tz);else{const f=Math.min(1,dt*3.2*tS);L.x+=(tx-L.x)*f;L.y+=(ty-L.y)*f;L.z+=(tz-L.z)*f}}
   W.cam.position.copy(W.camP);W.cam.lookAt(W.lookP);
   /* zon, lucht en verre bergen reizen mee */
   const md=W.mood.dir,sp=W.lite?p:roadAt(C,d+16);W.sun.position.set(sp.x+md[0],sp.y+md[1],sp.z+md[2]);W.wind.value=t/1000;
