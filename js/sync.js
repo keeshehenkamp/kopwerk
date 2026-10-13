@@ -13,7 +13,7 @@ async function fbInit(){
   const [A,U,F]=await Promise.all(['app','auth','firestore'].map(m=>import(FB+'firebase-'+m+'.js')));
   const app=A.initializeApp(CONFIG.firebase);
   fb={U,F,auth:U.getAuth(app),db:F.getFirestore(app)};
-  U.onAuthStateChanged(fb.auth,u=>{syncInfo.user=u?{uid:u.uid,email:u.email}:null;syncInfo.ready=true;if(!P)render();if(u)syncPull()});
+  U.onAuthStateChanged(fb.auth,u=>{syncInfo.user=u?{uid:u.uid,email:u.email}:null;syncInfo.ready=true;if(!P)render();else if(P.vrij&&P.mode==='ready'){if(u&&ui.samenCode&&!samenOn())samenJoin(ui.samenCode);else renderPlayer()}if(u)syncPull()});
   return fb;
 }
 async function syncLogin(){

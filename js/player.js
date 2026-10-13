@@ -35,7 +35,8 @@ function startRide(sim){
   if(!P||P.mode!=='ready')return;
   try{audio=audio||new (window.AudioContext||window.webkitAudioContext)()}catch(e){}
   P.sim=!!sim;P.mode='run';P.startTs=Date.now();P.last=now();P.sent=-1;
-  if(P.sim){P.simP=tgtAt(0)}
+  if(P.sim){P.simP=P.vrij?P.ftp*.5:tgtAt(0);if(P.vrij&&samenOn())P.speed=1}
+  if(P.free&&ble.cp&&!P.sim)setGrade(P.grade);
   keepAwake();
   renderPlayer();
 }
@@ -52,8 +53,12 @@ function enterSeg(i){
 function stepSecond(){
   if(P.free){
     const fr=now()-live.tP<3000,fh2=now()-live.tH<5000;
+    if(P.sim){const w0=P.wo.bots?P.wo.bots*(state.profile.weight||75)*.8:P.ftp*.7;P.simP+=(w0-P.simP)/4;live.power=Math.max(0,Math.round(P.simP*(1+(Math.random()-.5)*.06)));
+      live.cad=Math.round(88+(Math.random()-.5)*6);P.simH+=((64+live.power/P.ftp*104)-P.simH)/45;live.hr=Math.round(P.simH);live.tP=live.tH=now()}
     P.rec.p.push(fr&&live.power!=null?Math.round(live.power):0);P.rec.hr.push(fh2&&live.hr?live.hr:0);P.rec.cad.push(fr&&live.cad?Math.round(live.cad):0);P.rec.tgt.push(0);
-    P.freeSec++;return;
+    P.freeSec++;
+    if(P.vrij&&!(typeof W!=='undefined'&&W&&W.C)){const w=P.rec.p[P.rec.p.length-1];P.dist=(P.dist||0)+(w?speedFor(w,0):0);if(P.wo.laps&&P.dist>=P.wo.laps*routeLen())finishRide()}
+    return;
   }
   const i=segAt(P.pos);if(i!==P.si)enterSeg(i);
   const tgt=Math.round(fracAt(i,P.pos)*P.ftp*P.bias);
@@ -118,19 +123,20 @@ function dispPower(){
   if(now()-live.tP>3000||!live.hist.length)return null;
   return Math.round(avg(live.hist.map(h=>h.p)));
 }
+const v3now=()=>typeof W!=='undefined'&&!!W&&!!W.C&&view3d();
 function paintPlayer(){
   const el=id=>document.getElementById(id);
   if(!P||!el('p-power'))return;
   const pos=Math.min(P.pos,P.total-1),i=segAt(pos),s=P.wo.segs[i],tgt=tgtAt(pos),pw=dispPower();
   const fh=now()-live.tH<5000,fp=now()-live.tP<3000;
   el('p-elapsed').textContent=clock(P.rec.p.length);
-  if(el('p-prog')){el('p-prog').style.width=Math.min(100,P.pos/P.total*100)+'%';const rs=el('p-rest');if(rs)rs.textContent=clock(Math.max(0,P.total-P.pos));if(!P.free)paintList(segAt(Math.min(P.pos,P.total-1)))}
+  if(el('p-prog')&&!P.vrij){el('p-prog').style.width=Math.min(100,P.pos/P.total*100)+'%';const rs=el('p-rest');if(rs)rs.textContent=clock(Math.max(0,P.total-P.pos));if(!P.free)paintList(segAt(Math.min(P.pos,P.total-1)))}
   const rp=el('p-repeat');if(rp)rp.hidden=P.free||!(s.kind==='work'||s.kind==='rest');
   if(P.free){
     el('p-target').textContent='–';el('p-power').textContent=pw==null?'–':pw;
     el('p-cad').textContent=fp&&live.cad?Math.round(live.cad):'–';el('p-hr').textContent=fh&&live.hr?live.hr:'–';
     el('p-cadl').textContent='Cadans';el('p-seg').textContent='Vrij rijden';el('p-left').textContent=clock(P.freeSec);
-    el('p-next').textContent='Training klaar · vrij rijden';
+    if(!P.vrij)el('p-next').textContent='Training klaar · vrij rijden';else if(!v3now())el('p-next').textContent=samenOn()?'Groepsrit '+SAMEN.code:'Geen schema';
     el('p-zone').style.background='var(--z3)';el('p-dot').style.left='50%';
     el('p-cur').setAttribute('x1',1000);el('p-cur').setAttribute('x2',1000);
     if(P.drawn!==P.tr.length){P.drawn=P.tr.length;el('p-trace').setAttribute('points',P.trace)}
@@ -164,20 +170,21 @@ function playerHTML(){
   const readyBox=ready?`<div class="pready stack">
       <div class="seg" role="group" aria-label="Weergave"><button class="btn small" data-act="view" data-v="3d" aria-pressed="${v3}">3D-wereld</button><button class="btn small" data-act="view" data-v="cijfers" aria-pressed="${!v3}">Alleen cijfers</button></div>
       ${v3?(()=>{const rp=routeProfile(routeId());return `<div class="rpick"><select id="p-route" data-chg="route" aria-label="Route">${ROUTES.map(x=>{const q=routeProfile(x.id);return `<option value="${x.id}"${x.id===routeId()?' selected':''}>${esc(x.name)} · ${q.km} km · ${q.hm} hm</option>`}).join('')}</select>${rp.svg}</div>`})():''}
+      ${P.vrij?vrijReadyHTML():''}
       ${navigator.bluetooth?`<div class="row">
         <button class="btn" data-act="connect">${ble.on?'Andere trainer':'Trainer koppelen'}</button>
         <button class="btn" data-act="connectHr">${ble.hrOn?'Andere hartslagmeter':'Hartslagmeter koppelen'}</button>
-        <button class="btn pri big" data-act="go" ${ble.on?'':'disabled'}>Start training</button>
+        <button class="btn pri big" data-act="go" ${ble.on?'':'disabled'}>${P.vrij?'Start':'Start training'}</button>
       </div>`:`<p class="notice small">${NO_BLE}</p>`}
       ${ui.bleMsg?`<p class="notice small">${esc(ui.bleMsg)}</p>`:''}
-      <div class="row small">
+      <div class="row small"${samenOn()?' hidden':''}>
         <button class="btn small" data-act="goSim">Demo zonder trainer</button>
         <select id="simspeed" aria-label="Snelheid van de demo"><option value="1">1×</option><option value="10">10×</option><option value="60" selected>60×</option></select>
       </div></div>`:'';
-  const ctl=ready?'':`<div class="row">
-        <button class="btn icon" data-act="bias" data-d="-0.05" aria-label="Lichter">−</button>
+  const ctl=ready?'':`<div class="row"${P.vrij&&(v3||!ble.cp)?' hidden':''}>
+        ${P.vrij?'':`<button class="btn icon" data-act="bias" data-d="-0.05" aria-label="Lichter">−</button>
         <span class="num" style="font-size:22px;min-width:58px;text-align:center">${Math.round(P.bias*100)}%</span>
-        <button class="btn icon" data-act="bias" data-d="0.05" aria-label="Zwaarder">+</button>
+        <button class="btn icon" data-act="bias" data-d="0.05" aria-label="Zwaarder">+</button>`}
         ${ble.cp&&!P.sim?`${P.free?(v3?'':'<span class="small muted">Helling</span>'):`<button class="btn" data-act="erg">${P.erg?'ERG aan':'ERG uit'}</button>`}${P.erg||v3?'':`<button class="btn icon" data-act="grade" data-d="-1" aria-label="Minder helling">−</button><span class="num" style="font-size:20px">${P.grade}%</span><button class="btn icon" data-act="grade" data-d="1" aria-label="Meer helling">+</button>`}`:''}
       </div>
       <div class="row">
@@ -188,14 +195,14 @@ function playerHTML(){
       </div>`;
   const hud=v3&&P.game.on?`<div class="phud"><b id="p-pts">0</b><span>punten</span><span id="p-mult" class="pmult"></span><span id="p-stars" class="pstars">★ 0</span></div><div class="ppop" id="p-pop" hidden></div>`:'';
   const load=v3?'<div class="pload" id="p-load" hidden><span>Wereld laden</span><b><i></i></b></div><div class="pprof"><canvas id="p-prof" width="360" height="84"></canvas><span id="p-proft"></span></div><div class="pcd" id="p-cd" hidden></div>':'';
-  if(v3)return `<div class="player w3">
+  if(v3)return `<div class="player w3${P.vrij?' vrij':''}">
     <div class="zpow"><i class="zband" id="p-zone"></i><div class="zp1"><b id="p-power">–</b><i>W</i></div>
       <div class="zp2"><span><b id="p-cad">–</b><i>rpm</i></span><span><b id="p-hr">–</b><i>bpm</i></span></div>
       <div class="zgauge" aria-hidden="true"><span class="ok"></span><span class="mid"></span><span class="dot" id="p-dot"></span></div><span id="p-cadl" hidden></span></div>
-    <div class="zbar"><div class="zb1"><span><b id="p-spd">0</b><i>km/u</i></span><span><b id="p-km">0,0</b><i>km</i></span><span><b id="p-hm">0</b><i>m</i></span><span><b id="p-elapsed">0:00</b><i>/ ${clock(P.total)}${P.free?' +':''}</i></span></div>
+    <div class="zbar"><div class="zb1"><span><b id="p-spd">0</b><i>km/u</i></span><span><b id="p-km">0,0</b><i>km</i></span><span><b id="p-hm">0</b><i>m</i></span><span><b id="p-elapsed">0:00</b><i>${P.vrij?'':`/ ${clock(P.total)}${P.free?' +':''}`}</i></span></div>
       <div class="zprog"><i id="p-prog"></i></div>
       <div class="zb2"><span class="zname">${esc(w.name)}</span>${status}<span class="zbtns">${ready?'<button class="btn small" data-act="closePlayer">Sluiten</button>':'<button class="btn small" data-act="view3d">Alleen cijfers</button>'}</span></div></div>
-    <div class="zlist"><div class="zlh"><b>Schema</b><span>nog <b id="p-rest">${clock(P.total)}</b></span></div><div id="p-list"></div>
+    <div class="zlist"><div class="zlh"><b>${P.vrij?'Rit':'Schema'}</b><span>${P.vrij?'':'nog '}<b id="p-rest">${clock(P.total)}</b></span></div><div id="p-list"></div>
       <div class="zcur"><span id="p-seg"></span><div class="zct"><span><b id="p-target">–</b><i>W</i></span><b id="p-left"></b></div><span id="p-next" class="znext"></span></div></div>
     ${hud?`<div class="zside">${hud}</div>`:''}${load}
     ${readyBox?`<div class="zready">${readyBox}</div>`:''}
@@ -203,11 +210,11 @@ function playerHTML(){
     <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>
     <div class="pctl zctl" id="p-ctl">${ctl}</div>
   </div>`;
-  return `<div class="player${ready?' isready':''}">
+  return `<div class="player${ready?' isready':''}${P.vrij?' vrij':''}">
     <div class="pzone" id="p-zone"></div>
     <div class="ptop">
       <div><h2>${esc(w.name)}</h2>${status}${v3?' <span class="small" id="p-km"></span>':''}</div>
-      <div class="pclock"><span id="p-elapsed" style="color:var(--ink);font-size:34px;font-weight:600">0:00</span><span> / ${clock(P.total)}${P.free?' +':''}</span></div>
+      <div class="pclock"><span id="p-elapsed" style="color:var(--ink);font-size:34px;font-weight:600">0:00</span><span>${P.vrij?'':` / ${clock(P.total)}${P.free?' +':''}`}</span></div>
       <div class="row">${ready?'<button class="btn" data-act="closePlayer">Sluiten</button>':'<button class="btn" data-act="view3d">3D-wereld</button>'}</div>
     </div>
     ${hud}${load}
@@ -245,11 +252,11 @@ function markRecords(ride){
   if(prs.length)setTimeout(()=>toast(`Nieuw record: ${prs[prs.length-1].t} op ${prs[prs.length-1].w} W`),600);
 }
 function makeRide(a){
-  const an=analyze(a.rec,a.ftp,a.laps,a.planned||a.wo.sec,a.wo.type);
+  const an=analyze(a.rec,a.ftp,a.laps,a.wo.type==='vrij'?a.rec.p.length:(a.planned||a.wo.sec),a.wo.type);
   const d=new Date(a.startTs||Date.now());
   const hrOff=a.sim?null:hrOffset(a.rec,a.ftp),perf=typeof meetSummary==='function'?meetSummary():null;
   const dist=Math.round(typeof W!=='undefined'&&W&&W.dist?W.dist:a.dist||0);
-  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),dist,date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,planned:a.planned||a.wo.sec,ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game),kjb:a.sim?{}:kjBests(a.rec.p)},hrOff!=null?{hrOff}:{},perf?{perf}:{},an);
+  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),dist,date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,route:typeof W!=='undefined'&&W&&W.C?W.C.route.id:undefined,planned:a.wo.type==='vrij'?a.rec.p.length:(a.planned||a.wo.sec),ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game),kjb:a.sim?{}:kjBests(a.rec.p)},hrOff!=null?{hrOff}:{},perf?{perf}:{},an);
 }
 async function storeRide(a){
   const ride=makeRide(a);if(!a.sim)learnHr(a.rec,a.ftp);
@@ -265,6 +272,7 @@ async function finishRide(){
   if(!P||P.mode==='done')return;
   gameEndBlock();const a=P;a.mode='done';clearInterval(a.timer);
   if(ble.cp&&!a.sim)setGrade(0);
+  if(a.vrij&&samenOn())samenStop(true);
   try{if(wake){wake.release();wake=null}}catch(e){}
   if(a.wo.type==='demo'){P=null;toast('Demo afgelopen');return render()}
   if(a.rec.p.length<60){await idb.del('active');P=null;toast('Korter dan een minuut gereden: niet opgeslagen.');return render()}

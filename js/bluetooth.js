@@ -45,7 +45,7 @@ function cpWrite(bytes){
   ble.queue=ble.queue.then(()=>cp.writeValueWithResponse?cp.writeValueWithResponse(bytes):cp.writeValue(bytes)).catch(()=>{});
 }
 function setPower(w){w=clamp(Math.round(w),0,2000);cpWrite(new Uint8Array([0x05,w&255,(w>>8)&255]))}
-function setGrade(pct){const b=new DataView(new ArrayBuffer(7));b.setUint8(0,0x11);b.setInt16(1,0,true);b.setInt16(3,Math.round(pct*100),true);b.setUint8(5,40);b.setUint8(6,51);cpWrite(new Uint8Array(b.buffer))}
+function setGrade(pct,cw=51){const b=new DataView(new ArrayBuffer(7));b.setUint8(0,0x11);b.setInt16(1,0,true);b.setInt16(3,Math.round(pct*100),true);b.setUint8(5,40);b.setUint8(6,clamp(Math.round(cw),0,255));cpWrite(new Uint8Array(b.buffer))}
 async function setupTrainer(server){
   ble.cp=null;ble.crank=null;let ok=false;
   try{

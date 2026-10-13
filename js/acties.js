@@ -259,8 +259,16 @@ const actions={
   demo(){startDemo()},
   view3d(){setView3d(!view3d());renderPlayer()},
   view(d){setView3d(d.v==='3d');renderPlayer()},
-  route(d,el){setRoute(el.value);renderPlayer()},
-  closePlayer(){if(P){clearInterval(P.timer);P=null;render()}},
+  route(d,el){setRoute(el.value);if(SAMEN.host&&SAMEN.code)fb.F.setDoc(sRef(SAMEN.code),{route:el.value},{merge:true}).catch(()=>{});renderPlayer()},
+  closePlayer(){if(P){if(P.vrij&&samenOn())samenStop(true);clearInterval(P.timer);P=null;render()}},
+  vrij(){startVrij()},
+  vrijLaps(d,el){P.wo.laps=+el.value;vrijSave('laps',+el.value);if(SAMEN.host&&SAMEN.code)fb.F.setDoc(sRef(SAMEN.code),{laps:+el.value},{merge:true}).catch(()=>{});renderPlayer()},
+  vrijBots(d,el){P.wo.bots=+el.value;vrijSave('bots',+el.value);renderPlayer()},
+  samenNew(){samenNew()},
+  samenJoin(){const e=document.getElementById('samen-code');samenJoin(e?e.value:'')},
+  samenLeave(){samenStop()},
+  samenCopy(){samenCopy()},
+  samenGo(){samenGo()},
   pause(){if(!P)return;if(P.mode==='run')P.mode='pause';else if(P.mode==='pause'){P.mode='run';P.last=now();P.sent=-1}P.stopArm=false;renderPlayer()},
   skip(){if(!P||P.mode==='ready')return;const i=segAt(P.pos);if(i>=P.wo.segs.length-1)return finishRide();P.pos=P.starts[i+1];P.sent=-1;paintPlayer()},
   stop(){if(!P)return;if(!P.stopArm){P.stopArm=true;return renderPlayer()}finishRide()},
@@ -320,5 +328,7 @@ window.addEventListener('beforeunload',e=>{if(P&&(P.mode==='run'||P.mode==='paus
   try{const a=await idb.get('active');if(a&&a.rec&&a.rec.p&&a.rec.p.length>=60&&a.wo){ui.pending=a;if(!P)render()}}catch(e){}
   /* koppelingen: inloggen (synchroniseert vanzelf), terugkomst van Strava, en elk uur nieuwe Strava-ritten */
   fbInit().catch(()=>{});
+  /* uitnodiging voor een groepsrit: ?samen=CODE */
+  {const sc=new URLSearchParams(location.search).get('samen');if(sc){history.replaceState(history.state,'',location.pathname+location.hash);if(state.setup)startVrij(sc)}}
   if(stravaReady()&&!(await stravaCallback())&&state.strava&&Date.now()-(state.strava.checked||0)>36e5)stravaFetch(false);
 })();

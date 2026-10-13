@@ -38,8 +38,9 @@ function demoWorkout(){
 function startDemo(){setView3d(true);openPlayer(demoWorkout())}
 /* ---------- route ---------- */
 /* snelheid in m/s bij een vermogen en helling (rijder + fiets, gewone rijhouding) */
-function speedFor(w,g){
-  const m=(state.profile.weight||75)+9,a=.5*1.2*.32,th=Math.atan(g/100),F=m*9.81*(Math.sin(th)+.004*Math.cos(th));
+function speedFor(w,g,dr=0,mass){
+  /* dr: windschaduw, het deel van de luchtweerstand dat je niet voelt (0-0,4) */
+  const m=mass||(state.profile.weight||75)+9,a=.5*1.2*.32*(1-dr),th=Math.atan(g/100),F=m*9.81*(Math.sin(th)+.004*Math.cos(th));
   const f=v=>a*v*v*v+F*v-Math.max(0,w)*.97;
   let lo=F<0?Math.sqrt(-F/(3*a)):0,hi=30;if(f(lo)>0)return Math.max(1,lo);
   for(let k=0;k<40;k++){const mid=(lo+hi)/2;if(f(mid)>0)hi=mid;else lo=mid}
@@ -1525,7 +1526,7 @@ function worldStep(t){
   if(!W.lite&&dt>0&&dt<.1){const f=W.perf||(W.perf={n:0,s:0});f.n++;f.s+=dt;if(f.n>=150){const pr=W.ren.getPixelRatio();if(f.s/f.n>1/42&&pr>1){const np=Math.max(1,pr-.25);W.ren.setPixelRatio(np);if(W.comp)W.comp.setPixelRatio(np);W.fit()}f.n=0;f.s=0}}
   const run=P.mode==='run'&&!P.auto,rate=run?(P.sim?P.speed:1):0;
   /* de route ligt vast: je snelheid volgt uit je vermogen, je gewicht en de helling (met wat traagheid, zoals op een echte fiets) */
-  {const d0=W.dist||0,sl0=(roadAt(C,d0+8).y-roadAt(C,d0).y)/8*100,vt=run?speedFor(dispPower()||0,sl0):0;
+  {const d0=W.dist||0,sl0=(roadAt(C,d0+8).y-roadAt(C,d0).y)/8*100,vt=run?speedFor(dispPower()||0,sl0,P.vrij?W.draft||0:0):0;
     W.v=(W.v||0)+(vt-(W.v||0))*Math.min(1,dt*(vt<(W.v||0)?.5:.8));W.dist=d0+W.v*dt*(P.sim?P.speed:1)}
   const d=W.dist,p=roadAt(C,d);
   const pos=Math.min(P.pos,P.total-1),tgt=P.free?0:tgtAt(pos),pw=dispPower();
@@ -1538,15 +1539,19 @@ function worldStep(t){
   /* in een versnelde demo (10x, 60x) moet alles wat 'met traagheid volgt' even zoveel sneller volgen, anders blijft het achter */
   const tS=P.sim&&run?Math.max(1,P.speed):1,step=W.lastD!=null&&Math.abs(d-W.lastD)<80?d-W.lastD:0;
   /* zonder ERG, of vrij rijden na de training, voelt de trainer de helling van de route */
-  if(ble.cp&&!P.sim&&run&&(P.free||!P.erg)){const g=clamp(Math.round(slope(d)*2)/2,-10,20);if(g!==W.gs&&now()-(W.gt||0)>1000){setGrade(g);W.gs=g;W.gt=now()}}
+  /* in windschaduw krijgt de trainer ook minder windweerstand */
+  if(ble.cp&&!P.sim&&run&&(P.free||!P.erg)){const g=clamp(Math.round(slope(d)*2)/2,-10,20),cw=Math.round(51*(1-(P.vrij?W.draft||0:0))/3)*3;
+    if((g!==W.gs||cw!==W.gcw)&&now()-(W.gt||0)>1000){setGrade(g,cw);W.gs=g;W.gcw=cw;W.gt=now()}}
+  if(P.vrij&&run&&P.wo.laps&&d-12>=P.wo.laps*C.L){finishRide();return}
   const cad=now()-live.tP<3000&&live.cad?live.cad:0,seg=P.wo.segs[segAt(pos)];
   /* uit het zadel bij steile stukken en harde inspanningen */
   const hard=!P.free&&seg&&(seg.a+seg.b)/2>1.25,stand=run&&(slope(d)>7.5||hard);
-  lane(W.me,d,.85,run?cad:0,spd,stand);
+  const vr=P.vrij&&vrijStep(C,d,dt,rate,run,lane,slope);
+  lane(W.me,d,P.vrij&&W.myOff!=null?W.myOff:.85,run?cad:0,spd,stand);
   W.pace.g.visible=!P.free;lane(W.pace,d+W.gap,-.85,run?(seg&&seg.cad||90):0,spd,stand);
   /* andere fietsers: iets sneller of langzamer dan jij, zodat je ze inhaalt of zij jou */
   W.vs+=(spd-W.vs)*Math.min(1,dt*.8);
-  for(const n of W.npcs){
+  if(!vr)for(const n of W.npcs){
     if(n.d==null||Math.abs(n.d-d)>230){n.f=.82+Math.random()*.36;n.d=n.f<1?d+150+Math.random()*70:d-60-Math.random()*40;n.off=Math.random()<.5?-2.25:2.25}
     /* meeschuiven met jouw stap (ook bij 60x), plus hun eigen voor- of achterstand op gewone snelheid */
     n.d+=run?step+W.vs*(n.f-1)*dt:0;
@@ -1585,6 +1590,7 @@ function worldHud(d){
   set('p-km',nl((d/1000).toFixed(1)));
   if(W&&W.C){const C=W.C;set('p-spd',Math.round((W.v||0)*3.6));set('p-hm',Math.round(Math.floor(d/C.L)*C.UPlap+C.UP[kAt(C,d)]));
     const ctl=el('p-ctl');if(ctl)ctl.classList.toggle('hide',P.mode==='run'&&now()-(W.uiT||0)>4000)}
+  if(P.vrij)vrijHud(d);
   if(W&&W.C&&!P.free){
     /* aftellen in de laatste 3 seconden van een blok */
     const pos=Math.min(P.pos,P.total-1),i=segAt(pos),sg=P.wo.segs[i],rem=P.starts[i]+sg.d-P.pos,cd=el('p-cd');

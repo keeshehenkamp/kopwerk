@@ -36,7 +36,7 @@ function analyze(rec,ftp,laps,plannedSec,type){
   for(const v of p)zones[zoneOf(v/ftp)-1]++;
   const best={};for(const[w]of BESTS)best[w]=bestEffort(p,w);
   let score=null,miss=null;
-  if(type!=='ramptest'){
+  if(type!=='ramptest'&&type!=='vrij'){
     /* heeft de training werkblokken, dan bepalen die het cijfer; bij een duurrit telt het rustige rijden.
        Warming-up, herstel en cooling-down tellen nauwelijks mee. Elke procent afwijking boven de 2% kost 5 punten. */
     const LS=lapStats(rec,laps),hasWork=LS.some(l=>l.kind==='work'&&l.d>=20),KW=hasWork?{work:1}:{steady:1};let w=0,acc=0;
@@ -134,6 +134,7 @@ function verdict(r,ftp){
     out.push(e?`Je beste minuut was ${r.best[60]} W. Daaruit volgt een FTP van ongeveer ${e} W.`:'De test was te kort om een FTP uit af te leiden. Rijd door tot je de cadans echt niet meer vasthoudt.');
     return out;
   }
+  if(r.type==='vrij'){out.push(r.dist>200?`Vrij gereden: ${nl((r.dist/1000).toFixed(1))} km in ${clock(r.dur)}, gemiddeld ${r.avgP} W.`:`Vrij gereden: ${clock(r.dur)}, gemiddeld ${r.avgP} W.`);return out}
   if(r.manual){out.push('Deze rit is met de hand ingevoerd. De belasting is een schatting op basis van duur en zwaarte.');return out}
   const done=r.dur/Math.max(1,r.planned);
   if(r.score!=null){

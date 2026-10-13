@@ -3,7 +3,7 @@
 const sel=(attrs,opts,val)=>`<select ${attrs}>${opts.map(([v,t])=>`<option value="${v}"${String(v)===String(val)?' selected':''}>${t}</option>`).join('')}</select>`;
 const watts=f=>Math.round(f*state.profile.ftp);
 /* gereden op dag k; een demo telt niet, die zou de echte training van die dag verbergen */
-const rideOn=k=>{const l=state.rides.filter(r=>r.date===k&&!r.sim);return l.length?l[l.length-1]:null};
+const rideOn=k=>{const l=state.rides.filter(r=>r.date===k&&!r.sim&&r.type!=='vrij');return l.length?l[l.length-1]:null};
 const weekSum=p=>{let m=0,t=0;for(const d of p.days)if(d.wo){m+=d.wo.minutes;t+=d.wo.tss}return{m,t}};
 const logo='<svg width="26" height="20" viewBox="0 0 26 20" aria-hidden="true"><rect x="0" y="12" width="5" height="8" rx="1" fill="var(--z2)"/><rect x="7" y="7" width="5" height="13" rx="1" fill="var(--z3)"/><rect x="14" y="0" width="5" height="20" rx="1" fill="var(--z5)"/><rect x="21" y="9" width="5" height="11" rx="1" fill="var(--z1)"/></svg>';
 /* één iconenset: Lucide (lucide.dev, ISC-licentie). Lijnen van 2 px in de kleur van de tekst. */
@@ -178,7 +178,7 @@ function dayCard(d,tk){
       ${act}`;
   }
   const m=d.health&&d.health.during?`${healthWord(d.health.h).replace(/^./,c=>c.toUpperCase())} gemeld`:d.o.skip?'Overgeslagen':'';
-  return `<div class="wcard"><div class="t"><div><h3>Rustdag</h3>${m?`<div class="m">${m}</div>`:''}</div><button class="btn small" data-act="openDay" data-iso="${d.iso}">Toch trainen</button></div></div>`;
+  return `<div class="wcard"><div class="t"><div><h3>Rustdag</h3>${m?`<div class="m">${m}</div>`:''}</div><span class="row">${canRide()?'<button class="btn small" data-act="vrij">Vrij rijden</button>':''}<button class="btn small" data-act="openDay" data-iso="${d.iso}">Toch trainen</button></span></div></div>`;
 }
 /* waarom het schema er zo uitziet: ingeklapt onder de week */
 function whyHTML(plan){
@@ -288,7 +288,7 @@ function libView(){
   const cards=Object.keys(TYPES).filter(k=>!cat||CAT_OF[k]===cat).map(k=>{const w=buildWorkout(k,l.min,l.L);
     return `<button class="wcard" data-act="openWo" data-type="${k}"><h3>${esc(w.name)}</h3><div class="m">${durTxt(w.minutes)} · ${w.tss} TSS</div>${profileSVG(w.segs)}</button>`}).join('');
   return `<div class="head"><div><h1>Trainingen</h1></div>
-    <div class="row">${canRide()?'<button class="btn pri" data-act="demo">Bekijk de demo</button>':''}<label class="small muted">Duur ${sel('data-chg="libMin"',[30,45,60,75,90,120].map(m=>[m,durTxt(m)]),l.min)}</label>
+    <div class="row">${canRide()?'<button class="btn pri" data-act="vrij">Vrij rijden</button><button class="btn" data-act="demo">Bekijk de demo</button>':''}<label class="small muted">Duur ${sel('data-chg="libMin"',[30,45,60,75,90,120].map(m=>[m,durTxt(m)]),l.min)}</label>
     <label class="small muted">Zwaarte ${sel('data-chg="libL"',[[0,'Licht'],[1,'Normaal'],[2,'Zwaar']],l.L)}</label></div></div>
     <div class="cats" role="group" aria-label="Soort training">${CATS.map(([k,t])=>`<button data-act="libCat" data-c="${k}" aria-pressed="${cat===k}">${t}</button>`).join('')}</div>
     <div class="grid">${cards}</div>`;

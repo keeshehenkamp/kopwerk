@@ -500,3 +500,15 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .setup{max-width:580px;margin:0 auto}
 .steps{display:flex;gap:6px;margin:0 2px 18px}.steps i{flex:1;height:4px;border-radius:2px;background:var(--line);transition:background-color .2s}.steps i.on{background:var(--acc)}
 .stack>.setupnav{margin-top:18px}
+/* vrij rijden en samen rijden */
+.player.vrij .zchart,.player.vrij .pchart,.player.vrij .zct,.player.vrij .gauge,.player.vrij .zgauge{display:none}
+.player.vrij .pnum:first-child{display:none}
+.vrij select{max-width:100%}
+.vrij .code{width:7.5em;text-transform:uppercase;letter-spacing:.08em;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.samen{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:8px}
+.samen ul{margin:0;padding-left:18px;font-size:14px}
+.samencd{font-size:22px;font-variant-numeric:tabular-nums}
+.w3 .vrow{display:flex;justify-content:space-between;gap:10px;padding:6px 12px;font-variant-numeric:tabular-nums}
+.w3 .vrow span{color:#4b5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.w3 .vrow b{color:#151922;white-space:nowrap}
+.w3 .vrow.vdraft{border-top:1px solid #e4e4e7}.w3 .vrow.vdraft.on{background:#EEF2FF}.w3 .vrow.vdraft.on b{color:#1D4ED8}
+@media (max-width:760px){.w3.vrij #p-list{display:block}}
