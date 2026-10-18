@@ -595,8 +595,8 @@ function makeSign(pct){
 /* tenues van de fietsers; het model zelf komt uit Blender (js/fietser.js) */
 const KITS={
   pace:{base:'#3D8BD4',acc:'#ffffff',acc2:'#1d2a44',pat:'band',helmet:'#3D8BD4',hstripe:'#ffffff',frame:['#3D8BD4','#1d2a44'],bar:'#ffffff',bottle:'#3D8BD4',logo:'TEMPO',hair:'#2e241c',skin:'#e0a283'}};
-/* ---------- outfit: vijf vaste tenues (het broekje is altijd zwart, in het shirt zit geen zwart), vrouw of man, huid en haar.
-   Bewaard in state.profile.kit als {o, sex, skin, hair}. De anderen op de weg krijgen de tenues die jij niet draagt. ---------- */
+/* ---------- outfit: vijf vaste tenues (het broekje is altijd zwart, in het shirt zit geen zwart), huid en haar.
+   Bewaard in state.profile.kit als {o, skin, hair}. De anderen op de weg krijgen de tenues die jij niet draagt. ---------- */
 const OUTFITS=[
   {id:'kopwerk',name:'Kopwerk',base:'#FF6A2B',acc:'#ffffff',acc2:'#FFD3B8',pat:'band',helmet:'#ffffff',hstripe:'#FF6A2B',frame:['#FF6A2B','#f2f2f2'],bottle:'#ffffff'},
   {id:'noordzee',name:'Noordzee',base:'#2563EB',acc:'#8FD0F5',acc2:'#ffffff',pat:'chevron',helmet:'#2563EB',hstripe:'#ffffff',frame:['#f2f2f2','#2563EB'],bottle:'#8FD0F5'},
@@ -607,20 +607,20 @@ const KIT_OPT={skin:['#f1c7a8','#e0a283','#c68a62','#8d5a3b','#5c3a24'],hair:['#
 /* een tenue + een persoon -> alles wat makeRider nodig heeft */
 function kitFrom(p){
   const o=OUTFITS.find(x=>x.id===p.o)||OUTFITS[0];
-  return Object.assign({},o,{bar:'#16191f',logo:'KOPWERK',sex:p.sex==='v'?'v':'m',skin:p.skin||KIT_OPT.skin[1],hair:p.hair||KIT_OPT.hair[1]});
+  return Object.assign({},o,{bar:'#16191f',logo:'KOPWERK',skin:p.skin||KIT_OPT.skin[1],hair:p.hair||KIT_OPT.hair[1]});
 }
 /* je keuze; een outfit uit de oude versie (eigen kleuren) wordt het tenue met dezelfde grondkleur */
 function kitPick(){
   const k=Object.assign({},state.profile&&state.profile.kit||{});
   if(!k.o){const old=OUTFITS.find(x=>k.base&&x.base.toLowerCase()===String(k.base).toLowerCase());k.o=old?old.id:'kopwerk'}
-  return {o:k.o,sex:k.sex==='v'?'v':'m',skin:k.skin||KIT_OPT.skin[1],hair:k.hair||KIT_OPT.hair[1]};
+  return {o:k.o,skin:k.skin||KIT_OPT.skin[1],hair:k.hair||KIT_OPT.hair[1]};
 }
 const myKit=()=>kitFrom(kitPick());
 /* de anderen op de weg: de tenues die jij niet draagt, met verschillende mensen erin */
-const NPC_PEOPLE=[['v',2,1],['m',0,3],['m',4,0],['v',1,2],['m',3,1]];
+const NPC_PEOPLE=[[2,1],[0,3],[4,0],[1,2],[3,1]];
 function npcKits(){
   const mine=kitPick().o,others=OUTFITS.filter(x=>x.id!==mine);
-  return NPC_PEOPLE.map(([sex,s,h],i)=>kitFrom({o:others[i%others.length].id,sex,skin:KIT_OPT.skin[s],hair:KIT_OPT.hair[h]}));
+  return NPC_PEOPLE.map(([s,h],i)=>kitFrom({o:others[i%others.length].id,skin:KIT_OPT.skin[s],hair:KIT_OPT.hair[h]}));
 }
 /* fietser (en de anderen) opnieuw opbouwen na een andere keuze */
 function kitApply(){
@@ -643,7 +643,6 @@ function kitHTML(){
   const p=kitPick(),sw=(k,list)=>list.map(v=>`<button class="kitsw${p[k]===v?' on':''}" data-act="kitSet" data-k="${k}" data-v="${v}" style="background:${v}" aria-label="${k==='skin'?'Huidskleur':'Haarkleur'} ${v}" aria-pressed="${p[k]===v}"></button>`).join('');
   return `<div class="zkit stack">
     <div class="kitrow"><span>Outfit</span><div class="kitout">${OUTFITS.map(o=>`<button class="kito${p.o===o.id?' on':''}" data-act="kitSet" data-k="o" data-v="${o.id}" aria-pressed="${p.o===o.id}">${shirtSVG(o)}<span>${o.name}</span></button>`).join('')}</div></div>
-    <div class="kitrow"><span>Fietser</span><div><div class="seg" role="group" aria-label="Vrouw of man">${[['v','Vrouw'],['m','Man']].map(([v,t])=>`<button class="btn small" data-act="kitSet" data-k="sex" data-v="${v}" aria-pressed="${p.sex===v}">${t}</button>`).join('')}</div></div></div>
     <div class="kitrow"><span>Huidskleur</span><div>${sw('skin',KIT_OPT.skin)}</div></div>
     <div class="kitrow"><span>Haar</span><div>${sw('hair',KIT_OPT.hair)}</div></div>
   </div>`;

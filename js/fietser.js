@@ -7,7 +7,7 @@ const PATCH=['huid','haar','broek','handschoen','sok','schoen','zool','shirt','b
   'frame0','frame1','zwart','carbon','alu','band','bandzij','ketting','zadel','stuurlint','bidon','spaak','acc2','wit','logo'];
 function patchColors(k){
   return {huid:k.skin||'#e0a283',haar:k.hair||'#5a3b26',broek:'#16191f',handschoen:'#33373e',sok:'#f4f4f2',schoen:'#f4f4f2',zool:'#1b1d22',
-    shirt:k.base,boord:k.acc,lip:k.sex==='v'?'#b4505a':'#a5493f',oogwit:'#f7f5ef',pupil:'#2a1d14',helm:k.helmet,helmstreep:k.hstripe,
+    shirt:k.base,boord:k.acc,lip:'#a5493f',oogwit:'#f7f5ef',pupil:'#2a1d14',helm:k.helmet,helmstreep:k.hstripe,
     bril:'#1b1d22',glas:'#2b3440',frame0:k.frame[0],frame1:k.frame[1],zwart:'#16191f',carbon:'#22252b',alu:'#b9bec5',band:'#1a1a1a',bandzij:'#b8935e',
     ketting:'#3a3d44',zadel:'#141619',stuurlint:k.bar||'#16191f',bidon:k.bottle||'#ffffff',spaak:'#9a9fa5',acc2:k.acc2||'#ffffff',wit:'#ffffff',logo:k.frame[0]};
 }
