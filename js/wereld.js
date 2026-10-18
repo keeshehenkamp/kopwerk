@@ -592,9 +592,7 @@ function makeSign(pct){
   const b=new T.Mesh(new T.PlaneGeometry(1.1,1.1),new T.MeshBasicMaterial({map:tex,transparent:true,side:T.DoubleSide}));b.position.y=2.5;g.add(b);
   return g;
 }
-/* fietser: echte verhoudingen, een tenue met ontwerp, een gestroomlijnde helm met ventilatiegaten en een racefiets in twee kleuren; vooruit = -z.
-   Wat samen beweegt is één vorm (17 tekenopdrachten per fietser). Shirt, helm en het opschrift op de fiets komen uit één plaatje per renner;
-   de andere delen gebruiken een wit stukje van dat plaatje en hun eigen kleur per hoekpunt. */
+/* tenues van de fietsers; het model zelf komt uit Blender (js/fietser.js) */
 const KITS={
   pace:{base:'#3D8BD4',acc:'#ffffff',acc2:'#1d2a44',pat:'band',helmet:'#3D8BD4',hstripe:'#ffffff',frame:['#3D8BD4','#1d2a44'],bar:'#ffffff',bottle:'#3D8BD4',logo:'TEMPO',hair:'#2e241c',skin:'#e0a283'}};
 /* ---------- outfit: vijf vaste tenues (het broekje is altijd zwart, in het shirt zit geen zwart), vrouw of man, huid en haar.
@@ -650,187 +648,11 @@ function kitHTML(){
     <div class="kitrow"><span>Haar</span><div>${sw('hair',KIT_OPT.hair)}</div></div>
   </div>`;
 }
-const shadeC=(c,l)=>'#'+new T3.Color(c).offsetHSL(0,0,l).getHexString();
-/* plaatje per renner: boven het shirt (rondom: voorkant, linkerzij, rug, rechterzij), linksonder de helm, rechtsonder het opschrift en een wit vlak */
-function kitTex(k){
-  return canvasTex(512,512,(c,w,h)=>{
-    const yb=256*(1-.25);c.fillStyle=k.base;c.fillRect(0,0,512,256);
-    c.fillStyle=shadeC(k.base,-.06);c.fillRect(512*.18,0,512*.13,yb);c.fillRect(512*.69,0,512*.13,yb);
-    c.fillStyle=k.acc;
-    if(k.pat==='band'){c.fillRect(0,256*.36,512,22);c.fillStyle=k.acc2;c.fillRect(0,256*.36-7,512,4);c.fillRect(0,256*.36+25,512,4)}
-    else if(k.pat==='hoops')for(let i=0;i<5;i++)c.fillRect(0,256*.18+i*30,512,11);
-    else if(k.pat==='sash'){c.save();c.beginPath();c.rect(0,0,512,yb);c.clip();for(const x0 of[0,256]){c.beginPath();c.moveTo(x0+40,0);c.lineTo(x0+110,0);c.lineTo(x0+230,yb);c.lineTo(x0+160,yb);c.fill()}c.restore();c.fillStyle=k.acc2;c.fillRect(0,256*.06,512,5)}
-    else if(k.pat==='chevron'){c.lineWidth=18;c.strokeStyle=k.acc;for(const x0 of[256,0,512]){c.beginPath();c.moveTo(x0-110,256*.2);c.lineTo(x0,256*.5);c.lineTo(x0+110,256*.2);c.stroke()}c.strokeStyle=k.acc2;c.lineWidth=6;for(const x0 of[256,0,512]){c.beginPath();c.moveTo(x0-110,256*.3);c.lineTo(x0,256*.6);c.lineTo(x0+110,256*.3);c.stroke()}}
-    else if(k.pat==='dots')for(let y=14;y<yb-6;y+=26)for(let x=(y/26%2)*16;x<512;x+=32){c.beginPath();c.arc(x,y,8,0,7);c.fill()}
-    /* kraag, rits, achterzakken en naam op de rug */
-    c.fillStyle=k.acc;c.fillRect(0,0,512,3);c.fillStyle=shadeC(k.base,-.1);c.fillRect(0,0,3,yb);c.fillRect(509,0,3,yb);
-    c.strokeStyle=shadeC(k.base,-.1);c.lineWidth=2;for(const i of[-1,0,1])c.strokeRect(512*(.5+i*.07)-14,yb-38,28,32);
-    if(k.logo){c.fillStyle=k.pat==='band'?k.acc2:k.acc;c.font='800 21px Inter, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(k.logo,256,256*.62)}
-    /* broek: zwart met een zijpaneel in de kleur van het shirt */
-    c.fillStyle='#16191f';c.fillRect(0,yb,512,256-yb);c.fillStyle=k.base;c.fillRect(512*.23,yb,16,256-yb);c.fillRect(512*.75,yb,16,256-yb);
-    /* helm (u 0-256 rondom, achter op 64, voor op 192; boven y 256, rand y 512): grondkleur, een streep van voor naar achter,
-       lange ventilatiegaten van voor naar achter en een smalle donkere rand */
-    c.fillStyle=k.helmet;c.fillRect(0,256,256,256);c.fillStyle=k.hstripe;for(const x of[64,192])c.fillRect(x-7,256,14,256);
-    c.fillStyle='#262a31';for(const x of[64,192])for(const dx of[-17,17,-36,36,-56,56]){const y0=dx*dx>2000?300:270,y1=x===192?(dx*dx>2000?430:455):(dx*dx>2000?400:420);
-      c.beginPath();c.roundRect(x+dx-4,y0,8,y1-y0,4);c.fill()}
-    c.fillRect(0,496,256,16);
-    /* opschrift voor de onderbuis, op beide zijkanten */
-    c.fillStyle=k.frame[0];c.fillRect(256,256,256,128);c.fillStyle=k.frame[0]==='#f2f2f2'||k.frame[0]==='#ffffff'?k.frame[1]:'#ffffff';c.font='800 26px Inter, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';
-    /* rechterkant: verticaal gespiegeld, linkerkant: horizontaal gespiegeld, zodat het op de buis van beide kanten leesbaar is */
-    c.save();c.translate(384,352);c.scale(1,-1);c.fillText('KOPWERK',0,0);c.restore();c.save();c.translate(384,288);c.scale(-1,1);c.fillText('KOPWERK',0,0);c.restore();
-    c.fillStyle='#ffffff';c.fillRect(256,384,256,128)});
-}
-function riderMat(k,ghost){
-  const T=T3,m=new T.MeshPhongMaterial({map:kitTex(k),vertexColors:true,shininess:42,specular:'#5c5c5c',transparent:!!ghost,opacity:ghost?.6:1});
-  /* glans per onderdeel: lak en metaal glimmen, huid en stof nauwelijks */
-  m.onBeforeCompile=sh=>{sh.vertexShader='attribute float spec;\nvarying float vSpec;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvSpec=spec;');
-    sh.fragmentShader='varying float vSpec;\n'+sh.fragmentShader.replace('#include <specularmap_fragment>','#include <specularmap_fragment>\nspecularStrength=vSpec;')};
-  return m;
-}
-/* onderdelen samenvoegen: [vorm, kleur, matrix, glans, uv] — uv = functie die de eigen uv omzet naar het plaatje, anders het witte vlak */
-function riderGeo(parts){
-  const T=T3,pos=[],nor=[],col=[],spe=[],uvs=[],cc=new T.Color();
-  for(const [g0,c,m,s,uvf] of parts){
-    const g=g0.index?g0.toNonIndexed():g0;if(m)g.applyMatrix4(m);if(!g.attributes.normal)g.computeVertexNormals();
-    const p=g.attributes.position.array,n=g.attributes.normal.array,vc=g.attributes.color&&g.attributes.color.array,uv=g.attributes.uv&&g.attributes.uv.array;if(!vc)cc.set(c);
-    for(let i=0,j=0;i<p.length;i+=3,j+=2){pos.push(p[i],p[i+1],p[i+2]);nor.push(n[i],n[i+1],n[i+2]);if(vc)col.push(vc[i],vc[i+1],vc[i+2]);else col.push(cc.r,cc.g,cc.b);spe.push(s??.3);
-      if(uvf&&uv){const [u,v]=uvf(uv[j],uv[j+1]);uvs.push(u,v)}else uvs.push(.75,.12)}
-  }
-  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('normal',new T.Float32BufferAttribute(nor,3));
-  g.setAttribute('color',new T.Float32BufferAttribute(col,3));g.setAttribute('spec',new T.Float32BufferAttribute(spe,1));g.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));return g;
-}
-/* matrix voor een buis van a naar b, zoals setLimb die zet */
+/* matrix voor een buis van a naar b */
 const tubeM=(a,b)=>{const T=T3,A=new T.Vector3(...a),B=new T.Vector3(...b),d=B.clone().sub(A),len=d.length();
   return new T.Matrix4().compose(A.clone().add(B).multiplyScalar(.5),new T.Quaternion().setFromUnitVectors(new T.Vector3(0,1,0),d.normalize()),new T.Vector3(1,len,1))};
 const RM=(x,y,z,rx,ry,rz,sx,sy,sz)=>new T3.Matrix4().compose(new T3.Vector3(x,y,z),new T3.Quaternion().setFromEuler(new T3.Euler(rx||0,ry||0,rz||0)),new T3.Vector3(sx??1,sy??1,sz??1));
-function makeRider(k,ghost){
-  const T=T3,mat=riderMat(k,ghost),g=new T.Group(),c=new T.Color();
-  const K='#16191f',S=k.skin||'#e0a283',Bk='#141619',Cb='#22252b',Al='#b9bec5',Wt='#f4f4f2',Gl='#1b1d22',F0=k.frame[0],F1=k.frame[1],ACC=k.acc==='#ffffff'?k.base:k.acc;
-  const mesh=(parts,parent,len)=>{const m=new T.Mesh(riderGeo(parts),mat);m.userData.len=len||0;(parent||g).add(m);return m};
-  /* ledemaat langs y met kleur per ring (mouw, boord, broekspijp, sok) en eventueel per kant (zijpaneel); L = lengte */
-  const lathe=(prof,L,side)=>{const geo=new T.LatheGeometry(prof.map(([r,y])=>new T.Vector2(r,(y-.5)*L)),16),cl=[],np=prof.length,seg=16;
-    for(let i=0;i<geo.attributes.position.count;i++){const j=i%np,ph=Math.floor(i/np)/seg*Math.PI*2;c.set(side&&prof[j][3]&&Math.abs(Math.sin(ph)-side)<.05?prof[j][3]:prof[j][2]);cl.push(c.r,c.g,c.b)}
-    geo.setAttribute('color',new T.Float32BufferAttribute(cl,3));return geo};
-  /* buis in twee kleuren lak: van voor naar achter verloopt de kleur */
-  const tube=(r,a,b,c0,c1,s)=>{const geo=new T.CylinderGeometry(r,r,1,12).applyMatrix4(tubeM(a,b)),p=geo.attributes.position,cl=[],A=new T.Color(c0),B=new T.Color(c1||c0);
-    for(let i=0;i<p.count;i++){c.copy(A).lerp(B,clamp((p.getZ(i)+.35)/.75,0,1));cl.push(c.r,c.g,c.b)}geo.setAttribute('color',new T.Float32BufferAttribute(cl,3));return [geo,null,null,s??1]};
-  const cyl=(r,a,b,col,s)=>[new T.CylinderGeometry(r,r,1,10),col,tubeM(a,b),s],sph0=r=>new T.SphereGeometry(r,14,10);
-  /* wielen: band met bruine zijkant, hoge carbon velg met opdruk, spaken, naaf, cassette of remschijf */
-  const wheel=(z,rear)=>{const tyre=new T.TorusGeometry(.322,.016,10,48),tp=tyre.attributes.position,tc=[];
-      for(let i=0;i<tp.count;i++){c.set(Math.hypot(tp.getX(i),tp.getY(i))>.331?'#1a1a1a':'#b8935e');tc.push(c.r,c.g,c.b)}tyre.setAttribute('color',new T.Float32BufferAttribute(tc,3));
-    const rim=sx=>{const r=new T.RingGeometry(.25,.307,48,2),rp=r.attributes.position,rc=[];for(let i=0;i<rp.count;i++){const a=Math.atan2(rp.getY(i),rp.getX(i)),rr=Math.hypot(rp.getX(i),rp.getY(i));
-        c.set(rr>.262&&rr<.296&&(Math.abs(Math.sin(a))>.92)?'#f2f2f2':Cb);rc.push(c.r,c.g,c.b)}r.setAttribute('color',new T.Float32BufferAttribute(rc,3));return [r,null,RM(sx*.012,0,0,0,sx*Math.PI/2),.8]};
-    const P=[[tyre,null,RM(0,0,0,0,Math.PI/2),.15],[new T.CylinderGeometry(.307,.307,.024,48,1,true),Cb,RM(0,0,0,0,0,Math.PI/2),.8],rim(1),rim(-1),[new T.CylinderGeometry(.03,.03,.1,12),Al,RM(0,0,0,0,0,Math.PI/2),1]];
-    for(let i=0;i<20;i++){const m=new T.Matrix4().makeRotationX(i*Math.PI/10);m.multiply(new T.Matrix4().makeTranslation(0,.13,0));P.push([new T.CylinderGeometry(.003,.003,.25,3),'#9a9fa5',m,.6])}
-    if(rear)for(let i=0;i<6;i++)P.push([new T.CylinderGeometry(.03+i*.008,.03+i*.008,.004,16),'#c9ced4',RM(.03+i*.006,0,0,0,0,Math.PI/2),1]);
-    P.push([new T.CylinderGeometry(.075,.075,.003,24),'#c3c7cc',RM(-.045,0,0,0,0,Math.PI/2),1]);
-    const w=mesh(P);w.position.set(0,.34,z);return w};
-  const wr=wheel(.5,true),wf=wheel(-.52,false);
-  /* frame in twee kleuren: zitbuis tot een eind onder het zadel (daarboven de zadelpen), licht aflopende bovenbuis, balhoofd,
-     onderbuis met opschrift, achtervork, voorvork met twee poten; stuur een paar centimeter lager dan het zadel */
-  const BB=[0,.3,.02],SC=[0,.785,.1],HT=[0,.855,-.405],HB=[0,.685,-.445];
-  const dt=new T.CylinderGeometry(.037,.037,1,14);dt.setAttribute('color',new T.Float32BufferAttribute(new Array(dt.attributes.position.count*3).fill(1),3));
-  const B=[[dt,null,tubeM(BB,HB),1,(u,v)=>[.5+v*.5,.25+u*.25]],tube(.028,BB,SC,F0,F1),tube(.027,SC,HT,F0,F1),tube(.035,HT,HB,F0,F0)];
-  for(const x of[-.04,.04])B.push(tube(.013,[x,.34,.5],[x*.4,.3,.03],F1,F1),tube(.012,[x,.34,.5],[x*.4,.775,.1],F1,F1),tube(.017,[x*.4,.675,-.45],[x*1.15,.34,-.52],F0,F0));
-  B.push(cyl(.014,[0,.775,.1],[0,.975,.145],Bk,.5),cyl(.02,[0,.855,-.405],[0,.915,-.42],Bk,.5),cyl(.018,[0,.915,-.42],[0,.94,-.52],Bk,.5),[new T.CylinderGeometry(.038,.033,.04,12),F0,RM(0,.86,-.406,-.22),1]);
-  B.push(cyl(.015,[-.21,.94,-.52],[.21,.94,-.52],k.bar,.3));
-  for(const x of[-.2,.2])B.push([new T.TubeGeometry(new T.CatmullRomCurve3([new T.Vector3(x,.94,-.52),new T.Vector3(x,.94,-.6),new T.Vector3(x,.88,-.635),new T.Vector3(x,.83,-.6),new T.Vector3(x,.83,-.54)]),14,.015,8),k.bar,null,.3],
-    [new T.CapsuleGeometry(.018,.05,3,8),Bk,RM(x,.965,-.6,.5),.4],[new T.BoxGeometry(.006,.07,.012),Al,RM(x*1.08,.92,-.615,.4),1]);
-  /* zadel met streep, bidon op de onderbuis */
-  B.push([new T.CapsuleGeometry(.05,.18,4,12),Bk,RM(0,.988,.15,Math.PI/2,0,0,1.3,1,.45),.35],[new T.BoxGeometry(.03,.012,.2),ACC,RM(0,1.012,.15),.4],
-    [new T.CylinderGeometry(.036,.036,.21,14),k.bottle,RM(0,.52,-.15,-.88),.5],[new T.CylinderGeometry(.02,.02,.03,10),Bk,RM(0,.6,-.245,-.88),.4]);
-  /* ketting: boven van blad naar tandwiel, onder via de twee wieltjes van de achterderailleur; voorderailleur en remklauwen */
-  B.push(cyl(.006,[.05,.4,.03],[.055,.375,.5],Gl,1),cyl(.006,[.05,.2,.03],[.065,.197,.55],Gl,1),cyl(.006,[.065,.197,.55],[.065,.29,.53],Gl,1),cyl(.006,[.065,.29,.53],[.06,.305,.505],Gl,1),
-    ...[[.215,.545],[.29,.515]].map(([y,z])=>[new T.CylinderGeometry(.019,.019,.012,12),'#2a2d33',RM(.067,y,z,0,0,Math.PI/2),.8]),
-    cyl(.004,[.074,.215,.545],[.074,.29,.515],'#3a3d44',.8),[new T.BoxGeometry(.02,.05,.035),'#2a2d33',RM(.07,.325,.505),.8],
-    [new T.BoxGeometry(.012,.04,.055),'#2a2d33',RM(.04,.41,.04),.8],[new T.BoxGeometry(.03,.04,.05),'#2a2d33',RM(-.05,.35,.46),.8],[new T.BoxGeometry(.03,.04,.05),'#2a2d33',RM(-.05,.36,-.5),.8]);
-  mesh(B);
-  /* crankstel: beide cranks en het blad draaien samen rond de trapas */
-  const crank=mesh([cyl(.012,[-.059,0,0],[-.095,.17,0],'#2a2d33',.8),cyl(.012,[.059,0,0],[.095,-.17,0],'#2a2d33',.8),[new T.CylinderGeometry(.1,.1,.008,32),'#2a2d33',RM(.05,0,0,0,0,Math.PI/2),.9],[new T.CylinderGeometry(.075,.075,.009,24),Al,RM(.054,0,0,0,0,Math.PI/2),1]]);crank.position.set(0,.3,.02);
-  /* romp: van heup tot hals een ronde doorsnede die breder wordt naar de schouders, met het shirt erop.
-     Een vrouw heeft wat smallere schouders en iets bredere heupen. */
-  const fem=k.sex==='v',HR=k.hair||'#5a3b26',G0='#33373e';
-  const tor=new T.Group();g.add(tor);
-  {const R=[[-.12,0,0,-.02],[-.08,.11,.085,-.015],[0,.152,.118,-.01],[.1,.162,.124,0],[.22,.154,.116,.012],[.34,.15,.11,.02],[.48,.164,.118,.024],[.62,.192,.132,.02],[.76,.212,.138,.01],[.86,.204,.13,-.004],[.94,.16,.104,-.02],[1,.075,.062,-.03],[1.03,0,0,-.035]];
-    const seg=22,pos=[],uv=[],idx=[];
-    R.forEach(([y,a,b,zc],j)=>{if(fem)a*=y>.5?1-.08*clamp((y-.5)/.26,0,1):y<.25?1.03:1;
-      for(let i=0;i<=seg;i++){const ph=i/seg*Math.PI*2,x=-Math.sin(ph)*a,z=-Math.cos(ph)*b+zc;pos.push(x,y*.5,z);uv.push(i/seg,.5+.5*clamp(y,0,1))}
-      if(j)for(let i=0;i<seg;i++){const q=(j-1)*(seg+1)+i,q2=q+seg+1;idx.push(q,q+1,q2,q+1,q2+1,q2)}});
-    const tg=new T.BufferGeometry();tg.setAttribute('position',new T.Float32BufferAttribute(pos,3));tg.setAttribute('uv',new T.Float32BufferAttribute(uv,2));tg.setIndex(idx);tg.computeVertexNormals();
-    mesh([[tg,'#ffffff',null,.25,(u,v)=>[u,v]]],tor)}
-  const neck=mesh([[new T.CylinderGeometry(.05,.058,1,12),S,null,.1]],null,1);
-  /* hoofd: schedel en kaak, een getekend gezicht (ogen, wenkbrauwen, neus, mond), oren, haar onder de helm (vrouw met paardenstaart),
-     een racehelm die naar achteren uitloopt, met ventilatiegaten, een rand en riempjes onder de kin */
-  const head=new T.Group();g.add(head);
-  {const sph=(r,w,h)=>new T.SphereGeometry(r,w||16,h||12);
-    const hg=new T.SphereGeometry(.108,30,14,0,Math.PI*2,0,Math.PI*.54),hp=hg.attributes.position;
-    for(let i=0;i<hp.count;i++){let x=hp.getX(i),y=hp.getY(i),z=hp.getZ(i);const bk=clamp(z/.108,0,1),fr=clamp(-z/.108,0,1),t=clamp(1-y/.108,0,1);
-      z*=z>0?1.22:1.08;y-=.045*bk*t*t-.01*fr*t*t;z+=.02*bk*t*t;x*=.96-.06*bk*t;hp.setXYZ(i,x,y,z)}
-    hg.computeVertexNormals();
-    const hair=(th0,th1)=>[new T.SphereGeometry(.1,20,10,Math.PI/2-1.25,2.5,Math.PI*th0,Math.PI*(th1-th0)),HR,RM(0,0,.006,0,0,0,.95,1.04,1.1),.15];
-    /* schedel en kaak in één vorm: onder smaller, met een kin die iets naar voren komt */
-    const sk=sph(.1,28,20),sp=sk.attributes.position;
-    for(let i=0;i<sp.count;i++){const x=sp.getX(i),y=sp.getY(i),z=sp.getZ(i),t=clamp(-y/.1,0,1),f=clamp(-z/.1,0,1);
-      sp.setXYZ(i,x*.9*(1-.3*t*t),y*(1+.22*t),z*1.05*(1-.18*t*t*(1-f))-.01*t*f)}
-    sk.computeVertexNormals();
-    const P=[[sk,S,RM(0,0,.004),.1],[sph(.013,10,8),S,RM(0,-.018,-.104,-.35,0,0,.75,1.25,.9),.1],
-      ...[-1,1].flatMap(s=>[[sph(.021,10,8),S,RM(s*.086,-.016,.012,0,0,0,.45,1,.75),.1],
-        [sph(.014,10,8),'#f7f5ef',RM(s*.034,.004,-.09,0,0,0,1,.82,.55),.6],[sph(.0085,8,6),'#2a1d14',RM(s*.034,.003,-.096,0,0,0,1,1.05,.5),.9],
-        [new T.BoxGeometry(.032,.0075,.012),HR,RM(s*.035,.029,-.092,-.25,0,s*-.14),.1]]),
-      [new T.TorusGeometry(.014,.0028,5,12,Math.PI*.7),fem?'#b4505a':'#a5493f',RM(0,-.03,-.099,-.25,0,Math.PI*1.15),.3],
-      hair(.36,fem?.72:.64)];
-    /* vrouw: paardenstaart onder de helm uit, met een elastiekje in de kleur van het shirt, en wimpers */
-    if(fem)P.push([sph(.036,14,12),HR,RM(0,-.088,.122,-.42,0,0,1,2.1,.85),.15],[new T.TorusGeometry(.021,.007,6,12),k.base,RM(0,-.045,.108,-.42+Math.PI/2,0,0),.4],
-      ...[-1,1].map(s=>[new T.BoxGeometry(.012,.004,.006),'#2a1d14',RM(s*.047,.014,-.088,0,0,s*.5),.2]));
-    P.push([hg,'#ffffff',RM(0,.04,.008,0,0,0,1,.9,1),.8,(u,v)=>[u*.5,v*.5]],
-      ...[-1,1].map(s=>cyl(.003,[s*.082,.01,.0],[s*.045,-.09,.0],'#4a4f57',.3)));
-    mesh(P,head)}
-  /* bovenarm met schouder, mouw en boord; onderarm met elleboog en handschoen. Gewrichten zijn bollen, zodat er geen gaten vallen. */
-  const B0=k.base,SW=fem?.158:.17;
-  const arms=[-1,1].map(s=>({s,up:mesh([[lathe([[0,0,B0],[.05,.02,B0],[.058,.12,B0],[.055,.38,B0],[.0546,.386,ACC],[.054,.45,ACC],[.0515,.456,S],[.05,.6,S],[.044,.97,S],[0,1,S]],.3),null,null,.2],
-        [sph0(.051),B0,RM(0,-.125,0,0,0,0,1,1.15,1),.2]],null,.3),
-    lo:mesh([[lathe([[0,0,S],[.04,.03,S],[.046,.25,S],[.034,.8,S],[.035,.82,G0],[.036,.9,G0],[0,1,G0]],.28),null,null,.15],[sph0(.045),S,RM(0,-.14,0),.15],
-        [sph0(.04),G0,RM(0,.148,-.008,0,0,0,1.05,1.25,1.3),.3]],null,.28)}));
-  /* bovenbeen met broekspijp, zijpaneel en boord; onderbeen met knie, kuit en sok; witte schoen met zwarte zool */
-  const legs=[-.095,.095].map(x=>{const l={x,th:mesh([[lathe([[0,0,K,B0],[.086,.03,K,B0],[.094,.2,K,B0],[.084,.55,K,B0],[.0795,.6,ACC],[.0765,.69,ACC],[.0723,.702,S],[.06,.95,S],[0,1,S]],.46,x>0?1:-1),null,null,.3],
-        [sph0(.088),K,RM(0,-.2,0),.3]],null,.46),
-    sh:mesh([[lathe([[0,0,S],[.05,.03,S],[.062,.25,S],[.052,.5,S],[.0386,.83,S],[.039,.834,ACC],[.038,.87,ACC],[.037,.874,Wt],[.036,.92,Wt],[.034,.985,Wt],[0,1,Wt]],.42),null,null,.1],
-        [sph0(.058),S,RM(0,-.2,0),.1]],null,.42),ftg:new T.Group()};
-    g.add(l.ftg);mesh([[new T.CapsuleGeometry(.043,.17,4,10),Wt,RM(0,.026,-.03,Math.PI/2,0,0,1,1,.78),.5],[new T.BoxGeometry(.075,.018,.25),'#1b1d22',RM(0,-.005,-.03),.4],[new T.BoxGeometry(.03,.012,.12),ACC,RM(x>0?.035:-.035,.03,-.05),.5],[new T.BoxGeometry(.09,.015,.07),Gl,RM(0,-.03,0),1]],l.ftg);return l});
-  return {g,legs,arms,tor,neck,head,wr,wf,crank,sw:SW,a:Math.random()*6,stand:0,t:0};
-}
-function setLimb(m,a,b){
-  const T=T3,A=new T.Vector3(...a),B=new T.Vector3(...b),d=B.clone().sub(A),len=d.length(),L=m.userData.len||0;
-  m.position.copy(A).add(B).multiplyScalar(.5);m.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),d.normalize());m.scale.y=L?len/L:len;
-}
-/* twee-segment-ketting: knie of elleboog in het vlak, naar de kant van 'pref' */
-function joint(a,b,l1,l2,pref){
-  const dx=b[0]-a[0],dy=b[1]-a[1],dz=b[2]-a[2],d=Math.min(l1+l2-.001,Math.hypot(dx,dy,dz)),ux=dx/d,uy=dy/d,uz=dz/d;
-  const k=(l1*l1-l2*l2+d*d)/(2*d),h=Math.sqrt(Math.max(0,l1*l1-k*k));
-  let px=pref[0],py=pref[1],pz=pref[2];const dp=px*ux+py*uy+pz*uz;px-=dp*ux;py-=dp*uy;pz-=dp*uz;const pl=Math.hypot(px,py,pz)||1;
-  return [a[0]+ux*k+px/pl*h,a[1]+uy*k+py/pl*h,a[2]+uz*k+pz/pl*h];
-}
-function poseRider(R,dt,cad,spd,stand){
-  R.stand+=((stand?1:0)-R.stand)*Math.min(1,dt*3);const st=R.stand;R.t+=dt;
-  R.a+=cad/60*Math.PI*2*dt;const rot=spd*dt/.34;R.wr.rotation.x-=rot;R.wf.rotation.x-=rot;
-  const BB=[0,.3,.02],sway=Math.sin(R.a)*st,rock=cad?Math.sin(R.a*2)*.012:0;
-  const hip=[sway*.05,1+st*.12,.15-st*.24],sh=[sway*.03,1.36+st*.06+rock,-.21-st*.12];
-  /* romp van heup naar schouders */
-  const T=T3,dir=new T.Vector3(sh[0]-hip[0],sh[1]-hip[1],sh[2]-hip[2]),len=dir.length();
-  R.tor.position.set(...hip);R.tor.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),dir.normalize());R.tor.scale.set(1,len/.5,1);R.tor.rotateY(sway*.25);
-  const hd=[sh[0],sh[1]+.095,sh[2]-.09];setLimb(R.neck,[sh[0],sh[1]-.03,sh[2]-.01],hd);
-  R.head.position.set(hd[0],hd[1]+.045,hd[2]-.03);R.head.rotation.set(-.05+st*.1,0,sway*.08);
-  for(const A of R.arms){const s=[sh[0]+A.s*(R.sw||.17),sh[1]-.02,sh[2]+.02],hand=[A.s*.2,.99-st*.02,-.6],el=joint(s,hand,.3,.28,[A.s*.12,-.3,.5]);
-    setLimb(A.up,s,el);setLimb(A.lo,el,hand)}
-  R.crank.rotation.x=-R.a;
-  R.legs.forEach((l,i)=>{
-    const a=R.a+i*Math.PI,p=[l.x,BB[1]+.17*Math.cos(a),BB[2]-.17*Math.sin(a)],hp=[hip[0]+l.x*.95,hip[1]-.02,hip[2]];
-    const ank=[p[0],p[1]+.075,p[2]+.035],knee=joint(hp,ank,.46,.42,[0,0,-1]);
-    setLimb(l.th,hp,knee);setLimb(l.sh,knee,ank);
-    l.ftg.position.set(l.x,p[1]+.03,p[2]);l.ftg.rotation.x=-.12+.22*Math.sin(a+.6);
-  });
-  R.g.rotation.z+=sway*.1;
-}
+/* de fietser zelf (model uit Blender) staat in js/fietser.js: makeRider, poseRider */
 
 /* ---------- wereld opbouwen ---------- */
 /* licht en weer: past bij het tijdstip van de rit, af en toe bewolkt of een bui */
@@ -977,7 +799,7 @@ function worldDrop(w){
 async function worldLoad(tok){
   /* afgebroken (player dicht of wereld gesloten): opruimen wat er al staat */
   const gone=()=>{if(W===tok&&P)return false;worldDrop(tok);if(W===tok)W=null;return true};
-  const kn=loadKenney();T3=T3||await import('three');await kn;
+  const kn=loadKenney();T3=T3||await import('three');await Promise.all([kn,loadRider()]);
   if(gone())return;
   const T=T3,el=document.createElement('div');el.id='world';el.hidden=!view3d();document.body.appendChild(el);tok.el=el;
   const ren=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});tok.ren=ren;
