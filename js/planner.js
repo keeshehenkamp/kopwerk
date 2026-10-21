@@ -140,6 +140,16 @@ function fatigue(st,today){
   const ratio=acute/chronic;
   return {level:ratio>=1.5?2:ratio>=1.3?1:0,pct:Math.round((ratio-1)*100)};
 }
+/* Wat een gereden rit voor je lijf betekende: zwaar (telt als zware training), lang (telt als lange rit) of rustig.
+   Je gevoel beslist als je het invulde (7 of meer is zwaar, 4 of minder rustig); anders de intensiteit (IF),
+   de tijd boven je drempel en de belasting. Een buitenrit zonder vermogensmeter krijgt zijn IF uit hoe zwaar je hem opgaf. */
+function rideLoad(r,C){
+  const min=(r.dur||0)/60,z=r.zones||[],above=(z[3]||0)+(z[4]||0)+(z[5]||0)+(z[6]||0),IF=r.IF||0,long=min>=Math.max(100,C.longT*.8);
+  /* een lange rit heeft vanzelf een hoge belasting: daar telt de belasting alleen niet als 'zwaar' */
+  let hard=r.type==='ramptest'||IF>=((r.manual||r.noPower)?.8:.85)||above>=12*60||(!long&&(r.tss||0)>=Math.max(100,C.level*12));
+  if(r.rpe!=null&&r.type!=='ramptest'){if(r.rpe>=7)hard=true;else if(r.rpe<=4)hard=false}
+  return {min,hard,long};
+}
 /* ================= coach ================= */
 const r5=x=>Math.round(x/5)*5;
 const LONG_TYPES=['duurklim','duurtempo','duurheuvels'];
@@ -240,8 +250,9 @@ function planWeek(st,monday,today){
   const evDay=ctx.kind==='event'?days.find(d=>d.iso===ctx.evIso):null;
   if(evDay){evDay.event=st.event.name||'Evenement';evDay.minutes=0}
   /* dagen die voorbij zijn houden wat er toen gepland stond */
-  const tk=today?iso(today):null,plog=st.plog||{};
-  for(const d of days)if(tk&&(d.iso<tk||(d.iso===tk&&(st.missed||{})[tk]))&&plog[d.iso]&&!d.event&&!(st.started&&d.iso<st.started))d.logged=plog[d.iso];
+  const tk=today?iso(today):null,plog=st.plog||{},ridden=k=>rides.some(r=>!r.sim&&r.date===k);
+  /* vandaag al gereden: dan ligt vandaag ook vast */
+  for(const d of days)if(tk&&(d.iso<tk||(d.iso===tk&&((st.missed||{})[tk]||ridden(tk))))&&plog[d.iso]&&!d.event&&!(st.started&&d.iso<st.started))d.logged=plog[d.iso];
   const C=coachTargets(st,monday,ctx,fat);
   const lv=t=>lvlFor(st,t,C,ctx,fat);
   /* blokduur in de lange rit: zo lang als de klimmen van je evenement */
@@ -255,13 +266,27 @@ function planWeek(st,monday,today){
   for(const d of days)if(d.logged&&d.logged.t&&TYPES[d.logged.t]){
     d.wo=buildWorkout(d.logged.t,d.logged.m,d.logged.L||0,d.logged.v,{b:d.logged.b});d.T=d.wo.minutes;d.key=!!d.logged.k;d.long=!!d.logged.l;
   }
+  /* wat je deze week echt reed, gepland of niet: een zware of lange rit telt als zware dag (de dag erna wordt niet zwaar
+     en er gaat een zware training af), een rustige rit op een zware dag telt niet als die training (die komt later in de week terug),
+     en de gereden minuten gaan af van de rustige ritten */
+  for(const d of days){
+    if(!tk||d.iso>tk||d.event||(st.started&&d.iso<st.started))continue;
+    const rs=rides.filter(r=>!r.sim&&r.date===d.iso);if(!rs.length)continue;
+    const ls=rs.map(r=>rideLoad(r,C)),min=ls.reduce((a,x)=>a+x.min,0);
+    /* een zware training uit de app (de geplande of een andere) telt als zware dag, ook als je gevoel hem lichter vond */
+    const asPlan=rs.some(r=>d.logged&&r.type===d.logged.t),appHard=rs.some(r=>TYPES[r.type]&&TYPES[r.type].hard);
+    d.done={min,hard:ls.some(x=>x.hard)||appHard||(asPlan&&d.key),long:ls.some(x=>x.long)||min>=Math.max(100,C.longT*.8)||(asPlan&&d.long)};
+    d.logged=d.logged||{t:''};d.planKey=!!d.key;d.planLong=!!d.long;d.key=d.done.hard;d.long=d.done.long;
+    d.unplanned=d.done.hard&&!d.planKey||d.done.long&&!d.planLong;d.easier=d.planKey&&!d.done.hard;
+  }
+  const mins=d=>d.done?d.done.min:d.wo?d.wo.minutes:0;
   const forced=days.filter(d=>d.o.type&&!d.event&&!d.logged&&TYPES[d.o.type]);
   for(const d of forced){
     const t=d.o.type;d.T=d.minutes>=20?Math.min(d.minutes,lenFor(t)):lenFor(t);
     d.key=TYPES[t].hard&&t!=='ramptest';d.long=LONG_TYPES.includes(t);
     d.wo=buildWorkout(t,d.T,t==='ramptest'?0:L,lv(t),{b:blkFor(t)});
   }
-  forced.push(...days.filter(d=>d.logged&&d.wo));
+  forced.push(...days.filter(d=>d.logged&&(d.wo||d.done)));
   const free=days.filter(d=>!d.event&&!d.o.type&&!d.logged&&d.minutes>=20);
   if(evDay){
     /* week van het evenement: één korte prikkel vroeg in de week, activatie de dag ervoor, verder rustig */
@@ -276,7 +301,7 @@ function planWeek(st,monday,today){
   }else{
     /* je opgegeven tijd is een maximum: het aantal trainingsdagen volgt uit de uren die je echt hebt,
        ook als de coach meer zou willen, zodat elk kort gaatje niet wordt volgepropt */
-    const availH=(free.reduce((a,d)=>a+d.minutes,0)+forced.reduce((a,d)=>a+d.wo.minutes,0))/60,effH=Math.min(C.weekH,availH);
+    const availH=(free.reduce((a,d)=>a+d.minutes,0)+forced.reduce((a,d)=>a+mins(d),0))/60,effH=Math.min(C.weekH,availH);
     let nDays=effH<=3.5?3:effH<=5.5?4:effH<=8.5?5:6;
     if(rec)nDays=Math.min(nDays,4);
     /* twee zware trainingen per week; drie bij veel uren, of als er geen tijd is voor een lange rit en je dus alleen korte ritten hebt */
@@ -338,7 +363,7 @@ function planWeek(st,monday,today){
     const want=rec?[]:src.slice(0,H.length).map((b,k)=>{const t=pickType(st,prof,b,monday,k,used,peak);used.add(t);return t}).sort((x,y)=>(NEED[y]||2)-(NEED[x]||2));
     const types=new Map();[...H].sort((x,y)=>y.minutes-x.minutes).forEach((d,k)=>types.set(d,rec?'openers':want[k]));
     const need=[...H].reduce((a,d)=>a+Math.min(d.minutes,rec?60:keyLen(types.get(d))),0)+(Ld?Math.min(Ld.minutes,C.longT):0);
-    const budget=C.weekH*60-forced.reduce((a,d)=>a+d.wo.minutes,0),fit=need>budget?clamp(budget/need,.6,1):1;
+    const budget=C.weekH*60-forced.reduce((a,d)=>a+mins(d),0),fit=need>budget?clamp(budget/need,.6,1):1;
     for(const d of H){
       const t=types.get(d);
       d.T=Math.min(d.minutes,Math.max(45,r5((rec?60:keyLen(t))*fit)));d.wo=buildWorkout(t,d.T,L,lv(t));d.key=!rec;
@@ -358,7 +383,7 @@ function planWeek(st,monday,today){
       const lt=(ctx.kind==='build'||ctx.kind==='peak')&&Ld.T>=75?prof.long:'duur';
       Ld.wo=buildWorkout(lt,Ld.T,L,undefined,{b:blkFor(lt)});
     }
-    let left=C.weekH*60-[...forced,...H].concat(Ld?[Ld]:[]).reduce((a,d)=>a+d.wo.minutes,0);
+    let left=C.weekH*60-[...forced,...H].concat(Ld?[Ld]:[]).reduce((a,d)=>a+mins(d),0);
     E=E.slice().sort((a,b)=>a.minutes-b.minutes);
     while(E.length&&left/E.length<40)E.shift();
     E.sort((a,b)=>Math.min(a.minutes,C.easyCap)-Math.min(b.minutes,C.easyCap));let soup=false;
@@ -400,7 +425,7 @@ function planWeek(st,monday,today){
 function logPlan(plan,today){
   const tk=iso(today),log=state.plog||(state.plog={}),cut=iso(addDays(today,-120));let ch=false;
   for(const d of plan.days){
-    if(d.iso>tk||d.event||(d.iso<tk&&log[d.iso])||(d.iso===tk&&(state.missed||{})[tk]&&log[tk]))continue;
+    if(d.iso>tk||d.event||(d.iso<tk&&log[d.iso])||(d.iso===tk&&((state.missed||{})[tk]||d.done)&&log[tk]))continue;
     const e=d.wo?{t:d.wo.type,m:d.wo.minutes,L:d.wo.L}:{t:''};if(d.wo&&d.wo.lvl)e.v=d.wo.lvl;if(d.wo&&d.wo.b)e.b=d.wo.b;if(d.wo&&d.key)e.k=1;if(d.wo&&d.long)e.l=1;
     if(JSON.stringify(log[d.iso])!==JSON.stringify(e)){log[d.iso]=e;ch=true}
   }

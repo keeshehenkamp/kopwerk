@@ -140,7 +140,7 @@ const actions={
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>iso(new Date()))return toast('Kies een datum van vandaag of eerder.');
     if(min<10)return toast('Vul een duur van minstens 10 minuten in.');
     const ftp=state.profile.ftp,IF=pw?clamp(pw*1.05/ftp,.3,1.3):EFFORT[+g('a-eff').value][0],ts=parseISO(date).getTime()+12*36e5;
-    const ride={id:'m'+Date.now().toString(36),date,ts,name:'Buitenrit',type:'buiten',manual:true,planned:min*60,ftp,sim:false,rpe:null,adj:true,laps:[],
+    const ride={id:'m'+Date.now().toString(36),date,ts,name:'Buitenrit',type:'buiten',manual:true,planned:min*60,ftp,sim:false,rpe:[3,5,7,9][+g('a-eff').value]||null,adj:true,laps:[],
       dur:min*60,avgP:pw,np:pw?Math.round(pw*1.05):0,IF:+IF.toFixed(2),tss:Math.round(min/60*IF*IF*100),kj:pw?Math.round(pw*min*60/1000):0,avgHr:0,maxHr:0,avgCad:0,zones:[0,0,0,0,0,0,0],best:{},score:null,decoup:null};
     state.rides.push(ride);save();ui.modal=null;render();toast(`Buitenrit toegevoegd: ${ride.tss} TSS.`);
   },

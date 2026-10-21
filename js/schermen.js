@@ -195,7 +195,14 @@ function whyHTML(plan){
   return `<details class="why"><summary>Waarom dit schema?</summary><div class="stack" style="margin-top:10px;max-width:80ch">
       <p class="small muted">${phaseTxt}</p>
       <p class="small"><b style="font-weight:600">${esc(prof===goal?'Doel: '+goal.name.replace(/^[A-Z](?=[a-z])/,c=>c.toLowerCase()):prof.name)}.</b> <span class="muted">${esc(prof.plan)}</span></p>
-      <p class="small muted">${basis}${ruimte}${pfTxt}</p>${chkTxt}${adj}</div></details>`;
+      <p class="small muted">${basis}${ruimte}${pfTxt}</p>${rodeHTML(plan)}${chkTxt}${adj}</div></details>`;
+}
+/* aangepast aan wat je echt reed: zwaarder of rustiger dan gepland */
+function rodeHTML(plan){
+  const a=plan.days.filter(d=>d.unplanned||d.easier).map(d=>`${DAYS_L[d.i]} ${d.easier?(d.done.long?'een lange rit in plaats van de zware training':'rustiger dan gepland'):d.done.hard?'een zware rit':'een lange rit'}`);
+  if(!a.length)return '';
+  const any=plan.days.some(d=>d.easier);
+  return `<p class="small"><b style="font-weight:600">Aangepast aan wat je reed:</b> <span class="muted">${a.join(', ')}. ${plan.days.some(d=>d.unplanned)?'De dag erna is rustig en er gaat een zware training af.':''}${any?' De zware training die je niet deed, komt later in de week terug als daar ruimte voor is.':''}</span></p>`;
 }
 /* de week: fase, voortgang, de dagen en je tijd per dag; met pijlen naar andere weken */
 function weekCard(today){
@@ -349,7 +356,7 @@ function addModal(){
       <div class="form">
         <div><label class="f" for="a-date">Datum</label><input type="date" id="a-date" value="${t}" max="${t}"></div>
         <div><label class="f" for="a-min">Duur in minuten</label><input type="number" id="a-min" min="10" max="900" value="90" style="width:120px"></div>
-        <div><label class="f" for="a-eff">Zwaarte</label>${sel('id="a-eff"',EFFORT.map((e,i)=>[i,e[1]]),1)}</div>
+        <div><label class="f" for="a-eff">Hoe zwaar voelde het?</label>${sel('id="a-eff"',EFFORT.map((e,i)=>[i,e[1]]),1)}</div>
         <div><label class="f" for="a-pw">Gemiddeld vermogen</label><input type="number" id="a-pw" min="0" max="600" placeholder="optioneel" style="width:120px"></div>
       </div>
       <div><button class="btn pri" data-act="saveManual">Rit toevoegen</button></div></div>
