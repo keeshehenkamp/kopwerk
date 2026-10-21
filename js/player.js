@@ -166,7 +166,7 @@ function playerHTML(){
   const polys=w.segs.map(s=>{const x0=x/P.total*1000,x1=(x+s.d)/P.total*1000;x+=s.d;const y0=100-s.a/P.maxI*100,y1=100-s.b/P.maxI*100;
     return `<polygon${x1-x0<8?' class="n"':''} points="${x0.toFixed(1)},100 ${x0.toFixed(1)},${y0.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},100" fill="var(--z${zoneOf((s.a+s.b)/2)})"/>`}).join('');
   const tr=ble.on?`<span class="dotst on"></span>${esc(ble.name)}`:`<span class="dotst"></span>Geen trainer gekoppeld`;
-  const hr=ble.hrOn?`<span class="dotst on"></span>${esc(ble.hrName)}`:'';
+  const hr=ble.hrOn?`<span class="dotst on"></span>${esc(ble.hrName)}`:ble.hrBusy?`<span class="dotst"></span>${esc(ble.hrName)} verbinden…`:'';
   const status=P.sim?'<span class="badge">Demo zonder trainer</span>':`<span class="small muted">${tr}${hr?' &nbsp; '+hr:''}</span>`;
   /* voor de start: weergave, route, vrij/samen rijden, trainer koppelen en starten */
   const viewSeg=`<div class="seg" role="group" aria-label="Weergave"><button class="btn small" data-act="view" data-v="3d" aria-pressed="${v3}">3D-wereld</button><button class="btn small" data-act="view" data-v="cijfers" aria-pressed="${!v3}">Alleen cijfers</button></div>`;

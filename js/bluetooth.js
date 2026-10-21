@@ -1,7 +1,7 @@
 'use strict';
 /* ================= bluetooth ================= */
 const live={power:null,cad:null,hr:null,tP:0,tH:0,hist:[]};
-const ble={dev:null,cp:null,queue:Promise.resolve(),name:'',on:false,hrDev:null,hrName:'',hrOn:false,hrBusy:false,crank:null,busy:false};
+const ble={dev:null,cp:null,queue:Promise.resolve(),name:'',on:false,hrDev:null,hrName:'',hrOn:false,hrBusy:false,hrTry:0,crank:null,busy:false};
 const now=()=>performance.now();
 const NO_BLE='Deze browser ondersteunt geen Bluetooth. Open Kopwerk in Chrome of Edge op je laptop.';
 /* rijden kan alleen met Web Bluetooth; op een telefoon of tablet zonder Bluetooth tonen we geen startknoppen */
@@ -103,38 +103,53 @@ async function onTrainerLost(){
 }
 /* hartslagmeting (0x2a37): bit 0 van de vlaggen zegt of de waarde 1 of 2 bytes is; 0 betekent geen contact */
 function onHr(e){try{const v=e.target.value,f=v.getUint8(0),h=f&1?v.getUint16(1,true):v.getUint8(1);if(h>0){live.hr=h;live.tH=now()}}catch(_){}}
-async function setupHr(dev){
-  const s=await dev.gatt.connect();
-  const c=await(await s.getPrimaryService(0x180d)).getCharacteristic(0x2a37);
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+/* een Bluetooth-stap die blijft hangen (meter bezet of buiten bereik) na een tijd opgeven, anders zit koppelen voorgoed vast */
+const inTime=(p,ms)=>Promise.race([p,wait(ms).then(()=>{throw new Error('timeout')})]);
+/* elke koppelpoging krijgt een nummer: een oudere poging (of het automatisch opnieuw verbinden) stopt zodra er een nieuwe is */
+async function setupHr(dev,n){
+  const s=await inTime(dev.gatt.connect(),12000);
+  if(n!==ble.hrTry)return false;
+  const c=await inTime((async()=>(await s.getPrimaryService(0x180d)).getCharacteristic(0x2a37))(),8000);
   /* eerst luisteren, dan starten: anders kunnen de eerste metingen verloren gaan */
-  c.addEventListener('characteristicvaluechanged',onHr);
-  await c.startNotifications();
-  ble.hrOn=true;
+  c.removeEventListener('characteristicvaluechanged',onHr);c.addEventListener('characteristicvaluechanged',onHr);
+  await inTime(c.startNotifications(),8000);
+  if(n!==ble.hrTry)return false;
+  ble.hrOn=true;return true;
+}
+/* een borstband weigert de eerste verbinding vaak: na een mislukte poging nog twee keer proberen */
+async function setupHrRetry(dev,n){
+  for(let k=0;k<3;k++){
+    try{return await setupHr(dev,n)}catch(e){if(k===2||n!==ble.hrTry)throw e;try{dev.gatt.disconnect()}catch(_){}await wait(1000)}
+  }
 }
 async function connectHr(){
   if(!navigator.bluetooth){ui.bleMsg=NO_BLE;return renderPlayer()}
-  if(ble.hrBusy)return;ble.hrBusy=true;ui.bleMsg='';
-  try{
-    const dev=await navigator.bluetooth.requestDevice({filters:[{services:[0x180d]}]});
-    if(ble.hrDev&&ble.hrDev!==dev){ble.hrDev.removeEventListener('gattserverdisconnected',onHrLost);try{ble.hrDev.gatt.disconnect()}catch(_){}}
-    ble.hrDev=dev;ble.hrName=dev.name||'Hartslagmeter';
-    dev.removeEventListener('gattserverdisconnected',onHrLost);dev.addEventListener('gattserverdisconnected',onHrLost);
-    await setupHr(dev);
-  }catch(e){
-    ui.bleMsg=e&&e.name==='NotFoundError'?'':e&&(e.name==='SecurityError'||e.name==='NotAllowedError')?bleError(e):
-      'Koppelen van de hartslagmeter is niet gelukt. Controleer of hij aan staat (een borstband even vochtig maken en omdoen) en niet met een andere app, horloge of fietscomputer verbonden is.';
+  ui.bleMsg='';
+  let dev;
+  try{dev=await navigator.bluetooth.requestDevice({filters:[{services:[0x180d]}]})}
+  catch(e){ui.bleMsg=e&&e.name==='NotFoundError'?'':bleError(e);return renderPlayer()}
+  const n=++ble.hrTry;
+  if(ble.hrDev&&ble.hrDev!==dev){ble.hrDev.removeEventListener('gattserverdisconnected',onHrLost);try{ble.hrDev.gatt.disconnect()}catch(_){}}
+  ble.hrDev=dev;ble.hrName=dev.name||'Hartslagmeter';ble.hrOn=false;
+  dev.removeEventListener('gattserverdisconnected',onHrLost);dev.addEventListener('gattserverdisconnected',onHrLost);
+  ble.hrBusy=true;renderPlayer();
+  try{await setupHrRetry(dev,n)}
+  catch(e){
+    if(n===ble.hrTry){try{dev.gatt.disconnect()}catch(_){}
+      ui.bleMsg='Koppelen van de hartslagmeter is niet gelukt. Controleer of hij aan staat (een borstband even vochtig maken en omdoen) en niet met een andere app, horloge of fietscomputer verbonden is, en probeer het opnieuw.'}
   }
-  ble.hrBusy=false;renderPlayer();
+  if(n===ble.hrTry){ble.hrBusy=false;renderPlayer()}
 }
 /* verbinding met de hartslagmeter weg (borstband valt vaak even weg): een paar minuten lang zelf opnieuw verbinden */
 async function onHrLost(){
   if(!ble.hrOn)return;
   ble.hrOn=false;renderPlayer();
-  const dev=ble.hrDev;
-  for(let i=0;i<30&&ble.hrDev===dev&&!ble.hrOn;i++){
-    await new Promise(r=>setTimeout(r,i<5?2000:5000));
-    if(ble.hrDev!==dev||ble.hrOn)break;
-    try{await setupHr(dev);toast('Hartslagmeter opnieuw verbonden.')}catch(e){}
+  const dev=ble.hrDev,n=++ble.hrTry;
+  for(let i=0;i<30&&n===ble.hrTry&&!ble.hrOn;i++){
+    await wait(i<5?2000:5000);
+    if(n!==ble.hrTry||ble.hrOn)break;
+    try{if(await setupHr(dev,n))toast('Hartslagmeter opnieuw verbonden.')}catch(e){}
   }
   renderPlayer();
 }
