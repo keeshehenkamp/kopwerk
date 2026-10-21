@@ -200,6 +200,7 @@ function playerHTML(){
       </div>
       <div class="row">
         ${P.auto?'<span class="badge">Gepauzeerd: begin met trappen</span>':''}
+        ${navigator.bluetooth&&!P.sim&&!ble.hrOn?'<button class="btn" data-act="connectHr">Hartslagmeter koppelen</button>':''}
         <button class="btn pri big" data-act="pause">${pause?'Verder':'Pauze'}</button>
         ${P.free?'':`<button class="btn" data-act="repeat" id="p-repeat" hidden>Blok herhalen</button><button class="btn" data-act="skip">Volgend blok</button><button class="btn" data-act="extend">+5 min uitrijden</button>`}
         <button class="btn warn" data-act="stop">${P.stopArm?'Klik nog eens om te stoppen':'Stoppen en opslaan'}</button>
@@ -208,7 +209,8 @@ function playerHTML(){
   const load=v3?'<div class="pload" id="p-load" hidden><span>Wereld laden</span><b><i></i></b></div><div class="pprof"><canvas id="p-prof" width="360" height="84"></canvas><span id="p-proft"></span></div><div class="pcd" id="p-cd" hidden></div>':'';
   if(v3)return `<div class="player w3${P.vrij?' vrij':''}${ready?' start':''}">
     <div class="zpow"><i class="zband" id="p-zone"></i><div class="zp1"><b id="p-power">–</b><i>W</i></div>
-      <div class="zp2"><span><b id="p-cad">–</b><i>rpm</i></span><span><b id="p-hr">–</b><i>bpm</i></span></div>
+      <div class="zhr"><span aria-hidden="true">♥</span><b id="p-hr">–</b><i>bpm</i></div>
+      <div class="zp2"><span><b id="p-cad">–</b><i>rpm</i></span></div>
       <div class="zgauge" aria-hidden="true"><span class="ok"></span><span class="mid"></span><span class="dot" id="p-dot"></span></div><span id="p-cadl" hidden></span></div>
     <div class="zbar"><div class="zb1"><span><b id="p-spd">0</b><i>km/u</i></span><span><b id="p-km">0,0</b><i>km</i></span><span><b id="p-hm">0</b><i>m</i></span><span><b id="p-elapsed">0:00</b><i>${P.vrij?'':`/ ${clock(P.total)}${P.free?' +':''}`}</i></span></div>
       <div class="zprog"><i id="p-prog"></i></div>
