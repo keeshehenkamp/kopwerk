@@ -294,6 +294,8 @@ document.addEventListener('change',e=>{
   const id=e.target.id||'';
   /* evenement, afstand, datum en niveau veranderen wat er in het formulier staat (afstanden, haalbaarheid): opnieuw opbouwen */
   if(/^s-(evid|evv|evd|niv)$/.test(id)){
+    /* de datum pas verwerken als je het veld verlaat (zie focusout hieronder) */
+    if(id==='s-evd')return;
     if(id==='s-evid'&&ui.draft)delete ui.draft['s-evv'];
     if(state.setup&&ui.view==='profiel')actions.saveSettings(null,null,null,true);
     return render();
@@ -301,6 +303,15 @@ document.addEventListener('change',e=>{
   if(state.setup&&ui.view==='profiel'&&/^s-(goal|ftp|w|mhr|snd|evn|evk|evkm)$/.test(id))return actions.saveSettings(null,null,null,true);
   const el=e.target.closest('[data-chg]');if(!el)return;
   const a=actions[el.dataset.chg];if(a)a(el.dataset,el,e);
+});
+/* datum van je evenement: tijdens het typen is elke tussenstap al een 'geldige' datum (jaar 0002, 0020, 0202).
+   Opnieuw opbouwen bij elke stap haalt het veld onder je vingers weg; daarom pas als je het veld verlaat,
+   en alleen met een heel jaartal. Bij het instellen bewaart ui.draft de datum tot je opslaat. */
+document.addEventListener('focusout',e=>{
+  if(e.target.id!=='s-evd'||!state.setup||ui.view!=='profiel')return;
+  const v=e.target.value;
+  if((v&&+v.slice(0,4)<2000)||v===((state.event&&state.event.date)||''))return;
+  actions.saveSettings(null,null,null,true);render();
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&!P){if(ui.modal){ui.modal=null;render()}else if(ui.view==='training')actions.back()}

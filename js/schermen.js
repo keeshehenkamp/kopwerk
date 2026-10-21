@@ -83,7 +83,7 @@ function settingsForm(first){
         <div class="wide"><label class="f" for="s-evid">Evenement</label><select id="s-evid">${opts}</select></div>
         ${E&&E.v.length>1?`<div><label class="f" for="s-evv">Afstand</label>${sel('id="s-evv"',E.v.map((x,i)=>[i,evVarTxt(x)]),cur.v)}</div>`:''}
         ${cur.id==='eigen'?`<div><label class="f" for="s-evn">Naam</label><input type="text" id="s-evn" maxlength="40" value="${esc(ev.id?'':ev.name||'')}" placeholder="optioneel" style="width:100%"></div>`:''}
-        ${cur.id?`<div><label class="f" for="s-evd">Datum</label><input type="date" id="s-evd" value="${ev.date||''}"></div>`:''}
+        ${cur.id?`<div><label class="f" for="s-evd">Datum</label><input type="date" id="s-evd" value="${cur.date||''}" min="2000-01-01" max="2099-12-31"></div>`:''}
         ${cur.id==='eigen'?`<div><label class="f" for="s-evk">Soort</label>${sel('id="s-evk"',EVENT_KINDS,ev.id?'':ev.kind||'')}</div>
         <div><label class="f" for="s-evkm">Afstand in km</label><input type="number" id="s-evkm" min="20" max="400" value="${ev.id?'':ev.km||''}" placeholder="optioneel" style="width:120px"></div>`:''}
       </div>
