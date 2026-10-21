@@ -271,9 +271,14 @@ const actions={
   samenLeave(){samenStop()},
   samenCopy(){samenCopy()},
   samenGo(){samenGo()},
-  pause(){if(!P)return;if(P.mode==='run')P.mode='pause';else if(P.mode==='pause'){P.mode='run';P.last=now();P.sent=-1}P.stopArm=false;renderPlayer()},
+  pause(){if(!P||P.end)return;if(P.mode==='run')P.mode='pause';else if(P.mode==='pause'){P.mode='run';P.last=now();P.sent=-1}P.stopArm=false;renderPlayer()},
   skip(){if(!P||P.mode==='ready')return;const i=segAt(P.pos);if(i>=P.wo.segs.length-1)return finishRide();P.pos=P.starts[i+1];P.sent=-1;paintPlayer()},
-  stop(){if(!P)return;if(!P.stopArm){P.stopArm=true;return renderPlayer()}finishRide()},
+  stop(){if(!P)return;endRide('stop')},
+  /* eindscherm: cijfer voor het gevoel, opslaan (met dat cijfer) of toch doorrijden */
+  endRpe(d){if(!P||!P.end)return;P.end.rpe=P.end.rpe===+d.n?null:+d.n;renderPlayer()},
+  async endSave(){if(!P||!P.end)return;const n=P.end.rpe,sim=P.sim;await finishRide();if(n&&!sim&&ui.view==='ride')actions.rpe({n})},
+  endResume(){if(!P||!P.end)return;const e=P.end;P.end=null;P.endDone=P.endDone||e.why==='finish';
+    if(e.why==='finish'&&!P.free)enterFree();P.mode='run';P.last=now();P.sent=-1;if(P.free&&ble.cp&&!P.sim)setGrade(P.grade);renderPlayer()},
   hintLower(){if(!P||!P.hint)return;(P.hintOff=P.hintOff||{})[P.hint.i]=true;P.hint=null;actions.bias({d:-.05})},
   hintOk(){if(!P||!P.hint)return;(P.hintOff=P.hintOff||{})[P.hint.i]=true;P.hint=null;paintPlayer()},
   bias(d){if(!P)return;P.bias=clamp(Math.round((P.bias+(+d.d))*100)/100,.5,1.5);P.sent=-1;renderPlayer()},

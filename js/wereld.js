@@ -563,6 +563,45 @@ function makeBanner(v){
   if(!W.ban[key])W.ban[key]=canvasTex(512,96,(c,w,h)=>{c.fillStyle=v?'#FF6A2B':'#1d4f9c';c.fillRect(0,0,w,h);c.fillStyle='#fff';c.font='800 54px Inter, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(v?'KOPWERK':'GA ERVOOR!',w/2,h/2+3)});
   W.banM=W.banM||{};W.banM[key]=W.banM[key]||new T.MeshBasicMaterial({map:W.ban[key],side:T.DoubleSide});W.banG=W.banG||new T.PlaneGeometry(2.48,.85);const m=new T.Mesh(W.banG,W.banM[key]);m.position.y=.62;m.userData.shared=true;const g=new T.Group();g.add(m);return g;
 }
+/* ---------- finish aan het eind van een training ----------
+   Ruim een halve minuut voor het einde komt de finish op de plek waar je naar verwachting bent als de tijd om is:
+   boog, dranghekken met publiek en spandoeken, als losse groep (de kilometers om je heen zijn dan al gebouwd).
+   Over de streep = einde van de rit; is de tijd eerder om, dan rijd je nog even door naar de streep. */
+const finishOn=()=>!!(P&&W&&W.C&&W.ready&&v3now()&&!P.vrij&&P.wo.type!=='demo'&&!P.endDone);
+const finishAhead=()=>finishOn()&&!(W.fin&&W.fin.hit);
+const finishLeft=()=>W&&W.fin&&W.fin.P===P&&!W.fin.hit?Math.max(0,Math.round((W.fin.d-W.dist)/10)*10):null;
+function finishDrop(){const F=W&&W.fin;if(!F)return;W.fin=null;if(F.g){W.root.remove(F.g);F.g.traverse(o=>{if(o.geometry&&!o.userData.shared)o.geometry.dispose()})}}
+function makeFinish(C,dF){
+  const T=T3,g=new T.Group(),lists={},put=(k,x,y,z,s,ry,col)=>(lists[k]=lists[k]||[]).push([x,y,z,s,ry,col]);
+  let sd=Math.floor(dF)%9973+7;const r=()=>(sd=sd*16807%2147483647)/2147483647;
+  /* hoogte naast de weg: op een ontworpen route uit het hoogteveld, anders uit het landschap */
+  const at=(dd,off)=>{const q=roadAt(C,dd),x=q.x+Math.cos(q.h)*off,z=q.z+Math.sin(q.h)*off;let y;
+    if(C.designed&&C.T){const hw=C.hwAt?C.hwAt(dd):3.5,ao=Math.abs(off);y=ao<=hw+.3?q.y-.1:(t=>q.y-.12+(C.T.h(x,z)-q.y+.12)*t*t*(3-2*t))(clamp((ao-hw-.3)/3.4,0,1))}
+    else y=landH(C,dd,off,landMix(C,dd),q.y);return [x,y,z,q]};
+  const face=(h,s)=>s>0?Math.atan2(-Math.cos(h),-Math.sin(h)):Math.atan2(Math.cos(h),Math.sin(h));
+  const hek=dd=>C.designed&&C.hwAt?C.hwAt(dd)+1.3:4.95;
+  for(let dd=dF-100;dd<dF+30;dd+=2.5)for(const side of[-1,1]){const o=hek(dd),[x,y,z,q]=at(dd,side*o);put('dranghek',x,y,z,1,-q.h);
+    for(let row=0;row<3;row++){if(r()<.25)continue;const [px,py,pz,q2]=at(dd+r()*2,side*(o+.65+row*.9+r()*.3)),ry=face(q2.h,side)+(r()-.5)*.6,col=new T.Color().setHSL(r(),.6,.35+r()*.3),sc=.88+r()*.2;
+      const u=r();put(u<.45?'mens':u<.8?'mens2':'mens3',px,py,pz,sc,ry,col);if(r()<.12)put('vlag',px,py,pz,sc,ry,new T.Color().setHSL(r(),.8,.5))}}
+  for(const k in lists)g.add(instMesh(k,lists[k]));
+  for(let dd=dF-98.75;dd<dF+30;dd+=2.5)for(const side of[-1,1]){const o=hek(dd)-.03,sp=makeBanner(Math.floor(dd/7.5+(side>0?1:0))%2),[x,y,z,q]=at(dd,side*o);
+    sp.position.set(x,y,z);sp.rotation.y=-q.h+(side>0?-Math.PI/2:Math.PI/2);g.add(sp)}
+  const ar=makeArch('#20242c','FINISH',true),q=roadAt(C,dF);ar.position.set(q.x,q.y,q.z);ar.rotation.y=-q.h;g.add(ar);
+  return g;
+}
+function finishWatch(C,d){
+  if(W.fin&&W.fin.P!==P)finishDrop();
+  if(!finishOn()||P.end)return;
+  const left=P.free?0:P.total-P.pos,v=Math.max(2.5,W.v||0)*(P.sim?P.speed:1),F=W.fin;
+  if(F){
+    /* uitrijden verlengd of een blok herhaald: deze finish ligt te vroeg */
+    if(!P.free&&left*v>F.d-d+250){finishDrop();return}
+    if(!F.hit&&d>=F.d){F.hit=true;endRide('finish')}
+    return;
+  }
+  /* de laatste halve minuut, of de tijd is al om (blok overgeslagen): de finish komt vóór je */
+  if(P.mode==='run'&&(P.free||left<=30)){const dF=d+Math.max(90,left*v);W.fin={P,d:dF,hit:false,g:makeFinish(C,dF)};W.root.add(W.fin.g)}
+}
 /* bordje bij een haarspeldbocht */
 function makeVirage(n,alt){
   const T=T3,g=new T.Group(),post=new T.Mesh(new T.CylinderGeometry(.05,.05,2.3,6),new T.MeshLambertMaterial({color:'#9aa0a6'}));post.position.y=1.15;g.add(post);
@@ -938,7 +977,7 @@ function clipOff(C,d,p,off){
 function worldBuild(){
   const T=T3;
   if(W.root){for(const ci of [...W.chunks.keys()])dropChunk(ci);W.root.traverse(o=>{if(o.geometry&&!o.userData.shared)o.geometry.dispose();if(o.material)[].concat(o.material).forEach(m=>{if(m.map&&m.map!==W.tex.asf&&m.map!==W.tex.gras)m.map.dispose();m.dispose()})});W.scene.remove(W.root)}
-  W.jobs=new Map();const C=buildCourse(),root=new T.Group();roadHash(C);C.finish=-1e9;W.C=C;decorFor(C);W.root=root;W.mills=[];W.chunks=new Map();W.dist=12;W.v=0;W.lastD=0;
+  W.jobs=new Map();W.fin=null;const C=buildCourse(),root=new T.Group();roadHash(C);C.finish=-1e9;W.C=C;decorFor(C);W.root=root;W.mills=[];W.chunks=new Map();W.dist=12;W.v=0;W.lastD=0;
   if(!W.mat){const tree=new T.MeshPhongMaterial({vertexColors:true,shininess:12,specular:'#1a1a1a'});
     const crowd=new T.MeshLambertMaterial({vertexColors:true});
     const tintPart=v=>'attribute float pat;\n'+v.replace('#include <color_vertex>','vColor=vec3(1.);\n#ifdef USE_COLOR\nvColor*=color;\n#endif\n#ifdef USE_INSTANCING_COLOR\nvColor.xyz*=mix(vec3(1.),instanceColor.xyz,pat);\n#endif');
@@ -1454,6 +1493,7 @@ function worldStep(t){
     n.d+=run?step+W.vs*(n.f-1)*dt:0;
     lane(n.R,n.d,n.off,run?n.cad:0,W.vs*n.f,run&&slope(n.d)>8&&n.f>1);
   }
+  finishWatch(C,d);
   /* camera achter de fietser */
   const CB=4.6,ahead=roadAt(C,d+20),back=d>=CB?roadAt(C,d-CB):(q=>({x:q.x-Math.sin(q.h)*(CB-d),y:q.y,z:q.z+Math.cos(q.h)*(CB-d),h:q.h}))(roadAt(C,0));
   const cp=new T.Vector3(back.x+Math.cos(back.h)*1.35,Math.max(back.y,p.y)+1.95+(run?Math.sin(t/260)*.025:0),back.z+Math.sin(back.h)*.6);
@@ -1462,6 +1502,13 @@ function worldStep(t){
   {const tx=ahead.x+Math.cos(ahead.h)*.5,ty=ahead.y+1.1,tz=ahead.z+Math.sin(ahead.h)*.5,L=W.lookP;
     if(!L||Math.hypot(L.x-tx,L.z-tz)>60)W.lookP=new T.Vector3(tx,ty,tz);else{const f=Math.min(1,dt*3.2*tS);L.x+=(tx-L.x)*f;L.y+=(ty-L.y)*f;L.z+=(tz-L.z)*f}}
   W.cam.position.copy(W.camP);W.cam.lookAt(W.lookP);
+  /* na de finish (of stoppen): de camera draait rustig om je fietser heen terwijl hij uitrolt */
+  /* hij draait naar de wegkant zonder publiek (het midden van de weg), en het beeld schuift zodat de fietser naast het eindscherm staat */
+  if(P.end&&!startView()){const E=W.endCam||(W.endCam={a:0}),m=W.me.g.position,q=roadAt(C,d);E.a=Math.min(2.5,E.a+dt*.5*(1-E.a/2.7));
+    const a=q.h+Math.PI+E.a,R=4.2,hy=1.95-E.a*.14;W.cam.position.set(m.x+Math.sin(a)*R,m.y+hy,m.z-Math.cos(a)*R);W.cam.lookAt(m.x,m.y+.9,m.z);
+    if(now()-(W.offT||0)>300){W.offT=now();const pn=document.querySelector('.zend'),r=pn&&pn.getBoundingClientRect(),vw=innerWidth,vh=innerHeight;
+      W.off=!r||!r.width?null:vw>760?[Math.round((vw-r.left)/2),0]:[0,Math.round((vh-r.top)/2)]}}
+  else if(W.endCam)W.endCam=null;
   /* startscherm: de camera draait om je fietser (slepen = draaien, scrollen = dichterbij). Het beeld schuift opzij,
      zodat de fietser midden in het vrije deel staat en niet achter het paneel. */
   if(startView()){const O=W.orb||(W.orb={yaw:.7,pitch:.14,dist:innerWidth<innerHeight?4.4:3.3}),q=roadAt(C,d),a=q.h+O.yaw,m=W.me.g.position,cp=Math.cos(O.pitch)*O.dist;
@@ -1469,7 +1516,7 @@ function worldStep(t){
     if(now()-(W.offT||0)>300){W.offT=now();const pn=document.querySelector('.zstart'),r=pn&&pn.getBoundingClientRect(),vw=innerWidth,vh=innerHeight;
       W.off=!r||!r.width?null:vw>760?[-Math.round(r.right/2),0]:[0,Math.round((vh-r.top)/2)]}
   }
-  {const w=innerWidth,h=innerHeight,o=startView()&&W.off||[0,Math.round(h*(w<h?.04:.02))],v=W.cam.view;
+  {const w=innerWidth,h=innerHeight,o=(startView()||P.end)&&W.off||[0,Math.round(h*(w<h?.04:.02))],v=W.cam.view;
     if(!v||v.offsetX!==o[0]||v.offsetY!==o[1]||v.fullWidth!==w||v.fullHeight!==h)W.cam.setViewOffset(w,h,o[0],o[1],w,h)}
   /* zon, lucht en verre bergen reizen mee */
   const md=W.mood.dir,sp=W.lite?p:roadAt(C,d+16);W.sun.position.set(sp.x+md[0],sp.y+md[1],sp.z+md[2]);W.wind.value=t/1000;

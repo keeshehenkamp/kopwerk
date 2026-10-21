@@ -536,3 +536,20 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
   .zstart .zsh h2{font-size:18px}.zstart .zsfoot{gap:8px}.zstart .zsfoot .btn{padding:7px 10px;font-size:14px}.zstart .zsfoot .btn.big{padding:8px 16px}
   .w3 .zorbit{top:12px;bottom:auto;right:12px}
 }
+/* einde van de rit: cijfers, gevoel en opslaan (in 3D rechts naast de uitrollende fietser, anders midden in beeld) */
+.zend{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:30;width:min(420px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;gap:16px}
+.zend h2{margin:0 0 2px;font-size:22px}
+.zendst{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
+.zendst span{display:block;font-size:13px;color:var(--muted)}.zendst b{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.zend .rpe button{height:36px;font-size:15px}
+.zendbt{justify-content:flex-end;gap:8px}
+.w3 .zend{position:absolute;left:auto;right:16px;transform:translateY(-50%);background:rgba(16,20,28,.94);color:#fff}
+.w3 .zend .rpe button{background:rgba(255,255,255,.06);color:#fff;border-color:rgba(255,255,255,.18)}.w3 .zend .rpe button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc)}
+.w3 .zend .zendst span,.w3 .zend .rpel,.w3 .zend .muted{color:rgba(255,255,255,.65)}
+.w3.end .zpow,.w3.end .zlist,.w3.end .zside,.w3.end .pprof,.w3.end .zchart,.w3.end .phint,.w3.end .zctl{display:none}
+.player.end:not(.w3) .pctl{visibility:hidden}
+.ctlico{display:inline-flex;align-items:center;color:inherit;opacity:.8}
+.pctl .btn.icon svg{display:block}.pctl .btn.icon.big{padding:10px 16px}
+@media (max-width:760px){.w3 .zend{left:8px;right:8px;top:auto;bottom:8px;transform:none;width:auto;max-height:70vh}}
+.player.end:not(.w3)::after{content:'';position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:29}
+.pctl [hidden]{display:none!important}
