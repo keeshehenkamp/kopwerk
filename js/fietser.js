@@ -97,9 +97,10 @@ function makeRider(k,ghost){
 function poseRider(R,dt,cad,spd,stand){
   R.stand+=((stand?1:0)-R.stand)*Math.min(1,dt*3);const st=R.stand;R.t+=dt;
   R.a+=cad/60*Math.PI*2*dt;const rot=spd*dt/.34;R.wr.rotation.x-=rot;R.wf.rotation.x-=rot;
-  /* moment in de animatie = stand van de crank (0 = rechterpedaal vooruit) */
+  /* moment in de animatie = stand van de crank (0 = rechterpedaal vooruit). Eén omwenteling is precies 24 beelden = 1 s;
+     niet de duur van de clip gebruiken: 'zit' loopt één beeld door in de overgang naar staan, dat gaf een hapering per omwenteling */
   const f=((R.a/(Math.PI*2))%1+1)%1;
-  R.zit.time=f*R.zit.getClip().duration;R.staan.time=f*R.staan.getClip().duration;
+  R.zit.time=f;R.staan.time=f;
   R.zit.setEffectiveWeight(1-st);R.staan.setEffectiveWeight(st);R.mixer.update(0);
   R.g.rotation.z+=Math.sin(R.a)*st*.1;
 }
