@@ -10,7 +10,7 @@ function openPlayer(wo){
   const starts=[];let t=0;for(const s of wo.segs){starts.push(t);t+=s.d}
   const maxI=Math.max(1.3,...wo.segs.map(s=>Math.max(s.a,s.b)))*1.08;
   wo=Object.assign({},wo,{segs:wo.segs.map(s=>Object.assign({},s))});
-  P={wo,planned:wo.sec,tr:[],free:false,freeSec:0,ftp:state.profile.ftp,starts,total:t,maxI,mode:'ready',sim:false,speed:1,clock:0,pos:0,si:-1,bias:1,erg:true,grade:1,sent:-1,
+  P={wo,planned:wo.sec,tr:[],free:false,freeSec:0,ftp:state.profile.ftp,starts,total:t,maxI,mode:'ready',sim:false,speed:1,clock:0,pos:0,si:-1,bias:1,erg:true,grade:1,gear:GEAR0,sent:-1,
      rec:{p:[],hr:[],cad:[],tgt:[]},game:gameNew(wo),laps:[],trace:'',last:now(),zero:0,auto:false,startTs:0,simP:0,simH:70,lastSave:0,stopArm:false,drawn:-1};
   ui.modal=null;ui.bleMsg='';ui.startTab=null;
   P.timer=setInterval(tick,200);
@@ -25,8 +25,21 @@ function rebuild(){
 function enterFree(){
   gameEndBlock();P.free=true;P.erg=false;P.zero=0;
   P.laps.push({l:'Vrij rijden',k:'steady',c:0,s:P.rec.p.length});
-  if(ble.cp)setGrade(P.grade);
+  if(ble.cp)setGrade(P.grade,51,P.gear);
   beep(990,600);renderPlayer();
+}
+/* schakelen kan zodra de trainer de helling volgt (ERG uit of vrij rijden); in de demo zie je het ook */
+const gearOn=()=>!!P&&!P.end&&P.mode!=='ready'&&(P.free||!P.erg)&&(P.sim||!!ble.cp);
+/* helling opnieuw naar de trainer: in 3D doet de wereld dat zelf (met de helling van de weg), anders de handmatige helling */
+function simResend(){
+  if(!ble.cp||P.sim)return;
+  if(view3d()&&typeof W!=='undefined'&&W&&W.C){W.gs=null;W.gt=0}else setGrade(P.grade,51,P.gear);
+}
+function shift(d){
+  if(!gearOn())return;
+  const g=clamp(P.gear+d,1,GEARS);if(g===P.gear)return;
+  P.gear=g;simResend();beep(d>0?1500:1200,35);
+  for(const e of document.querySelectorAll('.pgear'))e.textContent=g;
 }
 const segAt=pos=>{let i=Math.max(0,P.si);while(i<P.wo.segs.length-1&&pos>=P.starts[i+1])i++;while(i>0&&pos<P.starts[i])i--;return i};
 const fracAt=(i,pos)=>{const s=P.wo.segs[i];return s.a+(s.b-s.a)*clamp((pos-P.starts[i])/s.d,0,1)};
@@ -37,7 +50,7 @@ function startRide(sim){
   try{audio=audio||new (window.AudioContext||window.webkitAudioContext)()}catch(e){}
   P.sim=!!sim;P.mode='run';P.startTs=Date.now();P.last=now();P.sent=-1;
   if(P.sim){P.simP=P.vrij?P.ftp*.5:tgtAt(0);if(P.vrij&&samenOn())P.speed=1}
-  if(P.free&&ble.cp&&!P.sim)setGrade(P.grade);
+  if(P.free&&ble.cp&&!P.sim)setGrade(P.grade,51,P.gear);
   keepAwake();
   renderPlayer();
 }
@@ -172,7 +185,9 @@ const PICO={
   hart:['s','<path d="M11 19.5S3.5 15 3.5 9.5A4.2 4.2 0 0 1 11 7a4.2 4.2 0 0 1 7.5 2.5"/><path d="M18 13v7M14.5 16.5h7"/>'],
   minus:['s','<path d="M5 12h14"/>'],
   plus:['s','<path d="M12 5v14M5 12h14"/>'],
-  berg:['s','<path d="M2.5 19.5 9 8l4 6.5 2.5-3.5 6 8.5z"/>']
+  berg:['s','<path d="M2.5 19.5 9 8l4 6.5 2.5-3.5 6 8.5z"/>'],
+  licht:['s','<path d="m6 9 6 6 6-6"/>'],
+  zwaar:['s','<path d="m6 15 6-6 6 6"/>']
 };
 const pico=k=>{const [t,d]=PICO[k];return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" ${t==='f'?'fill="currentColor"':'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'}>${d}</svg>`};
 const pib=(act,k,label,extra='',cls='')=>`<button class="btn icon${cls}" data-act="${act}" title="${label}" aria-label="${label}"${extra}>${pico(k)}</button>`;
@@ -218,6 +233,7 @@ function playerHTML(){
       <div class="row">
         ${P.auto?'<span class="badge">Gepauzeerd: begin met trappen</span>':''}
         ${navigator.bluetooth&&!P.sim&&!ble.hrOn?pib('connectHr','hart','Hartslagmeter koppelen'):''}
+        ${gearOn()?`<span class="gears">${pib('shift','licht','Lichter schakelen (pijl omlaag)',' data-d="-1"')}<span class="num" title="Versnelling, 1 is de lichtste"><i>Versn.</i> <b class="pgear">${P.gear}</b></span>${pib('shift','zwaar','Zwaarder schakelen (pijl omhoog)',' data-d="1"')}</span>`:''}
         ${pib('pause',pause?'play':'pause',pause?'Verder':'Pauze','',' pri big')}
         ${P.free?'':`${pib('repeat','herhaal','Blok herhalen',' id="p-repeat" hidden')}${pib('skip','volgend','Volgend blok')}${pib('extend','plus5','5 minuten uitrijden')}`}
         ${pib('stop','stop','Stoppen','',' warn')}
@@ -228,7 +244,7 @@ function playerHTML(){
   if(v3)return `<div class="player w3${P.vrij?' vrij':''}${ready?' start':''}${P.end?' end':''}">${endBox}
     <div class="zpow"><i class="zband" id="p-zone"></i><div class="zp1"><b id="p-power">–</b><i>W</i></div>
       <div class="zhr"><span aria-hidden="true">♥</span><b id="p-hr">–</b><i>bpm</i></div>
-      <div class="zp2"><span><b id="p-cad">–</b><i>rpm</i></span></div>
+      <div class="zp2"><span><b id="p-cad">–</b><i>rpm</i></span>${gearOn()?`<span title="Versnelling"><b class="pgear">${P.gear}</b><i>versn.</i></span>`:''}</div>
       <div class="zgauge" aria-hidden="true"><span class="ok"></span><span class="mid"></span><span class="dot" id="p-dot"></span></div><span id="p-cadl" hidden></span></div>
     <div class="zbar"><div class="zb1"><span><b id="p-spd">0</b><i>km/u</i></span><span><b id="p-km">0,0</b><i>km</i></span><span><b id="p-hm">0</b><i>m</i></span><span><b id="p-elapsed">0:00</b><i>${P.vrij?'':`/ ${clock(P.total)}${P.free?' +':''}`}</i></span></div>
       <div class="zprog"><i id="p-prog"></i></div>

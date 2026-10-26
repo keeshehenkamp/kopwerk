@@ -1477,7 +1477,7 @@ function worldStep(t){
   /* zonder ERG, of vrij rijden na de training, voelt de trainer de helling van de route */
   /* in windschaduw krijgt de trainer ook minder windweerstand */
   if(ble.cp&&!P.sim&&run&&(P.free||!P.erg)){const g=clamp(Math.round(slope(d)*2)/2,-10,20),cw=Math.round(51*(1-(P.vrij?W.draft||0:0))/3)*3;
-    if((g!==W.gs||cw!==W.gcw)&&now()-(W.gt||0)>1000){setGrade(g,cw);W.gs=g;W.gcw=cw;W.gt=now()}}
+    if((g!==W.gs||cw!==W.gcw||P.gear!==W.gg)&&now()-(W.gt||0)>1000){setGrade(g,cw,P.gear);W.gs=g;W.gcw=cw;W.gg=P.gear;W.gt=now()}}
   if(P.vrij&&run&&P.wo.laps&&d-12>=P.wo.laps*C.L){finishRide();return}
   const cad=now()-live.tP<3000&&live.cad?live.cad:0,seg=P.wo.segs[segAt(pos)];
   /* uit het zadel bij steile stukken en harde inspanningen */

@@ -45,7 +45,14 @@ function cpWrite(bytes){
   ble.queue=ble.queue.then(()=>cp.writeValueWithResponse?cp.writeValueWithResponse(bytes):cp.writeValue(bytes)).catch(()=>{});
 }
 function setPower(w){w=clamp(Math.round(w),0,2000);cpWrite(new Uint8Array([0x05,w&255,(w>>8)&255]))}
-function setGrade(pct,cw=51){const b=new DataView(new ArrayBuffer(7));b.setUint8(0,0x11);b.setInt16(1,0,true);b.setInt16(3,Math.round(pct*100),true);b.setUint8(5,40);b.setUint8(6,clamp(Math.round(cw),0,255));cpWrite(new Uint8Array(b.buffer))}
+/* virtueel schakelen: 24 versnellingen, elk ~6,5% zwaarder dan de vorige; op GEAR0 voelt de trainer precies de weg.
+   In een zwaardere versnelling 'rijd' je bij dezelfde cadans k keer zo hard. De trainer meet je echte wielsnelheid,
+   dus krijgt hij k keer de helling-plus-rolweerstand en k³ keer de luchtweerstand: dan kost elke omwenteling evenveel
+   kracht als op de weg in die versnelling. Je snelheid in de app volgt nog steeds alleen uit je vermogen. */
+const GEARS=24,GEAR0=13;
+const gearK=n=>Math.pow(1.065,n-GEAR0);
+function setGrade(pct,cw=51,gear=GEAR0){const k=gearK(gear);pct=k*(pct+.4)-.4;cw*=k*k*k;
+  const b=new DataView(new ArrayBuffer(7));b.setUint8(0,0x11);b.setInt16(1,0,true);b.setInt16(3,Math.round(clamp(pct,-40,40)*100),true);b.setUint8(5,40);b.setUint8(6,clamp(Math.round(cw),0,255));cpWrite(new Uint8Array(b.buffer))}
 async function setupTrainer(server){
   ble.cp=null;ble.crank=null;let ok=false;
   try{

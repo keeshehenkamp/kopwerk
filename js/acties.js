@@ -278,12 +278,13 @@ const actions={
   endRpe(d){if(!P||!P.end)return;P.end.rpe=P.end.rpe===+d.n?null:+d.n;renderPlayer()},
   async endSave(){if(!P||!P.end)return;const n=P.end.rpe,sim=P.sim;await finishRide();if(n&&!sim&&ui.view==='ride')actions.rpe({n})},
   endResume(){if(!P||!P.end)return;const e=P.end;P.end=null;P.endDone=P.endDone||e.why==='finish';
-    if(e.why==='finish'&&!P.free)enterFree();P.mode='run';P.last=now();P.sent=-1;if(P.free&&ble.cp&&!P.sim)setGrade(P.grade);renderPlayer()},
+    if(e.why==='finish'&&!P.free)enterFree();P.mode='run';P.last=now();P.sent=-1;if(P.free&&ble.cp&&!P.sim)simResend();renderPlayer()},
   hintLower(){if(!P||!P.hint)return;(P.hintOff=P.hintOff||{})[P.hint.i]=true;P.hint=null;actions.bias({d:-.05})},
   hintOk(){if(!P||!P.hint)return;(P.hintOff=P.hintOff||{})[P.hint.i]=true;P.hint=null;paintPlayer()},
   bias(d){if(!P)return;P.bias=clamp(Math.round((P.bias+(+d.d))*100)/100,.5,1.5);P.sent=-1;renderPlayer()},
-  erg(){if(!P)return;P.erg=!P.erg;if(P.erg)P.sent=-1;else setGrade(P.grade);renderPlayer()},
-  grade(d){if(!P)return;P.grade=clamp(P.grade+(+d.d),-5,15);setGrade(P.grade);renderPlayer()}
+  erg(){if(!P)return;P.erg=!P.erg;if(P.erg)P.sent=-1;else simResend();renderPlayer()},
+  grade(d){if(!P)return;P.grade=clamp(P.grade+(+d.d),-5,15);simResend();renderPlayer()},
+  shift(d){shift(+d.d)}
 };
 /* acties die je met één tik kunt terugdraaien: de melding erna krijgt 'Ongedaan maken' */
 const UNDO=new Set(['stravaOff','healthDrop','healthUndo','healthBetter','saveHealth','missedWhy','setFtp']);
@@ -321,6 +322,9 @@ document.addEventListener('focusout',e=>{
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&!P){if(ui.modal){ui.modal=null;render()}else if(ui.view==='training')actions.back()}
   if(e.code==='Space'&&P&&P.mode!=='ready'&&!/^(BUTTON|SELECT|INPUT)$/.test(e.target.tagName)){e.preventDefault();actions.pause()}
+  /* schakelen: pijl omhoog of + is zwaarder, pijl omlaag of - is lichter */
+  if(P&&gearOn()&&!/^(SELECT|INPUT|TEXTAREA)$/.test(e.target.tagName)){
+    const d={ArrowUp:1,'+':1,'=':1,ArrowDown:-1,'-':-1}[e.key];if(d){e.preventDefault();shift(d)}}
 });
 window.addEventListener('beforeunload',e=>{if(P&&(P.mode==='run'||P.mode==='pause')){e.preventDefault();e.returnValue=''}});
 
