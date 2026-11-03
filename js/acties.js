@@ -110,6 +110,7 @@ const actions={
     if(!list.length)return toast('Deze week staat er niets gepland.');
     saveZwo(list,`kopwerk-week-${weekNo(mon)}`);
   },
+  pickAlt(d){setOverride(ui.detail.iso,{type:d.t||null});window.scrollTo(0,0);toast(d.t?`${TYPES[d.t].name} staat nu op het schema.`:'Weer de training van het schema.')},
   ovType(d,el){setOverride(ui.detail.iso,{type:el.value||null})},
   libMin(d,el){ui.lib.min=+el.value;render()},
   libL(d,el){ui.lib.L=+el.value;render()},

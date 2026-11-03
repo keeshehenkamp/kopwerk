@@ -282,6 +282,21 @@ function modalWo(){
   const day=plan.days.find(x=>x.iso===m.iso);
   return {wo:day.wo,day};
 }
+/* andere training met hetzelfde idee: uit dezelfde soort (CAT_OF), even lang, de zwaarte die het dichtst bij ligt voorop */
+function altsHTML(w,day){
+  const cat=CAT_OF[w.type];
+  if(!cat||cat==='test'||day.iso<iso(new Date())||rideOn(day.iso))return '';
+  /* elk voorbeeld zoals het schema hem echt zou maken (eigen trede en lengte), dus door dezelfde planner */
+  const asPlan=k=>{const ov=Object.assign({},state.overrides,{[day.iso]:Object.assign({},day.o,{type:k})});
+    const d=planWeek(Object.assign({},state,{overrides:ov}),mondayOf(day.date),new Date()).days.find(x=>x.iso===day.iso);return d&&d.wo};
+  const alts=Object.keys(TYPES).filter(k=>CAT_OF[k]===cat&&k!==w.type&&k!=='ramptest').map(asPlan)
+    .filter(x=>x&&x.type!==w.type).sort((a,b)=>Math.abs(a.tss-w.tss)-Math.abs(b.tss-w.tss)).slice(0,4);
+  if(!alts.length)return '';
+  const cn=(CATS.find(c=>c[0]===cat)||[,''])[1].toLowerCase();
+  return `<div class="card"><h3>Andere training, zelfde idee</h3><p class="small muted" style="margin-top:3px">Ook ${esc(cn)}, ongeveer even lang.</p>
+    <div class="alts">${alts.map(a=>`<button data-act="pickAlt" data-t="${a.type}"><span class="w"><b>${esc(a.name)}</b><span>${durTxt(a.minutes)} · ${a.tss} TSS</span></span>${profileSVG(a.segs)}<span class="btn small">Kies</span></button>`).join('')}</div>
+    ${day.o.type?'<button class="link small" data-act="pickAlt" data-t="" style="margin-top:10px">Terug naar de training van het schema</button>':''}</div>`;
+}
 function trainingView(){
   const x=modalWo();if(!x){ui.view='vandaag';return vandaagView()}
   const {wo:w,day}=x,from=TABS.find(t=>t[0]===((ui.detail&&ui.detail.from)||'vandaag'));
@@ -305,6 +320,7 @@ function trainingView(){
       <div class="card stack"><p>${esc(w.desc)}</p>${why?`<details class="why"><summary>Waarom deze training?</summary><p class="small muted" style="margin-top:8px">${esc(why)}</p></details>`:''}<div class="row">${zs.map(z=>`<span class="zchip"><i style="background:var(--z${z})"></i>${ZN[z]}</span>`).join('')}</div></div>
     </div><div class="stack">
       ${canRide()?`<div class="cta"><button class="btn pri big" data-act="startModal">Start training</button><button class="btn" data-act="zwoModal">Zwift</button></div>`:'<p class="notice small">Rijden met je trainer doe je op je laptop, in Chrome of Edge. Hier bekijk je de training.</p>'}
+      ${day?altsHTML(w,day):''}
       <div class="card"><h3 style="margin-bottom:4px">Blokken</h3>${segList(w)}</div>
       ${adjust}</div></div>`;
 }
