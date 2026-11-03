@@ -85,20 +85,20 @@ function settingsForm(first){
         ${cur.id==='eigen'?`<div><label class="f" for="s-evn">Naam</label><input type="text" id="s-evn" maxlength="40" value="${esc(ev.id?'':ev.name||'')}" placeholder="optioneel" style="width:100%"></div>`:''}
         ${cur.id?`<div><label class="f" for="s-evd">Datum</label><input type="date" id="s-evd" value="${cur.date||''}" min="2000-01-01" max="2099-12-31"></div>`:''}
         ${cur.id==='eigen'?`<div><label class="f" for="s-evk">Soort</label>${sel('id="s-evk"',EVENT_KINDS,ev.id?'':ev.kind||'')}</div>
-        <div><label class="f" for="s-evkm">Afstand in km</label><input type="number" id="s-evkm" min="20" max="400" value="${ev.id?'':ev.km||''}" placeholder="optioneel" style="width:120px"></div>`:''}
+        <div><label class="f" for="s-evkm">Afstand in km</label><input type="number" id="s-evkm" min="20" max="400" value="${ev.id?'':ev.km||''}" placeholder="optioneel"></div>`:''}
       </div>
       ${E?`<p class="small muted" style="margin-top:10px">${E.v.length===1?evVarTxt(E.v[0])+'. ':''}Meestal ${esc(E.maand)}. Afstand en hoogtemeters zijn richtwaarden; controleer de datum en route van jouw editie.</p>`:''}
       ${first?'':evNotice(cur)}</details>`;
-  const niv=p.niveau||'';
+  const niv=p.niveau||'',nivNow=NIVEAU[(ui.draft&&ui.draft['s-niv'])||niv||(first?'recreant':'')];
   return `<div class="stack">
     <div class="card stack"${hid(0)}><h2>Wat wil je bereiken?</h2>
       <div class="form"><div><label class="f" for="s-goal">Doel</label>${sel('id="s-goal"',goals,p.goal||'fit')}</div></div>${event}</div>
     <div class="card stack"${hid(1)}><h2>${first?'Over jou':'Jij'}</h2>${first?'<p class="small muted">Weet je je FTP niet? Laat het veld leeg, dan plant de coach eerst een FTP-test.</p>':''}
       <div class="form">
-        <div class="wide"><label class="f" for="s-niv">Niveau</label>${sel('id="s-niv"',(niv||first?[]:[['','Nog niet gekozen']]).concat(NIV_KEYS.map(k=>[k,NIVEAU[k].name+' · '+NIVEAU[k].desc.toLowerCase().replace(/\.$/,'')])),niv||(first?'recreant':''))}</div>
-        <div><label class="f" for="s-ftp">FTP in watt</label><input type="number" id="s-ftp" min="60" max="600" value="${first&&!state.setup?'':p.ftp}" placeholder="weet ik niet" style="width:120px"></div>
-        <div><label class="f" for="s-w">Gewicht in kg</label><input type="number" id="s-w" min="35" max="200" value="${p.weight}" style="width:120px"></div>
-        ${first?'':`<div><label class="f" for="s-mhr">Maximale hartslag</label><input type="number" id="s-mhr" min="120" max="230" value="${p.maxHr||''}" placeholder="optioneel" style="width:120px"></div>
+        <div class="wide"><label class="f" for="s-niv">Niveau</label>${sel('id="s-niv"',(niv||first?[]:[['','Nog niet gekozen']]).concat(NIV_KEYS.map(k=>[k,NIVEAU[k].name])),niv||(first?'recreant':''))}${nivNow?`<p class="small muted" style="margin-top:6px">${nivNow.desc}</p>`:''}</div>
+        <div><label class="f" for="s-ftp">FTP in watt</label><input type="number" id="s-ftp" min="60" max="600" value="${first&&!state.setup?'':p.ftp}" placeholder="weet ik niet"></div>
+        <div><label class="f" for="s-w">Gewicht in kg</label><input type="number" id="s-w" min="35" max="200" value="${p.weight}"></div>
+        ${first?'':`<div><label class="f" for="s-mhr">Maximale hartslag</label><input type="number" id="s-mhr" min="120" max="230" value="${p.maxHr||''}" placeholder="optioneel"></div>
         <div><label class="f" for="s-snd">Geluid bij blokwissel</label>${sel('id="s-snd"',[[1,'Aan'],[0,'Uit']],p.sound?1:0)}</div>`}
       </div>${first?evNotice(cur):''}
 </div>
@@ -159,7 +159,7 @@ function statusCard(plan,today){
   const why=H?`${HEALTH[H.kind].label} sinds ${dateLong(parseISO(H.from))}. ${rd.why}`:rd.lvl==='ok'?'':rd.why;
   return `<div class="card ready ${rd.lvl}"><div class="sthead"><div><h2>${rd.label}</h2>${why?`<p class="small muted" style="margin-top:3px">${why}</p>`:''}${note?`<p class="small" style="margin-top:5px">${note}</p>`:''}</div>
       ${H?'':`<button class="ibtn" data-act="openHealth" aria-label="Ziek of geblesseerd melden" title="Ziek of geblesseerd">${ICO.ziek}</button>`}</div>
-    ${H?`<div class="row" style="margin-top:12px"><button class="btn small pri" data-act="healthBetter">Ik ben weer beter</button><button class="btn small" data-act="openHealth">Aanpassen</button><button class="btn small" data-act="healthDrop">Intrekken</button></div>`
+    ${H?`<div class="hbtns"><button class="btn small pri" data-act="healthBetter">Ik ben weer beter</button><button class="btn small" data-act="openHealth">Aanpassen</button><button class="btn small" data-act="healthDrop">Intrekken</button></div>`
       :hs&&hs.ret?`<div class="row" style="margin-top:12px"><button class="btn small" data-act="healthUndo" data-from="${hs.h.from}">Melding intrekken</button></div>`:''}
     ${e&&e>ftp*1.02?`<p class="small" style="margin-top:10px">Je ritten wijzen op een hogere FTP. <button class="link" data-act="setFtp" data-w="${e}">FTP op ${e} W zetten</button></p>`:''}</div>`;
 }
@@ -355,9 +355,9 @@ function addModal(){
     <div class="stack"><h3>Of vul de rit zelf in</h3>
       <div class="form">
         <div><label class="f" for="a-date">Datum</label><input type="date" id="a-date" value="${t}" max="${t}"></div>
-        <div><label class="f" for="a-min">Duur in minuten</label><input type="number" id="a-min" min="10" max="900" value="90" style="width:120px"></div>
+        <div><label class="f" for="a-min">Duur in minuten</label><input type="number" id="a-min" min="10" max="900" value="90"></div>
         <div><label class="f" for="a-eff">Hoe zwaar voelde het?</label>${sel('id="a-eff"',EFFORT.map((e,i)=>[i,e[1]]),1)}</div>
-        <div><label class="f" for="a-pw">Gemiddeld vermogen</label><input type="number" id="a-pw" min="0" max="600" placeholder="optioneel" style="width:120px"></div>
+        <div><label class="f" for="a-pw">Gemiddeld vermogen</label><input type="number" id="a-pw" min="0" max="600" placeholder="optioneel"></div>
       </div>
       <div><button class="btn pri" data-act="saveManual">Rit toevoegen</button></div></div>
   </div></div>`;
@@ -473,9 +473,9 @@ function healthModal(){
   const H=state.health,cur=(H&&H.kind)||'ziekL',from=(H&&H.from)||ui.modal.from||iso(new Date());
   return `<div class="veil" data-act="veil"><div class="modal stack" role="dialog" aria-modal="true" aria-label="Ziek of geblesseerd">
     <h2>Ziek of geblesseerd</h2>
-    <div class="stack">${Object.entries(HEALTH).map(([k,h])=>`<label class="row" style="gap:10px;align-items:center"><input type="radio" name="hk" value="${k}"${k===cur?' checked':''}><span>${h.label}<span class="small muted"> · ${h.cap?'alleen kort en rustig':'niet trainen'}</span></span></label>`).join('')}</div>
+    <div class="opts">${Object.entries(HEALTH).map(([k,h])=>`<label class="opt"><input type="radio" name="hk" value="${k}"${k===cur?' checked':''}><span><b>${h.label}</b><small>${h.cap?'Alleen kort en rustig':'Niet trainen'}</small></span></label>`).join('')}</div>
     <div><label class="f" for="h-from">Sinds</label><input type="date" id="h-from" value="${from}" max="${iso(new Date())}"></div>
-    <div class="row spread"><div class="row"><button class="btn pri" data-act="saveHealth">Opslaan</button>${H?'<button class="btn" data-act="healthDrop">Melding intrekken</button>':''}</div><button class="btn" data-act="closeModal">Annuleren</button></div></div></div>`;
+    <div class="mfoot"><button class="btn pri" data-act="saveHealth">Opslaan</button>${H?'<button class="btn" data-act="healthDrop">Melding intrekken</button>':''}<button class="btn" data-act="closeModal">Annuleren</button></div></div></div>`;
 }
 /* bevestigen voordat er iets verdwijnt: een back-up terugzetten of alles wissen */
 const ritTxt=n=>`${n} ${n===1?'rit':'ritten'}`;

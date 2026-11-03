@@ -19,6 +19,8 @@
 *,*::before,*::after{box-sizing:inherit}
 html{height:100%}
 body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:400 16px/1.45 var(--body);-webkit-font-smoothing:antialiased}
+/* als app op de iPhone: de pagina schuift onder de statusbalk door; een vlak in de achtergrondkleur houdt klok en tekst uit elkaar */
+body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:15;pointer-events:none}
 button,select,input{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--z2);outline-offset:2px}
@@ -111,9 +113,12 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .ibtn:hover{border-color:var(--hover)}.ibtn svg{width:20px;height:20px}
 .ibtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 /* week op Home */
-.wk .wkhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
-.wk .wkhead p{margin-top:3px}
-.wk .wnav{flex:none}
+.wk .wkhead{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px}
+.wk .wkhead>div:first-child{display:contents}
+.wk .wkhead h2{grid-area:1/1}
+.wk .wkhead p{grid-area:2/1/3/3;margin-top:4px}
+.wk .wnav{grid-area:1/2;flex-wrap:nowrap;gap:6px}
+.wk .wnav .btn.icon{width:40px;height:40px;padding:0;border-radius:50%}
 .wkedit{margin:14px 0 4px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .wkrows{margin:6px -6px 0}
 .daylbl{font-size:14px;color:var(--muted);margin:18px 2px 8px}
@@ -165,6 +170,10 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .drow .st.late{color:var(--bad);font-weight:600}
 @media (max-width:700px){.drow{grid-template-columns:50px 12px minmax(0,1fr) 70px}.drow .profile{display:none}}
 .why summary{cursor:pointer;color:var(--muted);font-size:14px;font-weight:600;width:max-content}
+.why summary,.evbox summary{list-style:none;display:flex;align-items:center;gap:8px}
+.why summary::-webkit-details-marker,.evbox summary::-webkit-details-marker{display:none}
+.why summary::after,.evbox summary::after{content:'';width:7px;height:7px;border:solid currentColor;border-width:0 2px 2px 0;transform:translateY(-2px) rotate(45deg);transition:transform .15s}
+.why[open]>summary::after,.evbox[open]>summary::after{transform:translateY(2px) rotate(-135deg)}
 .why summary:hover{color:var(--ink)}
 
 /* trainingen */
@@ -230,8 +239,11 @@ tr:last-child td{border:0}
 .month{font-size:15px;font-weight:600;margin:24px 2px 8px}
 
 /* profiel */
-.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px}
-.form .wide{grid-column:1/-1}.form .wide select{width:100%;max-width:520px}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;max-width:640px}
+.form .wide{grid-column:1/-1}
+.form select,.form input[type=number],.form input[type=text],.form input[type=date]{width:100%}
+input[type=date]{-webkit-appearance:none;appearance:none;text-align:left}
+input[type=date]::-webkit-date-and-time-value{text-align:left}
 /* je tijd per dag: dagen als tegels, tijden als knoppen */
 .avdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .avd{background:var(--surface);border:1px solid var(--edge);border-radius:8px;padding:8px 0 9px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;color:var(--muted);min-width:0}
@@ -293,6 +305,17 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .veil{position:fixed;inset:0;background:rgba(9,9,11,.55);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto;z-index:20}
 .modal{background:var(--surface);border:1px solid var(--edge);border-radius:12px;width:min(720px,100%);padding:24px}
 .modal.narrow{width:min(460px,100%)}
+.opts{display:grid;gap:8px}
+.opt{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r);cursor:pointer;transition:border-color .15s,background-color .15s}
+.opt:hover{border-color:var(--hover)}
+.opt:has(input:checked){border-color:var(--acc);background:var(--acc-soft)}
+.opt input{flex:none;width:18px;height:18px;margin:2px 0 0;accent-color:var(--acc)}
+.opt span{min-width:0}.opt b{display:block;font-weight:600}.opt small{display:block;font-size:13.5px;color:var(--muted);margin-top:1px}
+.mfoot{display:flex;flex-wrap:wrap;gap:10px}.mfoot>:last-child{margin-left:auto}
+@media (max-width:520px){.modal{padding:20px}.mfoot{display:grid;grid-template-columns:1fr 1fr}.mfoot>:last-child{margin-left:0}.mfoot>:last-child:nth-child(odd){grid-column:1/-1}}
+/* ziek gemeld op Home: op de telefoon de hoofdknop over de hele breedte, de andere twee eronder */
+.hbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+@media (max-width:520px){.hbtns{display:grid;grid-template-columns:1fr 1fr}.hbtns .pri{grid-column:1/-1}}
 /* Profiel: wissen staat los van de back-up, in een eigen vak */
 .dzone{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;border-color:color-mix(in srgb,var(--bad) 35%,var(--edge))}
 /* zonder Bluetooth (iPhone): uitleg waar je rijdt, met 'Lukt niet' als gewone knop ernaast */
@@ -429,7 +452,7 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .mini4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}
 .mini4 div{background:var(--sunk);border-radius:8px;padding:9px 11px}.mini4 b{display:block;font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}.mini4 span{font-size:12px;color:var(--muted)}
 /* instellen: evenement in- en uitklappen */
-.evbox summary{cursor:pointer;font-weight:500;width:max-content}.evbox summary:hover{color:var(--acc)}
+.evbox summary{cursor:pointer;font-weight:600;width:max-content;color:var(--acc)}.evbox summary:hover{filter:brightness(1.15)}
 /* periodekeuze */
 .seg{display:flex;gap:6px;flex-wrap:wrap}.seg .btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 /* kalender */
@@ -464,7 +487,7 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
   .btn.small{padding:11px 14px;font-size:14px}
   .btn.big{padding:14px 22px}
   .btn.icon{padding:12px 13px}
-  .ibtn{width:44px;height:44px}
+  .ibtn,.wk .wnav .btn.icon{width:44px;height:44px}
   .back{padding:12px 0;margin-bottom:0}
   .why summary,.evbox summary{padding:10px 0}
   .rpe button{height:46px}
