@@ -293,7 +293,7 @@ function altsHTML(w,day){
     .filter(x=>x&&x.type!==w.type).sort((a,b)=>Math.abs(a.tss-w.tss)-Math.abs(b.tss-w.tss)).slice(0,4);
   if(!alts.length)return '';
   const cn=(CATS.find(c=>c[0]===cat)||[,''])[1].toLowerCase();
-  return `<div class="card"><h3>Andere training, zelfde idee</h3><p class="small muted" style="margin-top:3px">Ook ${esc(cn)}, ongeveer even lang.</p>
+  return `<div class="card"><h3>Wisselen</h3><p class="small muted" style="margin-top:3px">Ook ${esc(cn)}, ongeveer even lang.</p>
     <div class="alts">${alts.map(a=>`<button data-act="pickAlt" data-t="${a.type}"><span class="w"><b>${esc(a.name)}</b><span>${durTxt(a.minutes)} · ${a.tss} TSS</span></span>${profileSVG(a.segs)}<span class="btn small">Kies</span></button>`).join('')}</div>
     ${day.o.type?'<button class="link small" data-act="pickAlt" data-t="" style="margin-top:10px">Terug naar de training van het schema</button>':''}</div>`;
 }
