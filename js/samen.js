@@ -30,7 +30,8 @@ const fmtGap=m=>Math.abs(m)<1000?Math.round(Math.abs(m))+' m':nl((Math.abs(m)/10
    Ze rijden op een gewone fiets met gewone luchtweerstand, min wat het groepje onderling scheelt. */
 const BOT_FORM=[[0,.3],[-1.9,1.05],[-1.9,-.45],[-3.8,.3],[-5.7,1.05]];
 function botsStep(C,d,dt,rate,run,lane,slope){
-  const wkg=P.wo.bots;if(!wkg)return null;
+  /* in een groepsrit rijd je met elkaar, zonder groepje */
+  const wkg=samenOn()?0:P.wo.bots;if(!wkg)return null;
   const B=W.bots||(W.bots={d:d+6,v:0,t:0});
   /* de eerste twintig seconden houdt het groepje in tot je aansluit; daarna rijdt het zijn eigen tempo */
   if(run){B.t+=dt*rate;let vt=speedFor(wkg*75,slope(B.d),.18,75+9);if(B.t<20&&B.d-d>4)vt=Math.min(vt,(W.v||0)+.4);B.v+=(vt-B.v)*Math.min(1,dt*.7*Math.max(1,rate));B.d+=B.v*dt*rate}
@@ -149,7 +150,9 @@ function nameTag(n){
 /* ---------- per beeld, vanuit worldStep: groepje, anderen, windschaduw en waar jij op de weg rijdt ----------
    Geeft true terug als de gewone fietsers langs de weg niet nodig zijn (het groepje gebruikt ze). */
 function vrijStep(C,d,dt,rate,run,lane,slope){
-  const ahead=[],bots=botsStep(C,d,dt,rate,run,lane,slope);
+  const ahead=[],bots=botsStep(C,d,dt,rate,run,lane,slope),solo=!samenOn();
+  /* in een groepsrit alleen echte rijders: geen fietsers langs de weg, zodat iedereen hetzelfde ziet */
+  for(const n of W.npcs)n.R.g.visible=solo;
   if(bots)ahead.push(...bots);
   if(samenOn()){ahead.push(...samenRiders(C,d,dt,run,lane,slope));if(P.mode!=='ready')samenSend(run)}
   /* de dichtstbijzijnde rijder vóór je bepaalt de windschaduw; zit er nog iemand vlak voor hem, dan iets meer */
@@ -160,7 +163,7 @@ function vrijStep(C,d,dt,rate,run,lane,slope){
   /* je fietser stuurt zelf achter het wiel; kom je te dichtbij, dan ernaast om in te halen */
   let off=.85;if(best)off=best.g>1.7?best.off:best.off+(best.off>.4?-1.25:1.25);
   W.myOff=W.myOff==null?.85:W.myOff+clamp(off-W.myOff,-1.1*dt*Math.max(1,rate),1.1*dt*Math.max(1,rate));
-  W.ahead=best;return !!bots;
+  W.ahead=best;return !!bots||!solo;
 }
 /* paneel links in de 3D-wereld: ronde, groepje, anderen en windschaduw */
 function vrijHud(d){
@@ -169,7 +172,7 @@ function vrijHud(d){
   const rows=[];
   rows.push(`<div class="vrow"><span>Ronde</span><b>${laps?`${lap} van ${laps}`:lap}</b></div>`);
   if(laps)rows.push(`<div class="vrow"><span>Nog</span><b>${fmtGap(Math.max(0,laps*L-done))}</b></div>`);
-  if(W.bots){const g=W.bots.d-d;rows.push(`<div class="vrow"><span>Groepje ${nl(P.wo.bots.toFixed(1))} W/kg</span><b>${g>-6&&g<3?'je zit erin':(g>0?'+':'−')+fmtGap(g)}</b></div>`)}
+  if(W.bots&&!samenOn()){const g=W.bots.d-d;rows.push(`<div class="vrow"><span>Groepje ${nl(P.wo.bots.toFixed(1))} W/kg</span><b>${g>-6&&g<3?'je zit erin':(g>0?'+':'−')+fmtGap(g)}</b></div>`)}
   for(const r of SAMEN.riders.values()){if(r.st==='wacht')continue;const g=r.sd-d;
     const stale=now()-r.at>15000;
     rows.push(`<div class="vrow"><span>${esc(r.n)}${r.st==='klaar'?' · klaar':stale?' · geen verbinding':''}</span><b>${(g>=0?'+':'−')+fmtGap(g)}</b></div>`)}
@@ -196,5 +199,5 @@ function vrijReadyHTML(){
       <ul>${list}</ul>
       ${SAMEN.cd?'<b id="samen-cd" class="samencd">Start over 8</b>':SAMEN.host?`<div class="row small"><button class="btn small pri" data-act="samenGo"${ble.on?'':' disabled'}>Start voor iedereen</button><span class="muted">${ble.on?'Iedereen begint over 8 seconden op de startstreep.':'Koppel eerst je trainer.'}</span></div>`:'<span class="small muted">De maker van de groepsrit start voor iedereen. Koppel je trainer; je begint dan vanzelf.</span>'}</div>`;
   }
-  return `<div class="vrij stack"><div class="row small">${laps}${bots}</div>${sam}</div>`;
+  return `<div class="vrij stack"><div class="row small">${laps}${inG?'':bots}</div>${sam}</div>`;
 }

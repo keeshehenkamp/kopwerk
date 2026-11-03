@@ -156,9 +156,12 @@ function statusCard(plan,today){
   const rd=readiness(today),f=rd.f,e=eftpAt(today),ftp=state.profile.ftp,H=state.health,fat=plan.fat,hs=H?null:healthOn(state,iso(today));
   const note=H||fat.health||fat.tired?'':fat.heavy>=2?'Twee trainingen voelden deze week zwaarder dan verwacht. De rest van de week is een stap lichter.':fat.heavy?'De rest van de week is een stap lichter.'
     :fat.level?`Je reed de laatste week ${fat.pct}% meer dan gewoonlijk. De zware trainingen zijn een stap lichter.`:'';
-  const why=H?`${HEALTH[H.kind].label} sinds ${dateLong(parseISO(H.from))}. ${rd.why}`:rd.lvl==='ok'?'':rd.why;
-  return `<div class="card ready ${rd.lvl}"><div class="sthead"><div><h2>${rd.label}</h2>${why?`<p class="small muted" style="margin-top:3px">${why}</p>`:''}${note?`<p class="small" style="margin-top:5px">${note}</p>`:''}</div>
-      ${H?'':`<button class="ibtn" data-act="openHealth" aria-label="Ziek of geblesseerd melden" title="Ziek of geblesseerd">${ICO.ziek}</button>`}</div>
+  const why=H?`Sinds ${dateLong(parseISO(H.from))} · ${HEALTH[H.kind].cap?'alleen korte, rustige ritjes':'niet trainen'}`:rd.lvl==='ok'?'':rd.why;
+  /* cijfers voorop: vorm, fitheid en FTP; bij een ziekmelding alleen de melding */
+  const sg=n=>n>0?'+'+n:n<0?'−'+(-n):'0';
+  const nums=H?'':`<div class="nums"><div><span>Vorm</span><b>${sg(f.tsb)}</b></div><div><span>Fitheid</span><b>${f.ctl}</b></div><div><span>FTP</span><b>${ftp}<i>W</i></b></div></div>`;
+  return `<div class="card"><div class="sthead"><div><p class="stat ${rd.lvl}"><i></i>${rd.label}</p>${why?`<p class="small muted" style="margin-top:4px">${why}</p>`:''}${note?`<p class="small" style="margin-top:5px">${note}</p>`:''}</div>
+      ${H?'':`<button class="ibtn" data-act="openHealth" aria-label="Ziek of geblesseerd melden" title="Ziek of geblesseerd">${ICO.ziek}</button>`}</div>${nums}
     ${H?`<div class="hbtns"><button class="btn small pri" data-act="healthBetter">Ik ben weer beter</button><button class="btn small" data-act="openHealth">Aanpassen</button><button class="btn small" data-act="healthDrop">Intrekken</button></div>`
       :hs&&hs.ret?`<div class="row" style="margin-top:12px"><button class="btn small" data-act="healthUndo" data-from="${hs.h.from}">Melding intrekken</button></div>`:''}
     ${e&&e>ftp*1.02?`<p class="small" style="margin-top:10px">Je ritten wijzen op een hogere FTP. <button class="link" data-act="setFtp" data-w="${e}">FTP op ${e} W zetten</button></p>`:''}</div>`;
@@ -179,6 +182,23 @@ function dayCard(d,tk){
   }
   const m=d.health&&d.health.during?`${healthWord(d.health.h).replace(/^./,c=>c.toUpperCase())} gemeld`:d.o.skip?'Overgeslagen':'';
   return `<div class="wcard"><div class="t"><div><h3>Rustdag</h3>${m?`<div class="m">${m}</div>`:''}</div><span class="row">${canRide()?'<button class="btn small" data-act="vrij">Vrij rijden</button>':''}<button class="btn small" data-act="openDay" data-iso="${d.iso}">Toch trainen</button></span></div></div>`;
+}
+/* je tijd per week: elke week vraagt de app opnieuw hoeveel tijd je hebt. Op zondag voor volgende week,
+   anders voor deze week als die nog niet is ingevuld. Tot je op Klaar tikt blijft de vraag staan (ui.wkAsk). */
+function wkAskKey(today){
+  const w=state.weeks||{},cur=iso(mondayOf(today)),next=iso(addDays(mondayOf(today),7));
+  if(ui.wkAsk&&(ui.wkAsk===cur||ui.wkAsk===next))return ui.wkAsk;
+  if(dow(today)===6&&!w[next])return next;
+  return w[cur]?null:cur;
+}
+function weekAskCard(today){
+  const k=wkAskKey(today);if(!k)return '';
+  const mon=parseISO(k),sun=addDays(mon,6),nxt=k!==iso(mondayOf(today));
+  const span=`${mon.getDate()}${mon.getMonth()!==sun.getMonth()?' '+MONTHS[mon.getMonth()].slice(0,3):''} – ${sun.getDate()} ${MONTHS[sun.getMonth()].slice(0,3)}`;
+  return `<div class="card wkask"><div class="sthead"><div><h2>Hoeveel tijd heb je ${nxt?'volgende week':'deze week'}?</h2>
+      <p class="small muted" style="margin-top:3px">Week ${weekNo(mon)} · ${span}. ${state.weeks[k]?'Tik op een dag om aan te passen.':'Nu ingevuld zoals de vorige week; tik op een dag om aan te passen.'}</p></div></div>
+    <div style="margin-top:14px">${availEditor(k)}</div>
+    <div class="row" style="margin-top:12px"><button class="btn pri" data-act="wkAskDone" data-k="${k}">Klaar</button></div></div>`;
 }
 /* waarom het schema er zo uitziet: ingeklapt onder de week */
 function whyHTML(plan){
@@ -216,7 +236,7 @@ function weekCard(today){
     if(d.event)return `<div class="drow">${when}${dotFor(d)}<span class="w"><b>${esc(d.event)}</b><span>Evenement</span></span><span></span><span></span></div>`;
     const st=r?`<span class="st ok">Gereden${cijfer(r)!=null?' · '+nl(cijfer(r).toFixed(1)):''}</span>`:d.missed?`<span class="st late">${d.why?'Niet gedaan':'Gemist'}</span>`:d.movedFrom!=null?`<span class="st">Van ${DAYS[d.movedFrom]}</span>`:d.wo?`<span class="st">${d.wo.tss} TSS</span>`:'<span class="st"></span>';
     return `<button class="drow${d.iso===tk?' today':''}" data-act="openDay" data-iso="${d.iso}">${when}${dotFor(d,r)}<span class="w"><b>${d.wo?esc(d.wo.name):'Rust'}</b><span>${d.wo?durTxt(d.wo.minutes):d.o.skip?'Overgeslagen':''}</span></span>${d.wo?profileSVG(d.wo.segs):'<span></span>'}${st}</button>`}).join('');
-  const canEdit=ui.weekOff>=0,open=canEdit&&ui.avOpen;
+  const canEdit=ui.weekOff>=0,open=canEdit&&ui.avOpen&&wkAskKey(today)!==k;
   return `<div class="card wk"><div class="wkhead"><div><h2>Week ${weekNo(mon)}</h2><p class="small muted">${sub.join(' · ')}</p></div>
       <div class="wnav">${canEdit?`<button class="ibtn${open?' on':''}" data-act="avOpen" aria-pressed="${!!open}" aria-label="Tijd per dag" title="Tijd per dag">${ICO.tijd}</button>`:''}<button class="btn icon" data-act="week" data-d="-1" aria-label="Vorige week">${I.l}</button>${ui.weekOff?'<button class="btn small" data-act="week" data-d="0">Nu</button>':''}<button class="btn icon" data-act="week" data-d="1" aria-label="Volgende week">${I.r}</button></div></div>
     <div class="prog"><i style="width:${sum.m?Math.min(100,Math.round(doneM/sum.m*100)):0}%"></i></div>
@@ -236,8 +256,8 @@ function vandaagView(){
     <span class="row"><button class="btn small pri" data-act="syncLogin">Inloggen met Google</button><button class="btn small icon" data-act="syncHide" aria-label="Verbergen">${I.x}</button></span></div>`:'';
   const last=state.rides.filter(r=>!r.sim).sort((a,b)=>b.ts-a.ts).slice(0,3);
   const recent=last.length?`<div class="card"><h3 style="margin-bottom:4px">Recente ritten</h3><div class="list">${last.map(r=>{const d=new Date(r.ts);return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${DAYS[dow(d)]}</b>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span><span class="w"><b>${esc(r.name)}</b><span>${clock(r.dur)} · ${r.tss} TSS${r.rpe?` · gevoel ${r.rpe}`:''}</span></span></button>`}).join('')}</div></div>`:'';
-  return `<div class="home${recent?'':' one'}"><div class="stack">${pend}${sync}${statusCard(plan,today)}<div><div class="daylbl" style="margin-top:0">Vandaag</div>${dayCard(td,tk)}</div>${weekCard(today)}</div>
-    <div class="stack">${recent}</div></div>`;
+  return `<div class="head"><div><h1>Vandaag</h1><p>${dateLong(today).replace(/^./,c=>c.toUpperCase())}</p></div></div>
+    <div class="home"><div class="stack">${pend}${sync}${statusCard(plan,today)}${weekAskCard(today)}<div>${dayCard(td,tk)}</div>${weekCard(today)}${recent}</div></div>`;
 }
 
 /* ---------- schema ---------- */

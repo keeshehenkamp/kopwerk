@@ -51,7 +51,7 @@ a{color:inherit}
 select,input[type=number],input[type=text],input[type=date],input[type=password]{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 11px;max-width:100%}
 label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .badge{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--sunk);color:var(--muted)}
-.notice{border:1px solid var(--edge);border-left:3px solid var(--acc);background:var(--surface);padding:12px 16px;border-radius:0 var(--r) var(--r) 0}
+.notice{border:1px solid var(--edge);background:var(--surface);padding:12px 16px;border-radius:var(--r)}
 .zchip{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:500}
 .zchip i{width:10px;height:10px;border-radius:3px;display:block}
 .profile{display:block;width:100%;border-radius:6px}
@@ -91,7 +91,8 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 
 /* vandaag */
 .home{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
-@media (min-width:960px){.home{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}.home.one{grid-template-columns:minmax(0,760px)}}
+/* één kolom, ook op de laptop: van boven naar beneden lezen */
+@media (min-width:960px){.home{grid-template-columns:minmax(0,760px)}}
 .band{background:var(--surface);color:var(--ink);border:1px solid var(--edge);border-radius:var(--r);padding:20px 20px 18px}
 .band .lb{font-size:13px;color:var(--muted)}
 .band .bigno{display:flex;align-items:baseline;gap:8px;margin-top:2px}
@@ -187,7 +188,7 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .detail .profile{height:150px}
 .axis{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px;font-variant-numeric:tabular-nums}
 .kv{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-.kv div{background:var(--surface);border:1px solid var(--edge);box-shadow:var(--shadow);border-radius:var(--r);padding:10px 12px;line-height:1.15}
+.kv div{background:var(--sunk);border-radius:var(--r);padding:10px 12px;line-height:1.15}
 .kv b{display:block;font-size:clamp(15px,4.4vw,20px);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .kv span{font-size:12.5px;color:var(--muted)}
 .segs{max-height:380px;overflow:auto}
@@ -201,7 +202,7 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 
 /* ritten en analyse */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
-.stats div{background:var(--surface);border:1px solid var(--edge);box-shadow:var(--shadow);border-radius:var(--r);padding:13px 15px}
+.stats div{background:var(--sunk);border-radius:var(--r);padding:13px 15px}
 .stats b{display:block;font-size:24px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
 .stats b small{font-size:14px;font-weight:500;color:var(--muted);margin-left:3px}
 .stats span{font-size:13px;color:var(--muted)}
@@ -275,13 +276,13 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .grade.lo{background:color-mix(in srgb,var(--bad) 14%,var(--surface))}.grade.lo b{color:var(--bad)}
 .herotxt{min-width:0;padding-top:4px}.herotxt p{font-size:16px}.herotxt p+p{margin-top:6px}
 .keys{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.keys div{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r);padding:12px 14px;min-width:0}
+.keys div{background:var(--sunk);border-radius:var(--r);padding:12px 14px;min-width:0}
 .keys span{display:block;font-size:12.5px;color:var(--muted)}
 .keys b{display:block;font-size:24px;font-weight:600;line-height:1.15;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .keys b i{font-style:normal;font-size:13px;font-weight:500;color:var(--muted);margin-left:3px}
 .keys small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 @media (max-width:700px){.keys{grid-template-columns:repeat(2,minmax(0,1fr))}.grade{width:76px;height:76px}.grade b{font-size:30px}.herotxt p{font-size:15px}}
-.prs{border-left:3px solid var(--z5);border-radius:0 var(--r) var(--r) 0}.prs h3{margin-bottom:8px}.prs .kvl{padding:4px 0;font-size:14.5px}
+.prs h3{margin-bottom:8px}.prs .kvl{padding:4px 0;font-size:14.5px}
 .zstack{display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px}
 .zstack i{display:block;min-width:2px}
 .zonelist{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 18px;margin-top:14px}
@@ -443,12 +444,19 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 /* melding tijdens de rit: hartslag hoger dan normaal */
-.phint{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 26px 10px;padding:10px 14px;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 var(--r) var(--r) 0;background:var(--surface);font-size:15px}
+.phint{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 26px 10px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);font-size:15px}
 .phint[hidden]{display:none}
-.w3 .phint{position:absolute;left:50%;transform:translateX(-50%);bottom:132px;margin:0;width:min(620px,92vw);background:rgba(255,255,255,.96);color:#18181B;border-color:#E4E4E7;border-left-color:var(--acc)}
+.w3 .phint{position:absolute;left:50%;transform:translateX(-50%);bottom:132px;margin:0;width:min(620px,92vw);background:rgba(255,255,255,.96);color:#18181B;border-color:#E4E4E7}
 .w3 .phint .btn{background:#fff;color:#18181B;border-color:#E4E4E7}.w3 .phint .btn.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
 /* Home: gereedheid, tijd deze week */
-.ready{border-left:3px solid var(--ok);border-radius:0 var(--r) var(--r) 0}.ready.warn{border-left-color:var(--z4)}.ready.stop{border-left-color:var(--bad)}
+/* status als stip met label, daaronder de cijfers groot */
+.stat{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600}
+.stat i{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}.stat.warn i{background:var(--z4)}.stat.stop i{background:var(--bad)}
+.nums{display:flex;gap:36px;margin-top:14px}
+.nums span{display:block;font-size:12.5px;color:var(--muted)}
+.nums b{display:block;font-size:32px;font-weight:700;line-height:1.05;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.nums b i{font-style:normal;font-size:14px;font-weight:500;color:var(--muted);margin-left:3px;letter-spacing:0}
+@media (max-width:420px){.nums{gap:24px}.nums b{font-size:28px}}
 .mini4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}
 .mini4 div{background:var(--sunk);border-radius:8px;padding:9px 11px}.mini4 b{display:block;font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}.mini4 span{font-size:12px;color:var(--muted)}
 /* instellen: evenement in- en uitklappen */

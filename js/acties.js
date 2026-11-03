@@ -63,6 +63,8 @@ const actions={
   week(d){ui.weekOff=+d.d?ui.weekOff+(+d.d):0;render()},
   openDay(d){ui.detail={kind:'day',iso:d.iso,from:tabOf(ui.view)};ui.view='training';render();window.scrollTo(0,0)},
   /* je tijd per dag: dag kiezen, wiel bewaart zodra het stilstaat */
+  /* de wekelijkse vraag: zonder wijziging telt de week zoals hij er staat (de vorige week) */
+  wkAskDone(d){const k=d.k;if(!state.weeks[k]){state.weeks[k]=weekAvail(state,parseISO(k)).slice();save()}ui.wkAsk=null;ui.avSel=null;render();toast('Je schema voor week '+weekNo(parseISO(k))+' staat klaar.')},
   avOpen(){ui.avOpen=!ui.avOpen;ui.avSel=ui.avOpen?ui.avSel:null;render()},
   avDay(d){const i=+d.i;ui.avSel=ui.avSel&&ui.avSel.k===d.k&&ui.avSel.i===i?null:{k:d.k,i};avRefresh(d.k)},
   wheelTo(d,el){const w=el.closest('.wheel');if(w)w.scrollTo({top:+d.i*WROW,behavior:'smooth'})},
@@ -70,6 +72,8 @@ const actions={
     const k=d.k,sel=ui.avSel;if(!sel||sel.k!==k)return;const m=+d.m,i=sel.i;
     if(k==='setup'){ui.setupAvail[i]=m;const t=document.querySelector('.aved[data-k="setup"] .avtot'),tot=ui.setupAvail.reduce((x,y)=>x+y,0);if(t)t.textContent=tot?durTxt(tot)+' beschikbaar':'Nog geen tijd gekozen';return}
     const w=avWeek(k);if(w.lock[i])return;w.mins[i]=m;state.weeks[k]=w.mins.slice();
+    /* bezig met de wekelijkse vraag: die blijft staan tot je op Klaar tikt */
+    if(document.querySelector('.wkask .aved[data-k="'+k+'"]'))ui.wkAsk=k;
     /* de week is nu de bron; losse aanpassingen per dag vervallen */
     const mon=parseISO(k);for(let j=0;j<7;j++){const kk=iso(addDays(mon,j)),o=state.overrides[kk];if(o){delete o.minutes;delete o.skip;if(!Object.keys(o).length)delete state.overrides[kk]}}
     save();render();
