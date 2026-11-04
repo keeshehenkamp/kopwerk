@@ -17,7 +17,7 @@ const TYPES={
   duurtempo:{name:'Duurrit met tempofinale',hard:false,desc:'Lange duurrit die eindigt met een blok op tempo. Je leert doortrappen als de benen al moe zijn.'},
   duurheuvels:{name:'Duurrit met korte klimmen',hard:false,desc:'Lange duurrit met elk kwartier een korte, stevige klim. Je leert hellingen aanzetten als de benen al moe zijn, zoals laat in een heuveltocht.'},
   openers:{name:'Activatie',hard:false,desc:'Korte prikkels om de benen wakker te houden zonder vermoeidheid op te bouwen. Past in een herstelweek of de dag voor een zware rit.'},
-  ramptest:{name:'FTP-test (ramptest)',hard:true,desc:'Elke minuut gaat het vermogen omhoog tot je niet meer kunt. Stop zodra je de cadans niet meer vasthoudt; je FTP wordt berekend uit je beste minuut.'}
+  ramptest:{name:'FTP-test (ramptest)',hard:true,desc:'Elke minuut gaat het vermogen omhoog tot je niet meer kunt. Houd je een stap niet meer vast, dan stopt de test vanzelf en rij je vijf minuten uit. Je FTP is 75% van je beste minuut.'}
 };
 /* nieuwe set (oktober 2026): meer afwisseling binnen elke soort prikkel; min = vanaf welk niveau de coach hem inplant */
 Object.assign(TYPES,{

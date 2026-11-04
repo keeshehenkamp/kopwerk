@@ -135,7 +135,7 @@ function verdict(r,ftp){
     return out;
   }
   if(r.type==='vrij'){out.push(r.dist>200?`Vrij gereden: ${nl((r.dist/1000).toFixed(1))} km in ${clock(r.dur)}, gemiddeld ${r.avgP} W.`:`Vrij gereden: ${clock(r.dur)}, gemiddeld ${r.avgP} W.`);return out}
-  if(r.manual){out.push('Deze rit is met de hand ingevoerd. De belasting is een schatting op basis van duur en zwaarte.');return out}
+  if(r.manual){out.push(TYPES[r.type]?'Met de hand ingevoerd als gedaan. De belasting is geschat uit de geplande training en de duur.':'Met de hand ingevoerd. De belasting is geschat uit de duur en hoe zwaar het voelde.');return out}
   const done=r.dur/Math.max(1,r.planned);
   if(r.score!=null){
     const m=r.miss,wat=m&&m.n?`In ${m.n} van de ${m.N} ${m.N===1?'blok':'blokken'} zat je meer dan 6% ${m.low*2>=m.n?'onder':'boven'} het doel.`:'';

@@ -183,6 +183,21 @@ function dayCard(d,tk){
   const m=d.health&&d.health.during?`${healthWord(d.health.h).replace(/^./,c=>c.toUpperCase())} gemeld`:d.o.skip?'Overgeslagen':'';
   return `<div class="wcard"><div class="t"><div><h3>Rustdag</h3>${m?`<div class="m">${m}</div>`:''}</div><span class="row">${canRide()?'<button class="btn small" data-act="vrij">Vrij rijden</button>':''}<button class="btn small" data-act="openDay" data-iso="${d.iso}">Toch trainen</button></span></div></div>`;
 }
+/* na een geplande training die voorbij is: hoe ging het? Gedaan (hoe zwaar), iets anders gedaan, of niet gedaan.
+   Alleen de laatste zeven dagen, de nieuwste eerst; een dag met een rit of een afmelding is klaar. */
+function openChecks(today){
+  const tk=iso(today),from=iso(addDays(today,-7)),rep=state.missed||{},out=[];
+  for(const off of[-7,0])for(const d of planWeek(state,addDays(mondayOf(today),off),today).days)
+    if(d.wo&&!d.event&&d.iso<tk&&d.iso>=from&&(!state.started||d.iso>=state.started)&&!rideOn(d.iso)&&!rep[d.iso]&&!(d.health&&d.health.during))out.push(d);
+  return out.sort((a,b)=>a.iso<b.iso?1:-1);
+}
+const checkBtns=k=>`<div class="hbtns"><button class="btn pri" data-act="openCheck" data-iso="${k}" data-m="done">Gedaan</button><button class="btn" data-act="openCheck" data-iso="${k}" data-m="other">Iets anders</button><button class="btn" data-act="openMissed" data-iso="${k}">Niet gedaan</button></div>`;
+function checkCard(today){
+  const l=openChecks(today);if(!l.length)return '';
+  const d=l[0],y=d.iso===iso(addDays(today,-1)),when=y?'Gisteren':dateLong(d.date).replace(/^./,c=>c.toUpperCase());
+  return `<div class="card"><h2>Hoe ging je training?</h2><p class="small muted" style="margin-top:3px">${when} · ${esc(d.wo.name)} · ${durTxt(d.wo.minutes)}</p>
+    ${checkBtns(d.iso)}${l.length>1?`<p class="small muted" style="margin-top:10px">Nog ${l.length-1} ${l.length===2?'training':'trainingen'} zonder antwoord.</p>`:''}</div>`;
+}
 /* je tijd per week: elke week vraagt de app opnieuw hoeveel tijd je hebt. Op zondag voor volgende week,
    anders voor deze week als die nog niet is ingevuld. Tot je op Klaar tikt blijft de vraag staan (ui.wkAsk). */
 function wkAskKey(today){
@@ -257,7 +272,7 @@ function vandaagView(){
   const last=state.rides.filter(r=>!r.sim).sort((a,b)=>b.ts-a.ts).slice(0,3);
   const recent=last.length?`<div class="card"><h3 style="margin-bottom:4px">Recente ritten</h3><div class="list">${last.map(r=>{const d=new Date(r.ts);return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${DAYS[dow(d)]}</b>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span><span class="w"><b>${esc(r.name)}</b><span>${clock(r.dur)} · ${r.tss} TSS${r.rpe?` · gevoel ${r.rpe}`:''}</span></span></button>`}).join('')}</div></div>`:'';
   return `<div class="head"><div><h1>Vandaag</h1><p>${dateLong(today).replace(/^./,c=>c.toUpperCase())}</p></div></div>
-    <div class="home"><div class="stack">${pend}${sync}${statusCard(plan,today)}${weekAskCard(today)}<div>${dayCard(td,tk)}</div>${weekCard(today)}${recent}</div></div>`;
+    <div class="home"><div class="stack">${pend}${sync}${statusCard(plan,today)}${checkCard(today)}${weekAskCard(today)}<div>${dayCard(td,tk)}</div>${weekCard(today)}${recent}</div></div>`;
 }
 
 /* ---------- schema ---------- */
@@ -319,7 +334,8 @@ function trainingView(){
       <div class="kv"><div><b>${durTxt(w.minutes)}</b><span>duur</span></div><div><b>${w.tss}</b><span>TSS</span></div><div><b>${nl(w.IF.toFixed(2))}</b><span>intensiteit</span></div><div><b>${w.lvl?w.lvl+'/'+w.lvlMax:'–'}</b><span>trede</span></div></div>
       <div class="card stack"><p>${esc(w.desc)}</p>${why?`<details class="why"><summary>Waarom deze training?</summary><p class="small muted" style="margin-top:8px">${esc(why)}</p></details>`:''}<div class="row">${zs.map(z=>`<span class="zchip"><i style="background:var(--z${z})"></i>${ZN[z]}</span>`).join('')}</div></div>
     </div><div class="stack">
-      ${canRide()?`<div class="cta"><button class="btn pri big" data-act="startModal">Start training</button><button class="btn" data-act="zwoModal">Zwift</button></div>`:'<p class="notice small">Rijden met je trainer doe je op je laptop, in Chrome of Edge. Hier bekijk je de training.</p>'}
+      ${day&&day.iso<iso(new Date())&&!rideOn(day.iso)?`<div class="card"><h3>Hoe ging deze training?</h3>${state.missed&&state.missed[day.iso]?'<p class="small muted" style="margin-top:3px">Je meldde hem als niet gedaan. Toch gereden? Vul het hieronder in.</p>':''}${checkBtns(day.iso)}</div>`
+      :canRide()?`<div class="cta"><button class="btn pri big" data-act="startModal">Start training</button><button class="btn" data-act="zwoModal">Zwift</button></div>`:'<p class="notice small">Rijden met je trainer doe je op je laptop, in Chrome of Edge. Hier bekijk je de training.</p>'}
       ${day?altsHTML(w,day):''}
       <div class="card"><h3 style="margin-bottom:4px">Blokken</h3>${segList(w)}</div>
       ${adjust}</div></div>`;
@@ -410,10 +426,12 @@ function rideView(){
   /* cijfer (of bij een FTP-test de uitkomst) met wat de coach ervan vindt */
   const mark=r.type==='ramptest'&&est?`<div class="grade"><b>${est}</b><span>W FTP</span></div>`:c!=null?`<div class="grade ${c>=7.5?'hi':c>=5.5?'mid':'lo'}"><b>${nl(c.toFixed(1))}</b><span>cijfer</span></div>`:'';
   const hero=v.length||mark?`<div class="card hero">${mark}<div class="herotxt"><p>${esc(v[0]||'')}</p>${v.slice(1).map(t=>`<p class="small muted">${esc(t)}</p>`).join('')}${ftpBtn?`<div style="margin-top:12px">${ftpBtn}</div>`:''}</div></div>`:'';
+  /* met de hand ingevoerd: alleen wat je invulde; iets anders dan een training uit het schema heeft geen geplande duur */
+  const other=r.manual&&!TYPES[r.type];
   const keys=`<div class="keys">
-      <div><span>Duur</span><b>${clock(r.dur)}</b>${r.dist?`<small>${nl((r.dist/1000).toFixed(1))} km</small>`:!outdoor&&r.planned&&Math.abs(r.planned-r.dur)>30?`<small>van ${clock(r.planned)}</small>`:''}</div>
-      <div><span>Gemiddeld</span><b>${r.avgP||'–'}<i>W</i></b>${r.np?`<small>genormaliseerd ${r.np} W</small>`:''}</div>
-      <div><span>Hartslag</span><b>${r.avgHr||'–'}<i>${r.avgHr?'bpm':''}</i></b>${r.maxHr?`<small>max ${r.maxHr}</small>`:''}</div>
+      <div><span>Duur</span><b>${clock(r.dur)}</b>${r.dist?`<small>${nl((r.dist/1000).toFixed(1))} km</small>`:!outdoor&&!other&&r.planned&&Math.abs(r.planned-r.dur)>30?`<small>van ${clock(r.planned)}</small>`:''}</div>
+      ${r.manual&&!r.avgP?'':`<div><span>Gemiddeld</span><b>${r.avgP||'–'}<i>W</i></b>${r.np?`<small>genormaliseerd ${r.np} W</small>`:''}</div>`}
+      ${r.manual&&!r.avgHr?'':`<div><span>Hartslag</span><b>${r.avgHr||'–'}<i>${r.avgHr?'bpm':''}</i></b>${r.maxHr?`<small>max ${r.maxHr}</small>`:''}</div>`}
       <div><span>Belasting</span><b>${r.tss}<i>TSS</i></b></div></div>`;
   /* gevoel: eerst de vraag; na je antwoord een korte regel die je kunt aanpassen */
   const scale=`<div class="rpe">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="rpe" data-n="${n}" aria-pressed="${r.rpe===n}" aria-label="${n} van 10">${n}</button>`).join('')}</div><div class="rpel"><span>Moeiteloos</span><span>Alles gegeven</span></div>`;
@@ -455,7 +473,7 @@ function rideView(){
   return `<button class="back" data-act="back" data-v="${from[0]}">${I.l}${from[1]}</button>
     <div class="head"><div><h1>${esc(r.name)}${r.sim?' <span class="badge" style="vertical-align:middle">Demo</span>':''}</h1><p>${dateLong(d)} ${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}</p></div></div>
     <div class="stack">${r.perf&&/[?&]meet/.test(location.search)?`<div class="card"><h3 style="margin-bottom:6px">Meting 3D-wereld</h3><p><b>${r.perf.fps}</b> beelden per seconde · ${r.perf.big} haperingen · ${r.perf.small} gemiste beelden</p>${r.perf.list.length?`<p class="small muted" style="margin-top:6px">Grootste haperingen: ${r.perf.list.map(x=>`${clock(x.t)} (${x.ms} ms${x.b?', bijbouwen':''})`).join(', ')}</p>`:''}</div>`:''}${hero}${keys}${r.rpe==null?rpe:''}${prs}${chart}${zones}
-      <button class="btn deepbtn" data-act="deep" aria-expanded="${!!ui.deep}">Diepgaande analyse<span aria-hidden="true">${ui.deep?I.up:I.down}</span></button>
+      ${r.manual?'':`<button class="btn deepbtn" data-act="deep" aria-expanded="${!!ui.deep}">Diepgaande analyse<span aria-hidden="true">${ui.deep?I.up:I.down}</span></button>`}
       ${deep}${r.rpe!=null?rpe:''}
       <div><button class="btn warn" data-act="delRide">${ui.confirm==='ride'?'Klik nog eens om te verwijderen':'Rit verwijderen'}</button></div></div>`;
 }
@@ -504,6 +522,20 @@ function missedModal(){
     <div class="stack"><button class="btn big" data-act="missedWhy" data-why="tijd">Geen tijd</button><button class="btn big" data-act="missedWhy" data-why="moe">Te moe</button><button class="btn big" data-act="missedWhy" data-why="ziek">Ziek of geblesseerd</button></div>
     <div><button class="btn" data-act="closeModal">Annuleren</button></div></div></div>`;
 }
+/* gedaan of iets anders gedaan: duur en hoe zwaar het voelde */
+const CHECK_KIND={buiten:['Buiten gefietst','Buitenrit','buiten'],hardlopen:['Hardgelopen','Hardlopen','hardlopen'],fitness:['Kracht of fitness','Kracht of fitness','fitness'],anders:['Iets anders','Iets anders','anders']};
+function checkModal(){
+  const M=ui.modal,day=planWeek(state,mondayOf(parseISO(M.iso)),new Date()).days.find(x=>x.iso===M.iso),w=day&&day.wo;
+  if(!w){ui.modal=null;return ''}
+  const done=M.m==='done',when=dateLong(day.date).replace(/^./,c=>c.toUpperCase());
+  return `<div class="veil" data-act="veil"><div class="modal narrow stack" role="dialog" aria-modal="true" aria-label="${done?'Training gedaan':'Iets anders gedaan'}">
+    <div><h2>${done?'Hoe zwaar was het?':'Wat heb je gedaan?'}</h2><p class="small muted" style="margin-top:3px">${when} · ${done?esc(w.name):'in plaats van '+esc(w.name)}</p></div>
+    ${done?'':`<div class="opts">${Object.entries(CHECK_KIND).map(([k,v],i)=>`<label class="opt"><input type="radio" name="ck" value="${k}"${i?'':' checked'}><span><b>${v[0]}</b></span></label>`).join('')}</div>`}
+    <div><label class="f" for="c-min">Duur in minuten</label><input type="number" id="c-min" min="5" max="900" value="${done?w.minutes:60}" style="width:120px"></div>
+    <div><div class="f">Hoe zwaar voelde het?</div><div class="rpe">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="chkRpe" data-n="${n}" aria-pressed="${M.rpe===n}" aria-label="${n} van 10">${n}</button>`).join('')}</div>
+      <div class="rpel" style="margin-top:6px"><span>Moeiteloos</span><span>Alles gegeven</span></div></div>
+    <div class="mfoot"><button class="btn pri" data-act="saveCheck">Opslaan</button><button class="btn" data-act="closeModal">Annuleren</button></div></div></div>`;
+}
 /* ziek of geblesseerd melden of aanpassen */
 function healthModal(){
   const H=state.health,cur=(H&&H.kind)||'ziekL',from=(H&&H.from)||ui.modal.from||iso(new Date());
@@ -536,6 +568,7 @@ function modalHTML(){
   if(ui.modal&&ui.modal.kind==='missed')return missedModal();
   if(ui.modal&&ui.modal.kind==='health')return healthModal();
   if(ui.modal&&ui.modal.kind==='add')return addModal();
+  if(ui.modal&&ui.modal.kind==='check')return checkModal();
   return '';
 }
 

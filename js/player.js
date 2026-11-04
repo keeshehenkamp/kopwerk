@@ -94,6 +94,13 @@ function stepSecond(){
   const v=P.rec.p[P.rec.p.length-1]/P.ftp;P.tr.push([P.pos,v]);
   P.trace+=`${(P.pos/P.total*1000).toFixed(1)},${(100-clamp(v/P.maxI,0,1)*100).toFixed(1)} `;
   P.pos+=1;
+  /* FTP-test: houd je de stap tien seconden niet meer vast (vermogen onder 80% van het doel of cadans onder 50),
+     dan is de test klaar en begint meteen het uitrijden */
+  if(P.wo.type==='ramptest'&&!P.rampDone&&P.wo.segs[i].kind==='work'&&fresh&&!P.sim){
+    P.rampLow=P.rec.p[P.rec.p.length-1]<tgt*.8||P.rec.cad[P.rec.cad.length-1]<50?(P.rampLow||0)+1:0;
+    if(P.rampLow>=10){P.rampDone=true;P.pos=P.starts[P.wo.segs.length-1];P.sent=-1;beep(523,600);
+      const b=bestEffort(P.rec.p,60);toast(`Test klaar. Beste minuut ${b} W, dus een FTP van ongeveer ${Math.round(b*.75)} W. Rij nu rustig uit.`)}
+  }
   const rem=P.starts[i]+P.wo.segs[i].d-P.pos;
   if(P.speed===1&&rem>=1&&rem<=3&&i<P.wo.segs.length-1&&P.wo.segs[i].d>=10)beep(660,120);
   /* tijd om: in de 3D-wereld rij je nog naar de finishstreep (die ligt vlak voor je), anders meteen het eindscherm */
