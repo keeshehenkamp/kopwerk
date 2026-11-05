@@ -41,6 +41,13 @@ function shift(d){
   P.gear=g;simResend();beep(d>0?1500:1200,35);
   for(const e of document.querySelectorAll('.pgear'))e.textContent=g;
 }
+/* cadansadvies per blok: wat de training vraagt, anders passend bij het soort blok; 5 rpm eromheen is goed */
+const CLIMB_TYPES=['klim','heuvels','colsim','staand','muurtjes','duurklim','kracht','kasseien','duurkracht'];
+function cadAdvice(s){
+  if(s.cad)return s.cad;
+  if(s.kind==='work')return CLIMB_TYPES.includes(P.wo.type)?75:Math.max(s.a,s.b)>=1.05?95:90;
+  return s.kind==='rest'?85:90;
+}
 const segAt=pos=>{let i=Math.max(0,P.si);while(i<P.wo.segs.length-1&&pos>=P.starts[i+1])i++;while(i>0&&pos<P.starts[i])i--;return i};
 const fracAt=(i,pos)=>{const s=P.wo.segs[i];return s.a+(s.b-s.a)*clamp((pos-P.starts[i])/s.d,0,1)};
 const tgtAt=pos=>Math.round(fracAt(segAt(pos),pos)*P.ftp*P.bias);
@@ -153,13 +160,16 @@ function paintPlayer(){
   const fh=now()-live.tH<5000,fp=now()-live.tP<3000;
   el('p-elapsed').textContent=clock(P.rec.p.length);
   if(el('p-prog')&&!P.vrij){el('p-prog').style.width=Math.min(100,P.pos/P.total*100)+'%';const rs=el('p-rest');if(rs)rs.textContent=clock(Math.max(0,P.total-P.pos));if(!P.free)paintList(segAt(Math.min(P.pos,P.total-1)))}
+  /* aftellen in de laatste 3 seconden van een blok, in 3D en in de cijferweergave */
+  {const cd=el('p-cd'),rem=P.starts[i]+s.d-P.pos,on=!P.free&&P.mode==='run'&&s.d>=20&&P.wo.segs[i+1]&&rem>0&&rem<=3;
+    if(cd){cd.hidden=!on;if(on&&cd.textContent!==String(rem)){cd.textContent=rem;cd.style.animation='none';void cd.offsetWidth;cd.style.animation=''}}}
   const rp=el('p-repeat');if(rp)rp.hidden=P.free||!(s.kind==='work'||s.kind==='rest');
   if(P.free){
     el('p-target').textContent='–';el('p-power').textContent=pw==null?'–':pw;
     el('p-cad').textContent=fp&&live.cad?Math.round(live.cad):'–';el('p-hr').textContent=fh&&live.hr?live.hr:'–';
-    el('p-cadl').textContent='Cadans';el('p-seg').textContent='Vrij rijden';el('p-left').textContent=clock(P.freeSec);
+    el('p-cadl').textContent='Cadans';if(el('p-cadadv'))el('p-cadadv').textContent='';if(el('p-blk'))el('p-blk').style.width='0';if(el('p-blen'))el('p-blen').textContent='';el('p-seg').textContent='Vrij rijden';el('p-left').textContent=clock(P.freeSec);
     if(!P.vrij){const fm=typeof finishLeft==='function'?finishLeft():null;el('p-next').textContent=fm!=null?`Nog ${fm} m tot de finish`:'Training klaar · vrij rijden'}else if(!v3now())el('p-next').textContent=samenOn()?'Groepsrit '+SAMEN.code:'Geen schema';
-    el('p-zone').style.background='var(--z3)';el('p-dot').style.left='50%';
+    el('p-zone').style.background='var(--z3)';if(el('p-dot'))el('p-dot').style.left='50%';toneOff('p-pv');toneOff('p-cv');
     el('p-cur').setAttribute('x1',1000);el('p-cur').setAttribute('x2',1000);
     if(P.drawn!==P.tr.length){P.drawn=P.tr.length;el('p-trace').setAttribute('points',P.trace)}
     return;
@@ -167,20 +177,36 @@ function paintPlayer(){
   el('p-target').textContent=tgt;
   el('p-power').textContent=pw==null?'–':pw;
   el('p-cad').textContent=fp&&live.cad?Math.round(live.cad):'–';
-  el('p-cadl').textContent=s.cad?`Cadans, doel ${s.cad}`:'Cadans';
+  /* cadans: advies en meter kijken live mee, net als bij het vermogen */
+  {const c=cadAdvice(s),v=fp&&live.cad?Math.round(live.cad):null,off=v==null?0:v-c,a=el('p-cadadv'),dt=el('p-cdot');
+    if(a){a.textContent=`Advies ${c} rpm${v==null?'':off<-5?' · sneller trappen':off>5?' · rustiger trappen':' · goed'}`;a.dataset.ok=v==null?'':Math.abs(off)<=5?'1':'0'}
+    if(dt)dt.style.left=(50+clamp(off,-40,40)/40*50)+'%';
+    if(el('p-cdoel'))el('p-cdoel').textContent=c;
+    /* kleur alleen waar het ertoe doet: in de warming-up, herstel en cooling-down blijft het rustig.
+       Een cadans die de training echt vraagt is strenger dan het algemene advies: die keuze is ook een kwestie van smaak. */
+    const calm=s.kind==='rest'||s.kind==='warmup'||s.kind==='cooldown';
+    tone('p-cv',calm||v==null?null:off,s.cad?5:10,s.cad?10:20);tone('p-pv',calm||pw==null||!tgt?null:(pw/tgt-1)*100,5,10)}
   el('p-hr').textContent=fh&&live.hr?live.hr:'–';
-  el('p-seg').textContent=s.label+(s.cad?` op ${s.cad} rpm`:'');
+  el('p-seg').textContent=s.label;
   el('p-left').textContent=clock(P.starts[i]+s.d-P.pos);
+  if(el('p-blen'))el('p-blen').textContent=`blok van ${clock(s.d)}`;
+  {const b=el('p-blk');if(b){b.style.width=clamp((pos-P.starts[i])/s.d*100,0,100)+'%';b.style.background=`var(--z${zoneOf(fracAt(i,pos))})`}}
+  {const ex=el('p-ext');if(ex)ex.hidden=i<P.wo.segs.length-1}
   const nx=P.wo.segs[i+1];
   const sk=el('p-sk');if(sk)sk.textContent=`${Math.round((pw?speedFor(pw,0):0)*3.6)} km/u · ${nl(((P.dist||0)/1000).toFixed(1))} km`;
-  el('p-next').textContent=nx?`Hierna: ${nx.label}, ${clock(nx.d)} op ${Math.round(nx.a*P.ftp*P.bias)} W`:(fm=>fm!=null?`Laatste blok · finish over ${fm} m`:'Laatste blok')(typeof finishLeft==='function'?finishLeft():null);
+  el('p-next').textContent=nx?`Hierna: ${nx.label}, ${clock(nx.d)} op ${Math.round(nx.a*P.ftp*P.bias)} W, ${cadAdvice(nx)} rpm`:(fm=>fm!=null?`Laatste blok · finish over ${fm} m`:'Laatste blok')(typeof finishLeft==='function'?finishLeft():null);
   el('p-zone').style.background=`var(--z${zoneOf(fracAt(i,pos))})`;
   const dev=pw==null||!tgt?0:clamp((pw/tgt-1)*100,-20,20);
-  el('p-dot').style.left=(50+dev*2.5)+'%';
+  if(el('p-dot'))el('p-dot').style.left=(50+dev*2.5)+'%';
   const hb=el('p-hint');if(hb){const on=!!P.hint&&P.hint.i===i;hb.hidden=!on;if(on)el('p-hintt').textContent=`Hartslag ${P.hint.hr}, normaal ${P.hint.exp}`}
   el('p-cur').setAttribute('x1',P.pos/P.total*1000);el('p-cur').setAttribute('x2',P.pos/P.total*1000);
   if(P.drawn!==P.tr.length){P.drawn=P.tr.length;el('p-trace').setAttribute('points',P.trace)}
 }
+/* cijfer in de cijferweergave: groen goed, oranje of rood eraf, met een pijl de kant op die je moet */
+function tone(id,off,a,b){const e=document.getElementById(id);if(!e)return;
+  if(off==null)return toneOff(id);
+  const m=Math.abs(off),t=m<=a?'ok':m<=b?'warn':'bad';e.dataset.t=t;e.querySelector('.parr').textContent=t==='ok'?'':off<0?'↑':'↓'}
+function toneOff(id){const e=document.getElementById(id);if(e){e.dataset.t='';e.querySelector('.parr').textContent=''}}
 /* iconen voor de bedieningsbalk (24×24, eigen lijntekening) */
 const PICO={
   pause:['f','<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>'],
@@ -198,6 +224,7 @@ const PICO={
 };
 const pico=k=>{const [t,d]=PICO[k];return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" ${t==='f'?'fill="currentColor"':'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'}>${d}</svg>`};
 const pib=(act,k,label,extra='',cls='')=>`<button class="btn icon${cls}" data-act="${act}" title="${label}" aria-label="${label}"${extra}>${pico(k)}</button>`;
+const plb=(act,k,label,title,extra='',cls='')=>`<button class="btn lab${cls}" data-act="${act}" title="${title}"${extra}>${k?pico(k):''}<span>${label}</span></button>`;
 function playerHTML(){
   const w=P.wo,ready=P.mode==='ready',run=P.mode==='run',pause=P.mode==='pause',v3=view3d();
   let x=0;
@@ -241,8 +268,9 @@ function playerHTML(){
         ${P.auto?'<span class="badge">Gepauzeerd: begin met trappen</span>':''}
         ${navigator.bluetooth&&!P.sim&&!ble.hrOn?pib('connectHr','hart','Hartslagmeter koppelen'):''}
         ${gearOn()?`<span class="gears">${pib('shift','licht','Lichter schakelen (pijl omlaag)',' data-d="-1"')}<span class="num" title="Versnelling, 1 is de lichtste"><i>Versn.</i> <b class="pgear">${P.gear}</b></span>${pib('shift','zwaar','Zwaarder schakelen (pijl omhoog)',' data-d="1"')}</span>`:''}
+        ${P.free?'':`${plb('repeat','herhaal','Herhalen','Dit blok herhalen',' id="p-repeat" hidden')}${plb('blockMore','','+30 s','Dit blok 30 seconden langer',' data-s="30"')}${plb('blockMore','','+1 min','Dit blok een minuut langer',' data-s="60"')}`}
         ${pib('pause',pause?'play':'pause',pause?'Verder':'Pauze','',' pri big')}
-        ${P.free?'':`${pib('repeat','herhaal','Blok herhalen',' id="p-repeat" hidden')}${pib('skip','volgend','Volgend blok')}${pib('extend','plus5','5 minuten uitrijden')}`}
+        ${P.free?'':`${plb('skip','volgend','Overslaan','Naar het volgende blok')}${plb('extend','plus5','Uitrijden','5 minuten uitrijden toevoegen',' id="p-ext" hidden')}`}
         ${pib('stop','stop','Stoppen','',' warn')}
       </div>`;
   const hud=v3&&P.game.on?`<div class="phud"><b id="p-pts">0</b><span>punten</span><span id="p-mult" class="pmult"></span><span id="p-stars" class="pstars">★ 0</span></div><div class="ppop" id="p-pop" hidden></div>`:'';
@@ -252,12 +280,13 @@ function playerHTML(){
     <div class="zpow"><i class="zband" id="p-zone"></i><div class="zp1"><b id="p-power">–</b><i>W</i></div>
       <div class="zhr"><span aria-hidden="true">♥</span><b id="p-hr">–</b><i>bpm</i></div>
       <div class="zp2"><span><b id="p-cad">–</b><i>rpm</i></span>${gearOn()?`<span title="Versnelling"><b class="pgear">${P.gear}</b><i>versn.</i></span>`:''}</div>
+      <span id="p-cadadv" class="padv"></span>
       <div class="zgauge" aria-hidden="true"><span class="ok"></span><span class="mid"></span><span class="dot" id="p-dot"></span></div><span id="p-cadl" hidden></span></div>
     <div class="zbar"><div class="zb1"><span><b id="p-spd">0</b><i>km/u</i></span><span><b id="p-km">0,0</b><i>km</i></span><span><b id="p-hm">0</b><i>m</i></span><span><b id="p-elapsed">0:00</b><i>${P.vrij?'':`/ ${clock(P.total)}${P.free?' +':''}`}</i></span></div>
       <div class="zprog"><i id="p-prog"></i></div>
       <div class="zb2"><span class="zname">${esc(w.name)}</span>${status}<span class="zbtns">${ready?'<button class="btn small" data-act="closePlayer">Sluiten</button>':'<button class="btn small" data-act="view3d">Alleen cijfers</button>'}</span></div></div>
     <div class="zlist"><div class="zlh"><b>${P.vrij?'Rit':'Schema'}</b><span>${P.vrij?'':'nog '}<b id="p-rest">${clock(P.total)}</b></span></div><div id="p-list"></div>
-      <div class="zcur"><span id="p-seg"></span><div class="zct"><span><b id="p-target">–</b><i>W</i></span><b id="p-left"></b></div><span id="p-next" class="znext"></span></div></div>
+      <div class="zcur"><span id="p-seg"></span><div class="zct"><span><b id="p-target">–</b><i>W</i></span><b id="p-left"></b></div><div class="pbar"><i id="p-blk"></i></div><span id="p-next" class="znext"></span></div></div>
     ${hud?`<div class="zside">${hud}</div>`:''}${load}
     ${startBox}
     <div class="zchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
@@ -271,18 +300,16 @@ function playerHTML(){
       <div class="pclock"><span id="p-elapsed" style="color:var(--ink);font-size:34px;font-weight:600">0:00</span><span>${P.vrij?'':` / ${clock(P.total)}${P.free?' +':''}`}</span></div>
       <div class="row">${ready?'<button class="btn" data-act="closePlayer">Sluiten</button>':'<button class="btn" data-act="view3d">3D-wereld</button>'}</div>
     </div>
-    ${hud}${load}
+    ${hud}${load}<div class="pcd" id="p-cd" hidden></div>
     <div class="pmain">
       ${readyBox}
-      <div class="pseg"><span id="p-seg"></span><span id="p-left"></span></div>
-      <div class="pnums">
-        <div class="pnum"><label>Doel</label><b id="p-target">–</b><i>W</i></div>
-        <div class="pnum big"><label>Vermogen</label><b id="p-power">–</b><i>W</i></div>
-        <div class="pnum"><label id="p-cadl">Cadans</label><b id="p-cad">–</b><i>rpm</i></div>
-        <div class="pnum"><label>Hartslag</label><b id="p-hr">–</b><i>bpm</i></div>
+      <div class="pblock"><div class="pbh"><span id="p-seg"></span><span id="p-next"></span></div><div class="pbar"><i id="p-blk"></i></div></div>
+      <div class="pgrid">
+        <div class="ppow"><div class="pv"><b id="p-left"></b></div><div class="ptgt" id="p-blen"></div></div>
+        <div class="ppow pmid" id="p-pv"><div class="pv"><b id="p-power">–</b><span class="parr" aria-hidden="true"></span></div><div class="ptgt">watt · doel <b id="p-target">–</b></div></div>
+        <div class="ppow" id="p-cv"><span id="p-cadl" hidden></span><div class="pv"><b id="p-cad">–</b><span class="parr" aria-hidden="true"></span></div><div class="ptgt">rpm · advies <b id="p-cdoel">–</b></div></div>
       </div>
-      <div class="gauge" aria-hidden="true"><span class="ok"></span><span class="mid"></span><span class="dot" id="p-dot"></span></div>
-      <div class="pnext"><span id="p-next"></span><span id="p-sk"></span></div>
+      <div class="pfoot"><span><i aria-hidden="true">♥</i> <b id="p-hr">–</b> bpm</span><span id="p-sk"></span></div>
     </div>
     <div class="pchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
     <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>

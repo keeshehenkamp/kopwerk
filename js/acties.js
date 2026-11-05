@@ -293,6 +293,7 @@ const actions={
   samenCopy(){samenCopy()},
   samenGo(){samenGo()},
   pause(){if(!P||P.end)return;if(P.mode==='run')P.mode='pause';else if(P.mode==='pause'){P.mode='run';P.last=now();P.sent=-1}P.stopArm=false;renderPlayer()},
+  blockMore(d){if(!P||P.free||P.mode==='ready')return;P.wo.segs[segAt(Math.min(P.pos,P.total-1))].d+=+d.s;rebuild();renderPlayer();toast(`Dit blok duurt ${+d.s===60?'een minuut':'30 seconden'} langer.`)},
   skip(){if(!P||P.mode==='ready')return;const i=segAt(P.pos);if(i>=P.wo.segs.length-1)return finishRide();P.pos=P.starts[i+1];P.sent=-1;paintPlayer()},
   stop(){if(!P)return;endRide('stop')},
   /* eindscherm: cijfer voor het gevoel, opslaan (met dat cijfer) of toch doorrijden */

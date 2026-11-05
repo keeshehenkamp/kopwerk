@@ -1545,9 +1545,6 @@ function worldHud(d){
     const ctl=el('p-ctl');if(ctl)ctl.classList.toggle('hide',P.mode==='run'&&now()-(W.uiT||0)>4000)}
   if(P.vrij)vrijHud(d);
   if(W&&W.C&&!P.free){
-    /* aftellen in de laatste 3 seconden van een blok */
-    const pos=Math.min(P.pos,P.total-1),i=segAt(pos),sg=P.wo.segs[i],rem=P.starts[i]+sg.d-P.pos,cd=el('p-cd');
-    if(cd){const on=P.mode==='run'&&sg.d>=20&&P.wo.segs[i+1]&&rem>0&&rem<=3;cd.hidden=!on;if(on&&cd.textContent!==String(rem)){cd.textContent=rem;cd.style.animation='none';void cd.offsetWidth;cd.style.animation=''}}
     if(now()-(W.profT||0)>300){W.profT=now();drawProfile(d)}
   }
   if(!g.on)return;
