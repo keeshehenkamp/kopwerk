@@ -176,6 +176,12 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .why summary::after,.evbox summary::after{content:'';width:7px;height:7px;border:solid currentColor;border-width:0 2px 2px 0;transform:translateY(-2px) rotate(45deg);transition:transform .15s}
 .why[open]>summary::after,.evbox[open]>summary::after{transform:translateY(2px) rotate(-135deg)}
 .why summary:hover{color:var(--ink)}
+/* uitklapkaart: de hele kop is de knop */
+.fold summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;font-weight:600}
+.fold summary::-webkit-details-marker{display:none}
+.fold summary::after{content:'';flex:none;width:8px;height:8px;margin-right:3px;border:solid var(--muted);border-width:0 2px 2px 0;transform:translateY(-2px) rotate(45deg);transition:transform .15s}
+.fold[open]>summary::after{transform:translateY(2px) rotate(-135deg)}
+@media (pointer:coarse){.fold summary{padding:4px 0}}
 
 /* andere training met hetzelfde idee */
 .alts{display:flex;flex-direction:column;margin-top:8px}
@@ -471,24 +477,13 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 /* periodekeuze */
 .seg{display:flex;gap:6px;flex-wrap:wrap}.seg .btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 /* kalender */
-.cal{display:flex;flex-direction:column;gap:4px}
-.cal-w{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
-.cal-h span{font-size:12px;color:var(--muted);padding:0 6px}
-.cal-d{min-height:84px;display:flex;flex-direction:column;align-items:stretch;gap:3px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 7px;font-size:12px;min-width:0}
-.cal-d:not([disabled]):hover{border-color:var(--hover)}.cal-d[disabled]{cursor:default}
-.cal-d>b{font-size:13px;font-weight:600}
-.cal-d.out{opacity:.45}.cal-d.today{box-shadow:inset 0 0 0 1.5px var(--ink)}.cal-d.rode{background:var(--sunk)}
-.cal-i{display:flex;align-items:center;gap:5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cal-i i{width:8px;height:8px;border-radius:2px;flex:none}.cal-i.done::before{content:'✓';color:var(--ok);font-weight:700}
-.cal-i.ev{color:var(--acc)}.cal-i.miss{color:var(--muted);text-decoration:line-through}.cal-i.miss i{opacity:.35}
-.cal-m{color:var(--muted);font-variant-numeric:tabular-nums}
-@media (max-width:700px){.cal-d{min-height:52px;padding:5px 4px}.cal-i{font-size:0;gap:0}.cal-i i{width:9px;height:9px}.cal-i.done::before{font-size:12px}.cal-m{display:none}.mini4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:700px){.mini4{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* ---------- iconen ---------- */
 .ic{display:block;width:18px;height:18px;flex:none}
 .modal:focus{outline:none}
 /* ---------- beweging: kort en zacht, alleen waar iets verandert ---------- */
-.btn,.ibtn,.wcard,.avd,.cal-d,.tabs button{transition:background-color .15s,border-color .15s,color .15s,transform .1s}
+.btn,.ibtn,.wcard,.avd,.tabs button{transition:background-color .15s,border-color .15s,color .15s,transform .1s}
 .btn:not([disabled]):active,.ibtn:active,.wcard:active{transform:scale(.98)}
 .main.enter{animation:scr-in .22s cubic-bezier(.2,.7,.3,1)}
 .veil.enter{animation:veil-in .16s ease-out}.veil.enter .modal{animation:modal-in .2s cubic-bezier(.2,.7,.3,1)}
@@ -520,17 +515,19 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .cats button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 @media (pointer:coarse){.cats button{padding:9px 14px}}
 
-/* kalender op de telefoon: een lijst per week in plaats van het maandraster */
-.cal-list{display:none}
-@media (max-width:700px){
-  .cal{display:none}.cal-list{display:block}
-  .cal-card>.row{margin-bottom:0!important}
-  .cal-list .sec{margin-top:18px}
-  .cal-list .card{padding:4px 12px}
-  .cal-list .list>*{padding:12px 6px;min-height:56px}
-  .cal-list .today{background:var(--sunk);border-radius:8px;border-bottom-color:transparent}
-  .cal-list .miss .w b{color:var(--muted);text-decoration:line-through;font-weight:500}
-}
+/* kalender: één lijst om door te scrollen */
+.timeline{max-width:760px}
+.wkh{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:22px 2px 8px;min-height:44px}.timeline>.wkh:first-of-type{margin-top:4px}
+.wkl{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;color:var(--muted);margin:14px 2px 6px}.wkl span:first-child{font-weight:600}
+.timeline .month{margin-top:22px}
+.tl{padding:4px 12px}.tl .list>*{padding:12px 6px;min-height:56px}
+.tl .today{background:var(--sunk);border-radius:8px;border-bottom-color:transparent}
+.tl .miss .w b{color:var(--muted);font-weight:500}
+/* de week op Home in één regel */
+.wstrip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:14px}
+.wsd{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;border-radius:8px;padding:8px 0 10px;font-size:12px;color:var(--muted);min-width:0}
+.wsd b{font-size:15px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}.wsd .dot{margin-top:2px}
+.wsd.today{background:var(--sunk)}.wsd:not([disabled]):hover{background:var(--sunk)}
 
 /* melding met 'Ongedaan maken' */
 .toast{display:flex;align-items:center;gap:16px;width:max-content;max-width:calc(100vw - 32px)}.toast[hidden]{display:none}

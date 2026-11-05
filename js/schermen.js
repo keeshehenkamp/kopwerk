@@ -239,25 +239,33 @@ function rodeHTML(plan){
   const any=plan.days.some(d=>d.easier);
   return `<p class="small"><b style="font-weight:600">Aangepast aan wat je reed:</b> <span class="muted">${a.join(', ')}. ${plan.days.some(d=>d.unplanned)?'De dag erna is rustig en er gaat een zware training af.':''}${any?' De zware training die je niet deed, komt later in de week terug als daar ruimte voor is.':''}</span></p>`;
 }
+/* meer tijd adviseren alleen als het echt nodig is: voor je evenement, of ruim onder wat je doel vraagt */
+function moreTimeTip(plan){
+  if(state.health||plan.ctx.rec||['rec','taper','event'].includes(plan.ctx.kind))return '';
+  const chk=plan.ctx.toGo!=null&&state.event&&evCheck(state,state.event,new Date());
+  if(chk&&chk.st!=='ok')return `Advies voor ${esc(state.event.name)}: ${chk.day?`plan minstens één dag van ${durTxt(r5(chk.need*60))}; je langste dag is nu ${durTxt(r5(chk.day*60))}.`:`je langste trainingsrit moet naar ${durTxt(r5(chk.need*60))}, en daar kom je nu niet aan.`}`;
+  const av=plan.days.reduce((a,d)=>a+(d.event?0:d.minutes),0),ideal=Math.round(plan.coach.ideal*2)*30;
+  if(!av||ideal-av<60||av>=ideal*.75)return '';
+  const long=plan.days.some(d=>d.minutes>=90);
+  return `Advies: voor je doel werkt ongeveer ${durTxt(ideal)} per week het best, je hebt nu ${durTxt(av)}. ${long?'Een extra dag':'Eén rit van anderhalf uur of langer'} levert het meeste op.`;
+}
 /* de week: fase, voortgang, de dagen en je tijd per dag; met pijlen naar andere weken */
 function weekCard(today){
-  const tk=iso(today),mon=addDays(mondayOf(today),ui.weekOff*7),k=iso(mon),plan=planWeek(state,mon,today),sum=weekSum(plan);
+  const tk=iso(today),mon=mondayOf(today),k=iso(mon),plan=planWeek(state,mon,today),sum=weekSum(plan);
   const planned=plan.days.filter(d=>d.wo),wk=state.rides.filter(r=>!r.sim&&r.date>=k&&r.date<=iso(addDays(mon,6))),doneM=Math.round(wk.reduce((a,r)=>a+r.dur,0)/60);
   const ev=state.event,evDate=ev&&ev.date?parseISO(ev.date):null,toEv=evDate?dayDiff(today,evDate):-1,sub=[esc(plan.label)];
-  if(toEv>=0&&ui.weekOff===0)sub.push(`${esc(ev.name)} over ${toEv} ${toEv===1?'dag':'dagen'}`);
+  if(toEv>=0)sub.push(`${esc(ev.name)} over ${toEv} ${toEv===1?'dag':'dagen'}`);
   else if(plan.ctx.toGo==null&&plan.ctx.kind==='build'){const ph=((((Math.floor(dayDiff(parseISO(state.planStart),mon)/7))%4)+4)%4)+1;sub.push(`herstelweek over ${4-ph} ${4-ph===1?'week':'weken'}`)}
-  const rows=plan.days.map(d=>{
-    const r=rideOn(d.iso),when=`<span class="when"><b>${DAYS[d.i]}</b>${d.date.getDate()} ${MONTHS[d.date.getMonth()].slice(0,3)}</span>`;
-    if(d.event)return `<div class="drow">${when}${dotFor(d)}<span class="w"><b>${esc(d.event)}</b><span>Evenement</span></span><span></span><span></span></div>`;
-    const st=r?`<span class="st ok">Gereden${cijfer(r)!=null?' · '+nl(cijfer(r).toFixed(1)):''}</span>`:d.missed?`<span class="st late">${d.why?'Niet gedaan':'Gemist'}</span>`:d.movedFrom!=null?`<span class="st">Van ${DAYS[d.movedFrom]}</span>`:d.wo?`<span class="st">${d.wo.tss} TSS</span>`:'<span class="st"></span>';
-    return `<button class="drow${d.iso===tk?' today':''}" data-act="openDay" data-iso="${d.iso}">${when}${dotFor(d,r)}<span class="w"><b>${d.wo?esc(d.wo.name):'Rust'}</b><span>${d.wo?durTxt(d.wo.minutes):d.o.skip?'Overgeslagen':''}</span></span>${d.wo?profileSVG(d.wo.segs):'<span></span>'}${st}</button>`}).join('');
-  const canEdit=ui.weekOff>=0,open=canEdit&&ui.avOpen&&wkAskKey(today)!==k;
+  /* de week in één regel: de dagen zelf staan in de Kalender */
+  const strip=plan.days.map(d=>`<button class="wsd${d.iso===tk?' today':''}" ${d.event?'disabled':`data-act="openDay" data-iso="${d.iso}"`} aria-label="${DAYS_L[d.i]} ${d.date.getDate()}: ${d.event?esc(d.event):d.wo?esc(d.wo.name):'rust'}"><span>${DAYS[d.i]}</span><b>${d.date.getDate()}</b>${dotFor(d,rideOn(d.iso))}</button>`).join('');
+  const open=ui.avOpen&&wkAskKey(today)!==k,tip=moreTimeTip(plan);
   return `<div class="card wk"><div class="wkhead"><div><h2>Week ${weekNo(mon)}</h2><p class="small muted">${sub.join(' · ')}</p></div>
-      <div class="wnav">${canEdit?`<button class="ibtn${open?' on':''}" data-act="avOpen" aria-pressed="${!!open}" aria-label="Tijd per dag" title="Tijd per dag">${ICO.tijd}</button>`:''}<button class="btn icon" data-act="week" data-d="-1" aria-label="Vorige week">${I.l}</button>${ui.weekOff?'<button class="btn small" data-act="week" data-d="0">Nu</button>':''}<button class="btn icon" data-act="week" data-d="1" aria-label="Volgende week">${I.r}</button></div></div>
+      <div class="wnav"><button class="ibtn${open?' on':''}" data-act="avOpen" aria-pressed="${!!open}" aria-label="Tijd per dag" title="Tijd per dag">${ICO.tijd}</button></div></div>
     <div class="prog"><i style="width:${sum.m?Math.min(100,Math.round(doneM/sum.m*100)):0}%"></i></div>
     <div class="kvl"><span><b>${Math.min(wk.length,planned.length)} van ${planned.length}</b> trainingen</span><span>${durTxt(doneM)} van ${durTxt(sum.m)}</span></div>
     ${open?`<div class="wkedit">${availEditor(k)}</div>`:''}
-    <div class="wkrows">${rows}</div>
+    ${tip?`<p class="small muted" style="margin-top:10px">${tip}</p>`:''}
+    <div class="wstrip">${strip}</div>
     <div class="row spread" style="margin-top:6px">${whyHTML(plan)}${canRide()?'<button class="btn small" data-act="zwoWeek">Zwift</button>':''}</div></div>`;
 }
 function vandaagView(){
@@ -269,10 +277,8 @@ function vandaagView(){
   let hide=false;try{hide=localStorage.getItem('kopwerk.synchint')==='0'}catch(e){}
   const sync=CONFIG.firebase&&syncInfo.ready&&!syncInfo.user&&!hide?`<div class="card row spread"><div><h3>Synchroniseren</h3><div class="small muted" style="margin-top:2px">Hetzelfde schema op je telefoon en laptop</div></div>
     <span class="row"><button class="btn small pri" data-act="syncLogin">Inloggen met Google</button><button class="btn small icon" data-act="syncHide" aria-label="Verbergen">${I.x}</button></span></div>`:'';
-  const last=state.rides.filter(r=>!r.sim).sort((a,b)=>b.ts-a.ts).slice(0,3);
-  const recent=last.length?`<div class="card"><h3 style="margin-bottom:4px">Recente ritten</h3><div class="list">${last.map(r=>{const d=new Date(r.ts);return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${DAYS[dow(d)]}</b>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span><span class="w"><b>${esc(r.name)}</b><span>${clock(r.dur)} · ${r.tss} TSS${r.rpe?` · gevoel ${r.rpe}`:''}</span></span></button>`}).join('')}</div></div>`:'';
   return `<div class="head"><div><h1>Vandaag</h1><p>${dateLong(today).replace(/^./,c=>c.toUpperCase())}</p></div></div>
-    <div class="home"><div class="stack">${pend}${sync}${statusCard(plan,today)}${checkCard(today)}${weekAskCard(today)}<div>${dayCard(td,tk)}</div>${weekCard(today)}${recent}</div></div>`;
+    <div class="home"><div class="stack">${pend}${sync}${statusCard(plan,today)}${checkCard(today)}${weekAskCard(today)}<div>${dayCard(td,tk)}</div>${weekCard(today)}</div></div>`;
 }
 
 /* ---------- schema ---------- */
@@ -292,7 +298,7 @@ function segList(w){
 }
 function modalWo(){
   const m=ui.detail;if(!m)return null;
-  if(m.kind==='wo')return {wo:buildWorkout(m.type,m.min,m.L)};
+  if(m.kind==='wo')return {wo:libWo(m.type,m.min)};
   const d=parseISO(m.iso),plan=planWeek(state,mondayOf(d),new Date());
   const day=plan.days.find(x=>x.iso===m.iso);
   return {wo:day.wo,day};
@@ -320,8 +326,9 @@ function trainingView(){
   let adjust='';
   if(day){
     const types=[['','Automatisch']].concat(Object.entries(TYPES).filter(([k])=>k!=='ramptest').map(([k,t])=>[k,t.name]));
-    adjust=`<div class="card stack"><h3>Aanpassen</h3>
-      <div class="form"><div><label class="f" for="m-type">Soort training</label>${sel('id="m-type" data-chg="ovType"',w?types:[['','Rust']].concat(types.slice(1)),day.o.type||'')}</div></div></div>`;
+    /* op een trainingsdag staat Wisselen al bovenaan; elke andere soort kiezen zit ingeklapt */
+    const ty=`<div class="form"><div><label class="f" for="m-type">Soort training</label>${sel('id="m-type" data-chg="ovType"',w?types:[['','Rust']].concat(types.slice(1)),day.o.type||'')}</div></div>`;
+    adjust=w?`<details class="card fold"><summary>Een andere soort kiezen</summary><div style="margin-top:12px">${ty}</div></details>`:`<div class="card stack"><h3>Toch trainen</h3>${ty}</div>`;
   }
   if(!w)return `${back}<div class="head"><div><h1>Rustdag</h1><p>${title}</p></div></div>
     <div class="detail">${adjust}</div>`;
@@ -331,26 +338,30 @@ function trainingView(){
   return `${back}<div class="head"><div><h1>${esc(w.name)}</h1><p>${title}</p></div></div>
     <div class="detail"><div class="stack">
       <div class="card">${profileSVG(w.segs)}<div class="axis">${ticks}</div></div>
-      <div class="kv"><div><b>${durTxt(w.minutes)}</b><span>duur</span></div><div><b>${w.tss}</b><span>TSS</span></div><div><b>${nl(w.IF.toFixed(2))}</b><span>intensiteit</span></div><div><b>${w.lvl?w.lvl+'/'+w.lvlMax:'–'}</b><span>trede</span></div></div>
+      <div class="kv"><div><b>${durTxt(w.minutes)}</b><span>duur</span></div><div><b>${w.tss}</b><span>TSS</span></div><div><b>${nl(w.IF.toFixed(2))}</b><span>intensiteit</span></div>${w.lvl?`<div><b>${w.lvl}/${w.lvlMax}</b><span>trede</span></div>`:''}</div>
       <div class="card stack"><p>${esc(w.desc)}</p>${why?`<details class="why"><summary>Waarom deze training?</summary><p class="small muted" style="margin-top:8px">${esc(why)}</p></details>`:''}<div class="row">${zs.map(z=>`<span class="zchip"><i style="background:var(--z${z})"></i>${ZN[z]}</span>`).join('')}</div></div>
     </div><div class="stack">
       ${day&&day.iso<iso(new Date())&&!rideOn(day.iso)?`<div class="card"><h3>Hoe ging deze training?</h3>${state.missed&&state.missed[day.iso]?'<p class="small muted" style="margin-top:3px">Je meldde hem als niet gedaan. Toch gereden? Vul het hieronder in.</p>':''}${checkBtns(day.iso)}</div>`
       :canRide()?`<div class="cta"><button class="btn pri big" data-act="startModal">Start training</button><button class="btn" data-act="zwoModal">Zwift</button></div>`:'<p class="notice small">Rijden met je trainer doe je op je laptop, in Chrome of Edge. Hier bekijk je de training.</p>'}
       ${day?altsHTML(w,day):''}
-      <div class="card"><h3 style="margin-bottom:4px">Blokken</h3>${segList(w)}</div>
+      <details class="card fold"><summary>Specificatie</summary><div style="margin-top:8px">${segList(w)}</div></details>
       ${adjust}</div></div>`;
 }
 
 /* ---------- trainingen ---------- */
+/* een losse training volgt je eigen niveau: geen keuze voor zwaarte, wel de trede die bij jou past */
+function libWo(t,min){
+  const mon=mondayOf(new Date()),ctx=weekCtx(state,mon),fat={level:0},C=coachTargets(state,mon,ctx,fat);
+  return buildWorkout(t,min,1,lvlFor(state,t,C,ctx,fat));
+}
 function libView(){
   const l=ui.lib,cat=l.cat||'';
-  const cards=Object.keys(TYPES).filter(k=>!cat||CAT_OF[k]===cat).map(k=>{const w=buildWorkout(k,l.min,l.L);
+  const cards=Object.keys(TYPES).filter(k=>!cat||CAT_OF[k]===cat).map(k=>{const w=libWo(k,l.min);
     return `<button class="wcard" data-act="openWo" data-type="${k}"><h3>${esc(w.name)}</h3><div class="m">${durTxt(w.minutes)} · ${w.tss} TSS</div>${profileSVG(w.segs)}</button>`}).join('');
   return `<div class="head"><div><h1>Trainingen</h1></div>
-    <div class="row">${canRide()?'<button class="btn pri" data-act="vrij">Vrij rijden</button><button class="btn" data-act="demo">Bekijk de demo</button>':''}<label class="small muted">Duur ${sel('data-chg="libMin"',[30,45,60,75,90,120].map(m=>[m,durTxt(m)]),l.min)}</label>
-    <label class="small muted">Zwaarte ${sel('data-chg="libL"',[[0,'Licht'],[1,'Normaal'],[2,'Zwaar']],l.L)}</label></div></div>
+    <div class="row">${canRide()?'<button class="btn pri" data-act="vrij">Vrij rijden</button>':''}<label class="small muted">Duur ${sel('data-chg="libMin"',[30,45,60,75,90,120].map(m=>[m,durTxt(m)]),l.min)}</label></div></div>
     <div class="cats" role="group" aria-label="Soort training">${CATS.map(([k,t])=>`<button data-act="libCat" data-c="${k}" aria-pressed="${cat===k}">${t}</button>`).join('')}</div>
-    <div class="grid">${cards}</div>`;
+    <div class="grid">${cards}</div>${canRide()?'<p style="margin-top:18px"><button class="link small" data-act="demo">Bekijk de demo</button></p>':''}`;
 }
 
 /* ---------- ritten ---------- */
@@ -363,9 +374,12 @@ function progressCard(){
     /* ingestelde FTP aan het eind van die week; schatting uit je beste 20 minuten of een FTP-test in de zes weken ervoor */
     let f=null,fd='';for(const r of real)if(r.date<=e&&r.date>=fd&&r.ftp){f=r.ftp;fd=r.date}for(const x of log)if(x.d<=e&&x.d>=fd){f=x.w;fd=x.d}
     if(w===0)f=state.profile.ftp;
-    const s0=iso(addDays(m,-35));let est=0;for(const r of real)if(r.date>=s0&&r.date<=e)est=Math.max(est,ftpEstimate(r));
+    const s0=iso(addDays(m,-35)),inW=real.filter(r=>r.date>=s0&&r.date<=e);
+    /* de hoogste van: wat je echt voluit reed, en het midden van wat je ritten en je gevoel erover aangeven */
+    const hard=Math.max(0,...inW.map(ftpEstimate)),soft=inW.map(ftpFromFeel).filter(v=>v).sort((a,b)=>a-b),mid=soft.length?soft[Math.floor(soft.length/2)]:0;
+    const est=Math.round(Math.max(hard,mid));
     /* een schatting ver onder je FTP zegt alleen dat je niet voluit reed; die laten we weg */
-    pts.push({m,f,est:est&&(!f||est>=f*.95)?est:null})}
+    pts.push({m,f,est:est&&(!f||est>=f*.85)?est:null})}
   const vals=pts.flatMap(p=>[p.f,p.est]).filter(v=>v),lo=Math.min(...vals)*.85,hi=Math.max(...vals)*1.06,y=v=>200-(v-lo)/(hi-lo)*200,N=pts.length;
   const line=k=>{let d='',pen=false;pts.forEach((p,i)=>{const v=p[k];if(!v){pen=false;return}const X=(i/(N-1)*1000).toFixed(1);d+=k==='f'&&pen?`H${X}V${y(v).toFixed(1)}`:`${pen?'L':'M'}${X},${y(v).toFixed(1)}`;pen=true});return d};
   const tk=[0,.5,1].map(q=>{const m=pts[Math.round(q*(N-1))].m;return `<span class="xl${q===0?' first':q===1?' last':''}" style="left:${q*100}%">${m.getDate()} ${MONTHS[m.getMonth()].slice(0,3)}</span>`}).join('');
@@ -374,11 +388,14 @@ function progressCard(){
   /* trede per soort training: stijgt als je een training goed afrondt */
   const seen=new Set(),lv=Object.entries(state.prog||{}).filter(([t,v])=>LADDER[t]&&v).map(([t,v])=>({l:LADDER[t].label,v,n:LADDER[t].steps.length})).sort((a,b)=>b.v/b.n-a.v/a.n).filter(x=>!seen.has(x.l)&&seen.add(x.l));
   const lvHTML=lv.length?`<div class="card"><h3 style="margin-bottom:12px">Niveau per training</h3><div class="stack" style="gap:10px">${lv.map(x=>`<div><div class="kvl"><span>${x.l}</span><span><b>${Math.floor(x.v)}</b> van ${x.n}</span></div><div class="prog" style="margin:6px 0 0"><i style="width:${Math.round(x.v/x.n*100)}%"></i></div></div>`).join('')}</div></div>`:'';
-  const ftpCard=`<div class="card"><div class="bignum"><span>FTP</span><b>${now}<i>W</i></b><small>${nl(wkg.toFixed(1))} W/kg · ${levelOf(wkg)}${diff?` · <em class="${diff>0?'up':'down'}">${diff>0?'+':''}${diff} W</em> in zes weken`:''}</small></div>
-    <div class="chart" style="height:120px;margin-top:14px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je FTP door de weken">
-      <path d="${line('est')}" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
-      <path d="${line('f')}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>${tk}</div>
-    <div class="legend"><span><i style="background:var(--acc)"></i>Ingesteld</span>${pts.some(p=>p.est)?`<span><i class="dash"></i>Geschat uit je ritten${est?` (nu ${est} W)`:''}</span>`:''}</div></div>`;
+  /* geschatte FTP voorop: de lijn laat zien hoe die groeit; de ingestelde FTP eronder ter vergelijking */
+  const estAt=i=>pts[i]&&pts[i].est,e0=pts.slice(0,Math.max(1,N-6)).reverse().map(p=>p.est).find(v=>v),grow=est&&e0&&N>=7?est-e0:null,head=est||now,hk=head/kg;
+  const ftpCard=`<div class="card"><div class="bignum"><span>${est?'Geschatte FTP':'FTP'}</span><b>${head}<i>W</i></b><small>${nl(hk.toFixed(1))} W/kg · ${levelOf(hk)}${grow?` · <em class="${grow>0?'up':'down'}">${grow>0?'+':''}${grow} W</em> in zes weken`:''}${est&&est!==now?` · ingesteld ${now} W`:''}</small></div>
+    <div class="chart" style="height:120px;margin-top:14px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je geschatte FTP door de weken">
+      <path d="${line('f')}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
+      <path d="${line('est')}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>${tk}</div>
+    <div class="legend">${pts.some(p=>p.est)?'<span><i style="background:var(--acc)"></i>Geschat uit je ritten en gevoel</span>':''}<span><i class="dash"></i>Ingesteld</span></div>
+    ${est?'':'<p class="small muted" style="margin-top:10px">Nog geen schatting. Die komt uit een FTP-test, een stevig blok of je gevoel na een rit.</p>'}</div>`;
   return {ftpCard,lvHTML};
 }
 function recordsCard(sel,pl){
@@ -422,7 +439,9 @@ function rideView(){
   if(!r){ui.view='kalender';return kalenderView()}
   const d=new Date(r.ts),rec=ui.streams&&ui.streams.id===r.id?ui.streams.rec:null,kg=state.profile.weight||75,outdoor=r.type==='buiten';
   const v=verdict(r,state.profile.ftp),est=ftpEstimate(r),c=cijfer(r);
-  const ftpBtn=est&&Math.abs(est-state.profile.ftp)>=2&&(r.type==='ramptest'||est>state.profile.ftp*1.02)?`<button class="btn pri" data-act="setFtp" data-w="${est}">FTP bijwerken naar ${est} W</button>`:'';
+  const fs=r.ftpSet&&state.profile.ftp===r.ftpSet.to?r.ftpSet:null;
+  const ftpBtn=fs?`<p class="small">Je FTP is bijgewerkt van ${fs.from} naar ${fs.to} W. Alle trainingen zijn daarop aangepast. <button class="link" data-act="setFtp" data-w="${fs.from}">Terugzetten naar ${fs.from} W</button></p>`
+    :est&&Math.abs(est-state.profile.ftp)>=2&&(r.type==='ramptest'||est>state.profile.ftp*1.02)?`<button class="btn pri" data-act="setFtp" data-w="${est}">FTP bijwerken naar ${est} W</button>`:'';
   /* cijfer (of bij een FTP-test de uitkomst) met wat de coach ervan vindt */
   const mark=r.type==='ramptest'&&est?`<div class="grade"><b>${est}</b><span>W FTP</span></div>`:c!=null?`<div class="grade ${c>=7.5?'hi':c>=5.5?'mid':'lo'}"><b>${nl(c.toFixed(1))}</b><span>cijfer</span></div>`:'';
   const hero=v.length||mark?`<div class="card hero">${mark}<div class="herotxt"><p>${esc(v[0]||'')}</p>${v.slice(1).map(t=>`<p class="small muted">${esc(t)}</p>`).join('')}${ftpBtn?`<div style="margin-top:12px">${ftpBtn}</div>`:''}</div></div>`:'';

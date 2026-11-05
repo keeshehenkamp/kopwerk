@@ -74,7 +74,8 @@ function progStep(r){
 function ftpEstimate(r){
   if(r.sim)return 0;
   if(r.type==='ramptest')return r.best[60]?Math.round(r.best[60]*.75):0;
-  return r.best[1200]?Math.round(r.best[1200]*.95):0;
+  /* de hoogste van: beste 20 minuten x 0,95, beste 60 minuten, beste 5 minuten x 0,80 */
+  return Math.round(Math.max((r.best[1200]||0)*.95,r.best[3600]||0,(r.best[300]||0)*.8));
 }
 
 function fitness(rides,today,span){
@@ -92,6 +93,13 @@ function fitness(rides,today,span){
   return {series,ctl:Math.round(ctl),atl:Math.round(atl),tsb:Math.round(ctl-atl)};
 }
 
+/* schatting uit een rit die niet voluit ging: je beste blok, gecorrigeerd voor hoe zwaar het voelde.
+   Alleen voor de lijn bij Voortgang; je FTP zelf verandert hier niet door. */
+const FEEL={5:.8,6:.84,7:.88,8:.92,9:.96,10:1};
+function ftpFromFeel(r){
+  if(r.sim||r.manual||!FEEL[r.rpe]||r.type==='ramptest'||!r.best)return 0;
+  return Math.max((r.best[1200]||0)*.95,(r.best[600]||0)*.9,(r.best[300]||0)*.8)/FEEL[r.rpe];
+}
 /* ---------- gevoel en hartslag als controle ----------
    Verwachte zwaarte (1-10) per soort training. Voelt een training twee punten of meer zwaarder, dan is dat een signaal. */
 const RPE_EXP={herstel:3,duur:4,souplesse:4,openers:4,tempo:5,kracht:6,sweetspot:6,duurtempo:6,duurklim:6,duurheuvels:6,klim:7,drempel:7,sprint:7,heuvels:8,vo2:8,anaeroob:8};

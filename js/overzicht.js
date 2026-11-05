@@ -61,35 +61,44 @@ function fitChart(path){
       ${dateTick(all[0].d,0)}${now>0&&now<N-1?`<span class="xl" style="left:${now/(N-1)*100}%">vandaag</span>`:''}${dateTick(all[N-1].d,1)}</div>
     <div class="legend"><span><i style="background:var(--acc)"></i>Fitheid</span><span><i style="background:var(--muted)"></i>Vermoeidheid</span><span><i class="dash"></i>Verwacht</span></div>`;
 }
-/* ---------- Kalender: alle ritten en geplande trainingen per maand ---------- */
+/* ---------- Kalender: één lijst om doorheen te scrollen: deze en volgende week, daarna wat je echt reed ----------
+   Verder vooruit plannen heeft geen zin: je tijd verandert elke week. */
+const MISS_WHY={tijd:'geen tijd',moe:'te moe',ziek:'ziek'};
+function calWhen(d){return `<span class="when"><b>${DAYS[dow(d)]}</b>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span>`}
+const calRide=(r,cls='')=>`<button data-act="openRide" data-id="${r.id}" class="${cls}">${calWhen(parseISO(r.date))}<span class="dot done">${I.check}</span><span class="w"><b>${esc(r.name)}</b><span>${clock(r.dur)}${r.rpe?` · gevoel ${r.rpe}`:''}</span></span><span class="r">${r.tss} TSS</span></button>`;
 function kalenderView(){
   if(!state.setup)return setupView();
-  const today=new Date(),tk=iso(today),first=new Date(today.getFullYear(),today.getMonth()+(ui.calOff||0),1),last=new Date(first.getFullYear(),first.getMonth()+1,0);
-  const ev=state.event&&state.event.date&&state.event.date>=tk?state.event.date:null,until=ev||iso(addDays(today,56));
-  const m0=mondayOf(first),nW=Math.round(dayDiff(m0,mondayOf(last))/7)+1;
-  /* laptop: maandraster. Telefoon: dezelfde dagen als lijst per week, alleen de dagen waarop iets staat. */
-  let rows='',list='';
-  for(let w=0;w<nW;w++){const wm=addDays(m0,7*w),p=planWeek(state,wm,today);let wl='';
-    rows+=`<div class="cal-w">${p.days.map(d=>{
-      const r=rideOn(d.iso),out=d.date.getMonth()!==first.getMonth();let act='disabled',body='';
-      if(r){act=`data-act="openRide" data-id="${r.id}"`;body=`<span class="cal-i done">${esc(r.name)}</span><span class="cal-m">${clock(r.dur)}</span>`}
-      else if(d.event)body=`<span class="cal-i ev">${esc(d.event)}</span>`;
-      else if(d.wo&&(d.iso>=tk?d.iso<=until:!!d.logged)){act=`data-act="openDay" data-iso="${d.iso}"`;
-        body=`<span class="cal-i${d.iso<tk?' miss':''}"><i style="background:var(--z${woZone(d.wo)})"></i>${esc(d.wo.name)}</span><span class="cal-m">${durTxt(d.wo.minutes)}</span>`}
-      if(!out&&body){const when=`<span class="when"><b>${DAYS[d.i]}</b>${d.date.getDate()} ${MONTHS[d.date.getMonth()].slice(0,3)}</span>`,td=d.iso===tk?' class="today"':'';
-        wl+=r?`<button data-act="openRide" data-id="${r.id}"${td}>${when}<span class="dot done">${I.check}</span><span class="w"><b>${esc(r.name)}</b><span>Gereden · ${clock(r.dur)}</span></span><span class="r">${r.tss} TSS</span></button>`
-          :d.event?`<div class="li${d.iso===tk?' today':''}">${when}<span class="dot ev"></span><span class="w"><b>${esc(d.event)}</b><span>Evenement</span></span></div>`
-          :`<button data-act="openDay" data-iso="${d.iso}" class="${d.iso<tk?'miss':d.iso===tk?'today':''}">${when}<span class="dot" style="background:var(--z${woZone(d.wo)})"></span><span class="w"><b>${esc(d.wo.name)}</b><span>${d.iso<tk?'Niet gedaan':durTxt(d.wo.minutes)}</span></span><span class="r">${d.iso<tk?'':d.wo.tss+' TSS'}</span></button>`}
-      return `<button class="cal-d${out?' out':''}${d.iso===tk?' today':''}${r?' rode':''}" ${act}><b>${d.date.getDate()}</b>${body}</button>`}).join('')}</div>`;
-    if(wl)list+=`<div class="sec">Week ${weekNo(wm)}</div><div class="card"><div class="list">${wl}</div></div>`}
-  const title=MONTHS[first.getMonth()].replace(/^./,c=>c.toUpperCase())+(first.getFullYear()!==today.getFullYear()?' '+first.getFullYear():'');
+  const today=new Date(),tk=iso(today),mon=mondayOf(today),real=state.rides.filter(r=>!r.sim),rep=state.missed||{};
+  const planned=(m,title)=>{
+    const k=iso(m),rows=planWeek(state,m,today).days.flatMap(d=>{
+      const rs=real.filter(r=>r.date===d.iso),td=d.iso===tk?'today':'';
+      if(rs.length)return rs.map(r=>calRide(r,td));
+      if(d.event)return [`<div class="li ${td}">${calWhen(d.date)}<span class="dot ev"></span><span class="w"><b>${esc(d.event)}</b><span>Evenement</span></span></div>`];
+      if(!d.wo)return [];
+      const past=d.iso<tk,w=rep[d.iso]&&rep[d.iso].why;
+      return [`<button data-act="openDay" data-iso="${d.iso}" class="${past?'miss':td}">${calWhen(d.date)}<span class="dot" style="background:var(--z${woZone(d.wo)})"></span><span class="w"><b>${esc(d.wo.name)}</b><span>${past?(w?`Niet gedaan · ${MISS_WHY[w]||w}`:'Nog invullen'):durTxt(d.wo.minutes)}</span></span><span class="r">${past?'':d.wo.tss+' TSS'}</span></button>`]});
+    const open=ui.calEdit===k;
+    return `<div class="wkh"><h2>${title}</h2><button class="ibtn${open?' on':''}" data-act="calEdit" data-k="${k}" aria-pressed="${open}" aria-label="Tijd per dag, ${title.toLowerCase()}" title="Tijd per dag">${ICO.tijd}</button></div>
+      ${open?`<div class="card" style="margin-bottom:8px">${availEditor(k)}</div>`:''}
+      <div class="card tl">${rows.length?`<div class="list">${rows.join('')}</div>`:'<p class="muted" style="padding:10px 6px">Geen trainingen.</p>'}</div>`};
+  /* logboek: per week, nieuwste eerst; alleen weken waarin iets gebeurde */
+  const weeks=new Map(),put=(k,x)=>{const w=iso(mondayOf(parseISO(k)));if(w<iso(mon)){if(!weeks.has(w))weeks.set(w,[]);weeks.get(w).push(x)}};
+  for(const r of real)put(r.date,{k:r.date,ts:r.ts,r});
+  for(const [k,v] of Object.entries(rep))if(!real.some(r=>r.date===k))put(k,{k,ts:parseISO(k).getTime(),why:v.why});
+  let month='',log='';
+  for(const w of [...weeks.keys()].sort().reverse()){
+    const m=parseISO(w),l=weeks.get(w).sort((a,b)=>a.ts-b.ts),rs=l.filter(x=>x.r).map(x=>x.r),sec=rs.reduce((a,r)=>a+r.dur,0),tss=rs.reduce((a,r)=>a+r.tss,0);
+    const mt=MONTHS[m.getMonth()].replace(/^./,c=>c.toUpperCase())+(m.getFullYear()!==today.getFullYear()?' '+m.getFullYear():'');
+    if(mt!==month){month=mt;log+=`<div class="month">${mt}</div>`}
+    const rows=l.map(x=>{if(x.r)return calRide(x.r);const pl=(state.plog||{})[x.k],n=pl&&TYPES[pl.t]?TYPES[pl.t].name:'Training';
+      return `<div class="li miss">${calWhen(parseISO(x.k))}<span class="dot rest"></span><span class="w"><b>${esc(n)}</b><span>Niet gedaan · ${MISS_WHY[x.why]||x.why}</span></span></div>`}).join('');
+    log+=`<div class="wkl"><span>Week ${weekNo(m)}</span><span>${rs.length?`${rs.length} ${rs.length===1?'rit':'ritten'} · ${durTxt(Math.round(sec/60))} · ${tss} TSS`:'Niet gereden'}</span></div><div class="card tl"><div class="list">${rows}</div></div>`;
+  }
   const tools=`<div class="row">${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Buitenrit toevoegen</button></div>`;
-  return `<div class="head"><div><h1>Kalender</h1></div>${tools}</div>
-    <div class="card cal-card"><div class="row spread" style="margin-bottom:12px"><h2>${title}</h2>
-      <div class="wnav"><button class="btn icon" data-act="calNav" data-d="-1" aria-label="Vorige maand">${I.l}</button>${ui.calOff?'<button class="btn" data-act="calNav" data-d="0">Vandaag</button>':''}<button class="btn icon" data-act="calNav" data-d="1" aria-label="Volgende maand">${I.r}</button></div></div>
-      <div class="cal"><div class="cal-w cal-h">${DAYS.map(x=>`<span>${x}</span>`).join('')}</div>${rows}</div></div>
-    <div class="cal-list">${list||'<div class="card" style="margin-top:12px"><p class="muted">Deze maand staat er niets gepland.</p></div>'}</div>
-    ${phaseStrip(today)?`<div style="margin-top:16px">${phaseStrip(today)}</div>`:''}`;
+  const strip=phaseStrip(today);
+  return `<div class="head"><div><h1>Kalender</h1></div>${tools}</div><div class="timeline">${strip?`<div style="margin-bottom:6px">${strip}</div>`:''}
+    ${planned(mon,'Deze week')}${planned(addDays(mon,7),'Volgende week')}
+    ${log?`<div class="wkh"><h2>Eerder</h2></div>${log}`:''}</div>`;
 }
 
 /* ---------- Prestaties: vermogenscurve, vermogen na werk en records ---------- */

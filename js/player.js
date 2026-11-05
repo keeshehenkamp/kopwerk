@@ -321,6 +321,9 @@ async function storeRide(a){
   /* van demo's bewaren we alleen de laatste */
   if(a.sim){const old=state.rides.filter(r=>r.sim);for(const r of old)await idb.del('s:'+r.id);state.rides=state.rides.filter(r=>!r.sim);state.deleted=(state.deleted||[]).concat(old.map(r=>r.id))}
   markRecords(ride);
+  /* na een FTP-test: je FTP gaat meteen naar de uitkomst; op de ritpagina kun je hem terugzetten */
+  if(ride.type==='ramptest'&&!a.sim){const e=ftpEstimate(ride),old=state.profile.ftp;
+    if(e>=60&&e!==old){state.profile.ftp=e;logFtp(e);ride.ftpSet={from:old,to:e}}}
   state.rides.push(ride);save();
   await idb.put('s:'+ride.id,a.rec);await idb.del('active');
   ui.rideFrom=tabOf(ui.view);ui.deep=false;ui.rpeEdit=false;ui.streams={id:ride.id,rec:a.rec};ui.view='ride';ui.rideId=ride.id;

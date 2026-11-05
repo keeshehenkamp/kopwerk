@@ -23,7 +23,7 @@ const ROUTE_VIEWS=['kalender','prestaties','voortgang','profiel','lib'];
 function routeOf(){
   const v=ui.view,d=ui.detail;
   if(v==='ride'&&ui.rideId)return '#/rit/'+encodeURIComponent(ui.rideId);
-  if(v==='training'&&d)return d.kind==='day'?'#/dag/'+d.iso:`#/training/${d.type}/${d.min}/${d.L}`;
+  if(v==='training'&&d)return d.kind==='day'?'#/dag/'+d.iso:`#/training/${d.type}/${d.min}`;
   return ROUTE_VIEWS.includes(v)?'#/'+v:'#/';
 }
 const routeState=()=>({view:ui.view,detail:ui.detail,rideId:ui.rideId,rideFrom:ui.rideFrom,i:routeIdx});
@@ -31,7 +31,7 @@ function routeParse(h){
   let p=[];try{p=(h||'').replace(/^#\/?/,'').split('/').map(decodeURIComponent)}catch(e){}
   if(p[0]==='rit'&&p[1]&&state.rides.some(r=>r.id===p[1]))return {view:'ride',rideId:p[1],rideFrom:'kalender'};
   if(p[0]==='dag'&&/^\d{4}-\d{2}-\d{2}$/.test(p[1]||''))return {view:'training',detail:{kind:'day',iso:p[1],from:'vandaag'}};
-  if(p[0]==='training'&&TYPES[p[1]])return {view:'training',detail:{kind:'wo',type:p[1],min:+p[2]||60,L:p[3]==null?1:+p[3]||0,from:'lib'}};
+  if(p[0]==='training'&&TYPES[p[1]])return {view:'training',detail:{kind:'wo',type:p[1],min:+p[2]||60,from:'lib'}};
   return {view:ROUTE_VIEWS.includes(p[0])?p[0]:'vandaag'};
 }
 /* na elke render: is het scherm veranderd, dan komt er een stap in de geschiedenis bij */
@@ -60,7 +60,6 @@ window.addEventListener('popstate',e=>{
 const actions={
   nav(d){ui.view=d.v;ui.modal=null;ui.confirm='';ui.draft=null;render();window.scrollTo(0,0)},
   back(d){if(routeBack())return;ui.view=(d&&d.v)||(ui.detail&&ui.detail.from)||'vandaag';render();window.scrollTo(0,0)},
-  week(d){ui.weekOff=+d.d?ui.weekOff+(+d.d):0;render()},
   openDay(d){ui.detail={kind:'day',iso:d.iso,from:tabOf(ui.view)};ui.view='training';render();window.scrollTo(0,0)},
   /* je tijd per dag: dag kiezen, wiel bewaart zodra het stilstaat */
   /* de wekelijkse vraag: zonder wijziging telt de week zoals hij er staat (de vorige week) */
@@ -98,14 +97,14 @@ const actions={
     if(y>=h.from){h.to=y;(state.healthLog=state.healthLog||[]).push(h)}
     const n=y>=h.from?dayDiff(parseISO(h.from),parseISO(y))+1:0;save();render();window.scrollTo(0,0);
     toast(n<=3?'Fijn. Eerst rustig, daarna weer volgens schema.':n<=14?'Fijn. De komende week bouw je rustig op.':'Fijn. De komende weken bouw je rustig op, met daarna een FTP-test.')},
-  openWo(d){ui.detail={kind:'wo',type:d.type,min:ui.lib.min,L:ui.lib.L,from:'lib'};ui.view='training';render();window.scrollTo(0,0)},
+  openWo(d){ui.detail={kind:'wo',type:d.type,min:ui.lib.min,from:'lib'};ui.view='training';render();window.scrollTo(0,0)},
   closeModal(){ui.modal=null;render()},
   veil(d,el,e){if(e.target===el){ui.modal=null;render()}},
   startDay(d){ui.detail={kind:'day',iso:d.iso,from:tabOf(ui.view)};const x=modalWo();if(x&&x.wo)openPlayer(x.wo)},
   startModal(){const x=modalWo();if(x&&x.wo)openPlayer(x.wo)},
   zwoModal(){const x=modalWo();if(x&&x.wo)saveZwo([{name:slug(x.wo.name),wo:x.wo}],slug(x.wo.name))},
   zwoWeek(){
-    const mon=addDays(mondayOf(new Date()),ui.weekOff*7),p=planWeek(state,mon,new Date());
+    const mon=mondayOf(new Date()),p=planWeek(state,mon,new Date());
     const list=p.days.filter(d=>d.wo).map(d=>({name:`${d.i+1}-${DAYS[d.i]}-${slug(d.wo.name)}`,wo:d.wo}));
     if(!list.length)return toast('Deze week staat er niets gepland.');
     saveZwo(list,`kopwerk-week-${weekNo(mon)}`);
@@ -113,7 +112,6 @@ const actions={
   pickAlt(d){setOverride(ui.detail.iso,{type:d.t||null});window.scrollTo(0,0);toast(d.t?`${TYPES[d.t].name} staat nu op het schema.`:'Weer de training van het schema.')},
   ovType(d,el){setOverride(ui.detail.iso,{type:el.value||null})},
   libMin(d,el){ui.lib.min=+el.value;render()},
-  libL(d,el){ui.lib.L=+el.value;render()},
   resetAdj(){state.levelAdj=0;save();render()},
   saveSettings(d,el,e,quiet){
     const g=id=>document.getElementById(id);
@@ -226,7 +224,7 @@ const actions={
   stravaConnect(){stravaConnect()},
   stravaFetch(){stravaFetch(true)},
   stravaOff(){delete state.strava;save();render();toast('Strava is ontkoppeld.')},
-  calNav(d){ui.calOff=+d.d?(ui.calOff||0)+(+d.d):0;render()},
+  calEdit(d){ui.calEdit=ui.calEdit===d.k?null:d.k;ui.avSel=null;render()},
   perf(d){ui.perf=+d.p;render()},
   theme(d,el){setTheme(el.value);render()},
   themeToggle(){setTheme(isDark()?'light':'dark');render()},
