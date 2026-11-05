@@ -2,19 +2,19 @@
   box-sizing:border-box;color-scheme:light;
   /* neutrale tinten met één primaire kleur; de zonekleuren tonen alleen hoe zwaar iets is */
   --bg:#FAFAFA;--surface:#FFFFFF;--sunk:#F4F4F5;--ink:#18181B;--muted:#71717A;--line:#E4E4E7;--edge:#E4E4E7;--hover:#D4D4D8;
-  --acc:#1D4ED8;--acc-soft:#EEF2FF;--ok:#15803D;--bad:#DC2626;--hr:#BE185D;
+  --acc:#CF4419;--acc-soft:#FCEEE9;--ok:#15803D;--bad:#DC2626;--hr:#BE185D;
   --z1:#8C98A6;--z2:#3D8BD4;--z3:#2EAA6E;--z4:#DDAE00;--z5:#F08A24;--z6:#E04848;--z7:#9B5DE5;
-  --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;--cond:var(--body);
+  --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;--cond:"Barlow Condensed","Arial Narrow",var(--body);
   --r:10px;--shadow:none;
   --side:232px;--tabbar:66px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   color-scheme:dark;--bg:#09090B;--surface:#18181B;--sunk:#202024;--ink:#FAFAFA;--muted:#A1A1AA;--line:#27272A;--edge:#27272A;--hover:#3F3F46;
-  --acc:#2563EB;--acc-soft:rgba(37,99,235,.18);--ok:#22C55E;--bad:#F87171;--hr:#F472B6;
+  --acc:#E4572E;--acc-soft:rgba(228,87,46,.18);--ok:#22C55E;--bad:#F87171;--hr:#F472B6;
 }}
 :root[data-theme="dark"]{
   color-scheme:dark;--bg:#09090B;--surface:#18181B;--sunk:#202024;--ink:#FAFAFA;--muted:#A1A1AA;--line:#27272A;--edge:#27272A;--hover:#3F3F46;
-  --acc:#2563EB;--acc-soft:rgba(37,99,235,.18);--ok:#22C55E;--bad:#F87171;--hr:#F472B6;
+  --acc:#E4572E;--acc-soft:rgba(228,87,46,.18);--ok:#22C55E;--bad:#F87171;--hr:#F472B6;
 }
 *,*::before,*::after{box-sizing:inherit}
 html{height:100%}
@@ -23,7 +23,7 @@ body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:400 16p
 body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:15;pointer-events:none}
 button,select,input{font:inherit;color:inherit}
 button{cursor:pointer}
-:focus-visible{outline:2px solid var(--z2);outline-offset:2px}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 h1,h2,h3{font-weight:700;line-height:1.2;margin:0;letter-spacing:-.015em}
 h1{font-size:28px}h2{font-size:19px;font-weight:600}h3{font-size:16px;font-weight:600}
 p{margin:0}
@@ -276,7 +276,7 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
 .wheel .wpad{height:80px}
 .wheel button{display:block;width:100%;height:40px;scroll-snap-align:center;background:none;border:0;padding:0;font-size:19px;color:var(--muted);font-variant-numeric:tabular-nums;transition:color .15s}
 .wheel button.on{color:var(--ink);font-weight:600}
-.wheel:focus-visible{outline:2px solid var(--z2);outline-offset:2px;border-radius:10px}
+.wheel:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:10px}
 .avtot{font-size:13px;color:var(--muted);margin-top:10px}
 div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 
@@ -432,7 +432,7 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .w3 .zlh{display:flex;justify-content:space-between;padding:8px 12px;font-size:13px;color:#4b5563}.w3 .zlh b{color:#151922}
 .w3 .zrow{display:grid;grid-template-columns:5px 1fr auto auto;gap:8px;align-items:center;padding:5px 12px 5px 8px;font-variant-numeric:tabular-nums}
 .w3 .zrow i{align-self:stretch;border-radius:3px}.w3 .zrow span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.w3 .zrow b{font-weight:700;color:#4b5563}
-.w3 .zrow.done{opacity:.5}.w3 .zrow.on{background:#EEF2FF;font-weight:700}.w3 .zrow.on b{color:#151922}.w3 .zrow em{font-style:normal;color:#f2b705;margin-right:4px}
+.w3 .zrow.done{opacity:.5}.w3 .zrow.on{background:#FCEEE9;font-weight:700}.w3 .zrow.on b{color:#151922}.w3 .zrow em{font-style:normal;color:#f2b705;margin-right:4px}
 .w3 .zcur{background:#151922;color:#fff;padding:10px 12px}.w3 .zcur #p-seg{display:block;font-size:13px;font-weight:700;opacity:.85}
 .w3 .zct{display:flex;justify-content:space-between;align-items:baseline}.w3 .zct b{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums}
 .w3 .znext{display:block;font-size:12px;opacity:.7;margin-top:2px}
@@ -546,7 +546,7 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .samencd{font-size:22px;font-variant-numeric:tabular-nums}
 .w3 .vrow{display:flex;justify-content:space-between;gap:10px;padding:6px 12px;font-variant-numeric:tabular-nums}
 .w3 .vrow span{color:#4b5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.w3 .vrow b{color:#151922;white-space:nowrap}
-.w3 .vrow.vdraft{border-top:1px solid #e4e4e7}.w3 .vrow.vdraft.on{background:#EEF2FF}.w3 .vrow.vdraft.on b{color:#1D4ED8}
+.w3 .vrow.vdraft{border-top:1px solid #e4e4e7}.w3 .vrow.vdraft.on{background:#FCEEE9}.w3 .vrow.vdraft.on b{color:#CF4419}
 @media (max-width:760px){.w3.vrij #p-list{display:block}}
 /* startscherm in 3D: paneel links (op de telefoon onderin), je fietser in het vrije deel; de cijfers verschijnen pas bij de start */
 .w3.start{touch-action:none;cursor:grab}.w3.start:active{cursor:grabbing}
@@ -562,7 +562,7 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .zkit{gap:16px}.kitrow{display:grid;gap:8px}.kitrow>span{font-size:13px;color:var(--muted)}.kitrow>div{display:flex;flex-wrap:wrap;gap:8px}
 .kitout{display:grid!important;grid-template-columns:repeat(5,1fr);gap:6px!important}
 .kito{display:grid;justify-items:center;gap:4px;padding:8px 2px 6px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font:inherit;font-size:12px;cursor:pointer}
-.kito:hover{border-color:rgba(255,255,255,.4)}.kito.on{border-color:var(--acc);background:rgba(37,99,235,.18)}
+.kito:hover{border-color:rgba(255,255,255,.4)}.kito.on{border-color:var(--acc);background:var(--acc-soft)}
 .kitsw{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);padding:0;cursor:pointer}
 .kitsw.on{outline:2px solid var(--acc);outline-offset:2px}
 @media (max-width:760px){
@@ -592,3 +592,12 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .pctl .gears{display:inline-flex;align-items:center;gap:6px}
 .pctl .gears .num{font-size:20px;min-width:74px;text-align:center;white-space:nowrap}
 .pctl .gears .num i{font-style:normal;font-size:12px;font-weight:600;opacity:.7}
+/* ---------- huisstijl Koers: smal sportlettertype voor koppen en cijfers, zoals een rugnummer; de tekst blijft Inter ---------- */
+h1,h2,.brand,.wcard h3,.num,.nums b,.bignum b,.keys b,.stats b,.kv b,.mini4 b,.zendst b,.grade b,.pnum b,.pclock,.ptop h2,.pseg,.phud b,.pcd,.samencd,.zp1 b,.zp2 b,.zhr b,.zb1 b,.zct b,.zstart h2,.zend h2{font-family:var(--cond);font-weight:600;letter-spacing:.005em}
+h1{font-size:36px;line-height:1.05}h2{font-size:24px}.wcard h3{font-size:23px;line-height:1.1}.brand{font-size:24px}
+.nums b{font-size:38px;line-height:1;letter-spacing:0}.bignum b{font-size:46px;line-height:1;letter-spacing:0}.trio .bignum b{font-size:36px}
+.keys b{font-size:30px;line-height:1.05}.stats b{font-size:30px}.kv b{font-size:clamp(20px,5.2vw,26px)}.mini4 b{font-size:24px}.zendst b{font-size:26px}.grade b{font-size:40px;letter-spacing:0}
+.nums b i,.bignum b i,.keys b i{font-family:var(--body);letter-spacing:0}
+@media (min-width:960px){h1{font-size:40px}}
+@media (max-width:420px){.nums b{font-size:34px}}
+@media (max-width:700px){.grade b{font-size:36px}}
