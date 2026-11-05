@@ -29,12 +29,6 @@ function kjBests(p){
   for(const k of KJ_STEPS)if(at[k]!=null){const rest=p.slice(at[k]),o={};for(const [w] of KJ_DUR)if(rest.length>=w)o[w]=bestEffort(rest,w);out[k]=o}
   return out;
 }
-/* oudere ritten: eenmalig uitrekenen uit de bewaarde vermogensgegevens */
-async function fillKj(){
-  if(ui.kjBusy)return;ui.kjBusy=true;let ch=false;
-  for(const r of state.rides){if(r.sim||r.kjb!==undefined||(r.kj||0)<1000)continue;const rec=await idb.get('s:'+r.id);r.kjb=rec&&rec.p?kjBests(rec.p):{};ch=true}
-  ui.kjBusy=false;if(ch){save(false);if(ui.view==='prestaties')render()}
-}
 /* fitheid en vermoeidheid van je eerste rit tot vandaag, en daarna met de trainingen die gepland staan */
 function fitnessPath(today,ahead){
   const real=state.rides.filter(r=>!r.sim),first=real.length?real.reduce((a,r)=>r.date<a?r.date:a,real[0].date):iso(today);
@@ -107,22 +101,20 @@ function prestatiesView(){
   if(!state.setup)return setupView();
   const head=`<div class="head"><div><h1>Prestaties</h1></div>${vtabs()}</div>`,real=state.rides.filter(r=>!r.sim);
   if(!real.length)return `${head}<div class="card"><p class="muted">Je records verschijnen na je eerste rit.</p></div>`;
-  fillKj();
-  const per=ui.perf??91,cut=per?iso(addDays(new Date(),-per)):'',sel=real.filter(r=>!cut||r.date>=cut),lbl=(PERIODS.find(([v])=>v===per)||PERIODS[1])[1];
+  const per=ui.perf??91,cut=per?iso(addDays(new Date(),-per)):'',sel=real.filter(r=>!cut||r.date>=cut);
   const chips=`<div class="seg" role="group" aria-label="Periode">${PERIODS.map(([v,t])=>`<button class="btn small" data-act="perf" data-p="${v}" aria-pressed="${v===per}">${t}</button>`).join('')}</div>`;
-  /* vermogen na werk: frisse waarde tegenover na 1.000 en 2.000 kJ, in de gekozen periode */
-  const fresh=records(sel),aft={};for(const k of KJ_STEPS){aft[k]={};for(const r of sel){const b=r.kjb&&r.kjb[k];if(b)for(const [w] of KJ_DUR)if(b[w]&&(!aft[k][w]||b[w]>aft[k][w]))aft[k][w]=b[w]}}
-  const any=KJ_STEPS.some(k=>Object.keys(aft[k]).length);
-  const cell=(k,w)=>{const v=aft[k][w],f=fresh[w]&&fresh[w].w;return v?`<b style="font-weight:600">${v} W</b>${f?` <span class="muted">${Math.round(v/f*100)}%</span>`:''}`:'–'};
-  const dur=`<div class="card"><h3 style="margin-bottom:10px">Vermogen na lang rijden</h3>
-    ${any?`<div class="scroll"><table><thead><tr><th>Duur</th><th>Fris</th><th>Na 1.000 kJ</th><th>Na 2.000 kJ</th></tr></thead><tbody>
-      ${KJ_DUR.map(([w,t])=>`<tr><td>${t}</td><td>${fresh[w]?fresh[w].w+' W':'–'}</td><td>${cell(1000,w)}</td><td>${cell(2000,w)}</td></tr>`).join('')}</tbody></table></div>`
-      :`<p class="small muted">Nog geen rit boven 1.000 kJ in deze periode.</p>`}</div>`;
-  /* best uitgevoerd: de hoogste cijfers in de gekozen periode */
-  const top=state.rides.filter(r=>cijfer(r)!=null&&!r.sim&&(!cut||r.date>=cut)).sort((a,b)=>b.score-a.score||b.ts-a.ts).slice(0,5);
-  const best=top.length?`<div class="card"><h3 style="margin-bottom:6px">Best uitgevoerd</h3><div class="list">${top.map((r,i)=>{const d=new Date(r.ts);
-    return `<button data-act="openRide" data-id="${r.id}"><span class="when"><b>${i+1}</b></span><span class="w"><b>${esc(r.name)}</b><span>${d.getDate()} ${MONTHS[d.getMonth()]}</span></span><span class="r"><b class="gr">${nl(cijfer(r).toFixed(1))}</b></span></button>`}).join('')}</div></div>`:'';
-  return `${head}<div class="stack">${chips}${recordsCard(sel,lbl)||''}${best?`<div class="cols">${dur}${best}</div>`:dur}</div>`;
+  /* word je sterker? je beste 1, 5 en 20 minuten, en het verschil met de periode ervoor */
+  const now=records(sel),prev=per?records(real.filter(r=>r.date<cut&&r.date>=iso(addDays(new Date(),-2*per)))):{};
+  const nums=[[60,'1 min'],[300,'5 min'],[1200,'20 min']].map(([w,t])=>{const v=now[w]&&now[w].w,o=prev[w]&&prev[w].w,d=v&&o?v-o:0;
+    return `<div><b>${v||'–'}${v?'<i>W</i>':''}</b><span>${t}${d?` · <em class="${d>0?'up':'down'}" style="font-style:normal;font-weight:600">${d>0?'+':'−'}${Math.abs(d)} W</em>`:''}</span></div>`}).join('');
+  /* nieuwste records, de laatste drie */
+  const prs=sel.filter(r=>r.prs&&r.prs.length).sort((a,b)=>b.ts-a.ts).flatMap(r=>r.prs.map(x=>({x,r}))).slice(0,3);
+  const prHTML=prs.length?`<div class="card"><h3 style="margin-bottom:4px">Nieuwe records</h3><div class="list">${prs.map(({x,r})=>{const d=parseISO(r.date);
+    return `<button data-act="openRide" data-id="${r.id}"><span class="w"><b>${x.t}: ${x.w} W</b><span>was ${x.old} W</span></span><span class="r">${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span></button>`}).join('')}</div></div>`:'';
+  const ds=BESTS.filter(([w])=>now[w]);
+  const all=ds.length?`<details class="card fold"><summary>Alle duren</summary><div class="list" style="margin-top:6px">${ds.map(([w,t])=>{const d=parseISO(now[w].date);
+    return `<button data-act="openRide" data-id="${now[w].id}"><span class="w"><b>${t}</b></span><span class="r"><b class="gr">${now[w].w} W</b></span><span class="r" style="min-width:52px">${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span></button>`}).join('')}</div></details>`:'';
+  return `${head}<div class="stack">${chips}<div class="nrow prow">${nums}</div>${prHTML}${all}</div>`;
 }
 
 /* ---------- Voortgang: fitheid, vermoeidheid, vorm, eFTP en niveau door de tijd ---------- */
@@ -131,7 +123,7 @@ function voortgangView(){
   const today=new Date(),head=`<div class="head"><div><h1>Voortgang</h1></div>${vtabs()}</div>`;
   if(!state.rides.some(r=>!r.sim))return `${head}<div class="card"><p class="muted">Je voortgang verschijnt na je eerste rit.</p></div>`;
   const path=fitnessPath(today,horizonDays(today)),f=path.now;
-  const pc=progressCard()||{ftpCard:'',lvHTML:''};
+  const pc=progressCard()||{ftpCard:''};
   /* fitheid en vermoeidheid: de stand van nu groot, de lijn eronder; vorm is het verschil */
   const fit=`<div class="card"><div class="trio"><div class="bignum"><span>Fitheid</span><b>${f.ctl}</b></div><div class="bignum"><span>Vermoeidheid</span><b>${f.atl}</b></div><div class="bignum"><span>Vorm</span><b>${f.tsb>0?'+':f.tsb<0?'−':''}${Math.abs(f.tsb)}</b><small>${formOf(f.tsb)}</small></div></div>${fitChart(path)}</div>`;
   /* belasting per week: gereden tegenover gepland */
@@ -141,5 +133,5 @@ function voortgangView(){
     mx=Math.max(mx,done,pl);bars.push({m,done,pl})}
   const load=`<div class="card"><h3 style="margin-bottom:14px">Belasting per week</h3><div class="bars">${bars.map(b=>`<div class="b"><span class="num">${b.done||''}</span><div class="col" style="height:${Math.max(2,Math.max(b.pl,b.done)/mx*100)}%${b.pl?'':';border-color:transparent'}"><i style="height:${Math.round(b.done/Math.max(1,Math.max(b.pl,b.done))*100)}%"></i></div><span>wk ${weekNo(b.m)}</span></div>`).join('')}</div>
     <div class="legend"><span><i style="background:var(--acc)"></i>Gereden</span><span><i class="box"></i>Gepland</span></div></div>`;
-  return `${head}<div class="stack"><div class="cols">${pc.ftpCard}${fit}</div><div class="cols">${load}${pc.lvHTML||'<div></div>'}</div></div>`;
+  return `${head}<div class="stack"><div class="cols">${pc.ftpCard}${fit}</div>${load}</div>`;
 }

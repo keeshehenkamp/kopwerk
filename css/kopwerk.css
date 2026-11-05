@@ -307,12 +307,6 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .bignum b i{font-style:normal;font-size:16px;font-weight:500;color:var(--muted);margin-left:4px}
 .bignum small{display:block;font-size:13.5px;color:var(--muted);margin-top:3px}.bignum em{font-style:normal;font-weight:600}
 .trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:6px}.trio .bignum b{font-size:30px}
-.laps{display:flex;flex-direction:column}
-.lap{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
-.lap:last-child{border-bottom:0}.lap i{width:10px;height:10px;border-radius:3px}
-.lap .ln b{display:block;font-weight:500;font-size:14.5px}.lap.work .ln b{font-weight:600}
-.lap small{display:block;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
-.lap .lv{text-align:right;font-variant-numeric:tabular-nums}.lap .lv b{font-weight:600}.lap .lv small.bad{color:var(--bad);font-weight:600}
 .deepbtn{display:flex;justify-content:space-between;align-items:center;width:100%;padding:13px 16px;font-weight:600}
 .list .r b.gr{font-size:17px;color:var(--ink);font-weight:600}
 /* vensters */
@@ -661,3 +655,8 @@ h1{font-size:36px;line-height:1.05}h2{font-size:24px}.wcard h3{font-size:23px;li
 .main .stack>div>.profile{height:150px}
 .alts button{padding-left:0;padding-right:0}
 @media (min-width:960px){.main{margin-left:var(--side);max-width:none;padding-left:max(40px,calc((100vw - var(--side) - 820px)/2));padding-right:max(40px,calc((100vw - var(--side) - 820px)/2))}.side.off+.main{margin-left:0;padding-left:max(40px,calc((100vw - 820px)/2));padding-right:max(40px,calc((100vw - 820px)/2))}.home{grid-template-columns:minmax(0,1fr)}.timeline{max-width:none}}
+.prow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.prow b i{font-family:var(--body);font-style:normal;font-size:14px;font-weight:500;color:var(--muted);margin-left:3px}
+/* iets anders gedaan: de lijst met trainingen alleen als je dat kiest */
+.ckwo{display:none}.opts:has(input[value="training"]:checked)+.ckwo{display:block}
+.nrow.sm b{font-size:30px}

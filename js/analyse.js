@@ -143,7 +143,7 @@ function verdict(r,ftp){
     return out;
   }
   if(r.type==='vrij'){out.push(r.dist>200?`Vrij gereden: ${nl((r.dist/1000).toFixed(1))} km in ${clock(r.dur)}, gemiddeld ${r.avgP} W.`:`Vrij gereden: ${clock(r.dur)}, gemiddeld ${r.avgP} W.`);return out}
-  if(r.manual){out.push(TYPES[r.type]?'Met de hand ingevoerd als gedaan. De belasting is geschat uit de geplande training en de duur.':'Met de hand ingevoerd. De belasting is geschat uit de duur en hoe zwaar het voelde.');return out}
+  if(r.manual){out.push(TYPES[r.type]?'Met de hand ingevoerd. De belasting is geschat uit de training en de duur.':'Met de hand ingevoerd. De belasting is geschat uit de duur en hoe zwaar het voelde.');return out}
   const done=r.dur/Math.max(1,r.planned);
   if(r.score!=null){
     const m=r.miss,wat=m&&m.n?`In ${m.n} van de ${m.N} ${m.N===1?'blok':'blokken'} zat je meer dan 6% ${m.low*2>=m.n?'onder':'boven'} het doel.`:'';
@@ -163,7 +163,7 @@ function verdict(r,ftp){
   if(rpeHeavy(r))out.push('Dit voelde zwaarder dan je bij deze training mag verwachten. De rest van de week wordt een stap lichter.');
   if(r.rpe!=null&&r.lvl&&LADDER[r.type]&&!r.sim){
     const st=progStep(r);
-    out.push(st<0?'Dit was te zwaar. Deze training gaat de volgende keer een trede terug.':st===0?'Stevig, maar goed te doen. De volgende keer blijft deze training op dezelfde trede.':st<1?'Goed gedaan. De volgende keer wordt deze training iets zwaarder.':'Dit ging je makkelijk af. De volgende keer gaat deze training een trede omhoog.');
+    out.push(st<0?'Dit was te zwaar. De volgende keer wordt deze training iets lichter.':st===0?'Stevig, maar goed te doen. De volgende keer blijft deze training even zwaar.':st<1?'Goed gedaan. De volgende keer wordt deze training iets zwaarder.':'Dit ging je makkelijk af. De volgende keer wordt deze training zwaarder.');
   }
   const e=ftpEstimate(r);
   if(e>ftp*1.02)out.push(`Je beste 20 minuten (${r.best[1200]} W) wijzen op een FTP van ongeveer ${e} W, hoger dan je ingestelde ${ftp} W.`);

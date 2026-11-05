@@ -24,6 +24,7 @@ Elk scherm moet in één blik te lezen zijn. Loop deze lijst na vóór je een sc
 
 ## Niet doen
 
+- Tredes (de ladder per soort training) zijn voor de planner: niet tonen in de app.
 - Meldingen op de telefoon en een wekelijkse terugblik zijn afgewezen.
 - Groepsrit: alleen echte rijders, geen groepje of fietsers langs de weg.
 - 3D-model van de fietser en de wereld: voorlopig laten zoals het is.

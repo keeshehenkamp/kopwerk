@@ -145,15 +145,18 @@ const actions={
     const min=clamp(Math.round(+document.getElementById('c-min').value)||0,0,900);
     if(min<5)return toast('Vul in hoe lang je bezig was.');
     if(!M.rpe)return toast('Kies hoe zwaar het voelde.');
-    let name,type,IF,tss,lvl=null;
-    if(M.m==='done'){name=w.name;type=w.type;IF=w.IF;tss=Math.round(w.tss*min/Math.max(1,w.minutes));lvl=w.lvl||null}
-    else{const k=(document.querySelector('input[name="ck"]:checked')||{}).value;if(!CHECK_KIND[k])return toast('Kies wat je hebt gedaan.');
+    let name,type,IF,tss,lvl=null,plan=w;
+    const k=M.m==='done'?'':(document.querySelector('input[name="ck"]:checked')||{}).value;
+    /* gedaan, of een andere training uit de app: de belasting komt uit die training */
+    if(k==='training')plan=libWo(document.getElementById('c-wo').value,min);
+    if(M.m==='done'||k==='training'){name=plan.name;type=plan.type;IF=plan.IF;tss=Math.round(plan.tss*min/Math.max(1,plan.minutes));lvl=plan.lvl||null}
+    else{if(!CHECK_KIND[k])return toast('Kies wat je hebt gedaan.');
       name=CHECK_KIND[k][1];type=CHECK_KIND[k][2];IF=[.5,.5,.55,.6,.65,.7,.75,.8,.88,.95][M.rpe-1];tss=Math.round(min/60*IF*IF*100)}
-    const ride={id:'m'+Date.now().toString(36),date:M.iso,ts:parseISO(M.iso).getTime()+18*36e5,name,type,lvl,manual:true,planned:w.sec,ftp:state.profile.ftp,sim:false,rpe:M.rpe,adj:true,laps:[],
+    const ride={id:'m'+Date.now().toString(36),date:M.iso,ts:parseISO(M.iso).getTime()+18*36e5,name,type,lvl,manual:true,planned:plan.sec,ftp:state.profile.ftp,sim:false,rpe:M.rpe,adj:true,laps:[],
       dur:min*60,avgP:0,np:0,IF:+IF.toFixed(2),tss,kj:0,avgHr:0,maxHr:0,avgCad:0,zones:[0,0,0,0,0,0,0],best:{},score:null,decoup:null};
-    if(M.m==='done'&&LADDER[type]&&lvl){ride.rpeAdj=true;state.prog=state.prog||{};state.prog[type]=clamp(lvl+progStep(ride),1,LADDER[type].steps.length)}
+    if(LADDER[type]&&lvl){ride.rpeAdj=true;state.prog=state.prog||{};state.prog[type]=clamp(lvl+progStep(ride),1,LADDER[type].steps.length)}
     if(state.missed)delete state.missed[M.iso];
-    state.rides.push(ride);save();ui.modal=null;render();toast(M.m==='done'?`${name} staat als gedaan in je schema.`:`${name} staat in je schema (${tss} TSS).`);
+    state.rides.push(ride);save();ui.modal=null;render();toast(M.m==='done'||k==='training'?`${name} staat als gedaan in je schema.`:`${name} staat in je schema (${tss} TSS).`);
   },
   openAdd(){ui.modal={kind:'add'};render()},
   async saveManual(){
