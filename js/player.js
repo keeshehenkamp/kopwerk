@@ -339,7 +339,8 @@ function makeRide(a){
   const an=analyze(a.rec,a.ftp,a.laps,a.wo.type==='vrij'?a.rec.p.length:(a.planned||a.wo.sec),a.wo.type);
   const d=new Date(a.startTs||Date.now());
   const hrOff=a.sim?null:hrOffset(a.rec,a.ftp),perf=typeof meetSummary==='function'?meetSummary():null;
-  const dist=Math.round(typeof W!=='undefined'&&W&&W.dist?W.dist:a.dist||0);
+  /* afstand uit de 3D-wereld, tenzij je vooral in de cijferweergave reed: dan staat de wereld stil en telt de rit zelf */
+  const wd=typeof W!=='undefined'&&W&&W.dist||0,dist=Math.round(wd>=(a.dist||0)*.5?wd:a.dist||0);
   return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),dist,date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,route:typeof W!=='undefined'&&W&&W.C?W.C.route.id:undefined,planned:a.wo.type==='vrij'?a.rec.p.length:(a.planned||a.wo.sec),ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game),kjb:a.sim?{}:kjBests(a.rec.p)},hrOff!=null?{hrOff}:{},perf?{perf}:{},an);
 }
 async function storeRide(a){
@@ -368,17 +369,18 @@ function endRide(why){
 }
 function endHTML(){
   const e=P.end,r=e.sum,g=e.game,fin=e.why==='finish';
-  const st=[['Tijd',clock(r.dur)],r.dist?['Afstand',`${nl((r.dist/1000).toFixed(1))} km`]:null,['Gemiddeld',r.avgP?`${r.avgP} W`:'–'],
-    r.np?['Genormaliseerd',`${r.np} W`]:null,['Hartslag',r.avgHr?`${r.avgHr} bpm`:'–'],['Belasting',`${r.tss} TSS`],
-    g?['Punten',g.pts.toLocaleString('nl-NL')]:null,g?['Sterren',`★ ${g.stars} van ${g.max}`]:null].filter(Boolean);
-  const rpe=P.sim?'':`<div class="stack" style="gap:8px"><b class="small">Hoe zwaar voelde het?</b>
+  /* drie cijfers groot, de rest klein op één regel; de vraag hoe het voelde is de enige handeling */
+  const nums=[[clock(r.dur),'tijd'],[r.avgP||'–','watt gemiddeld'],[r.tss,'TSS']];
+  const more=[r.dist>=100?`${nl((r.dist/1000).toFixed(1))} km`:'',r.np?`${r.np} W genormaliseerd`:'',r.avgHr?`♥ ${r.avgHr} bpm`:''].filter(Boolean).join(' · ');
+  const rpe=P.sim?'':`<div class="stack zrpe" style="gap:8px"><h3>Hoe zwaar voelde het?</h3>
       <div class="rpe">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="endRpe" data-n="${n}" aria-pressed="${e.rpe===n}" aria-label="${n} van 10">${n}</button>`).join('')}</div>
       <div class="rpel"><span>Moeiteloos</span><span>Alles gegeven</span></div></div>`;
   return `<div class="zend stack" role="dialog" aria-label="${fin?'Finish':'Rit gestopt'}">
-      <div><h2>${fin?'Finish':'Rit gestopt'}</h2><span class="small muted">${esc(P.wo.name)}</span></div>
-      <div class="zendst">${st.map(([k,v])=>`<div><span>${k}</span><b>${v}</b></div>`).join('')}</div>
+      <div><h2>${fin?'Finish':'Rit gestopt'}</h2><span class="small muted">${esc(P.wo.name)}${g?` · ★ ${g.stars} van ${g.max}`:''}</span></div>
+      <div class="nrow">${nums.map(([v,k])=>`<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>
+      ${more?`<p class="small muted">${more}</p>`:''}
       ${rpe}
-      <div class="row zendbt"><button class="btn" data-act="endResume">Doorrijden</button><button class="btn pri big" data-act="endSave">Opslaan</button></div>
+      <div class="zendbt"><button class="btn pri big" data-act="endSave">Opslaan</button><button class="link small" data-act="endResume">Doorrijden</button></div>
     </div>`;
 }
 async function finishRide(){

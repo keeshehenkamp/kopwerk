@@ -334,18 +334,17 @@ function trainingView(){
     <div class="detail">${adjust}</div>`;
   const why=whyOn(day?day.date:new Date(),w.type),T=w.sec;
   const ticks=[0,.25,.5,.75,1].map(f=>`<span>${clock(f*T)}</span>`).join('');
-  const zs=[...new Set(w.segs.filter(s=>s.kind==='work'||s.kind==='steady').map(s=>zoneOf((s.a+s.b)/2)))].sort();
   return `${back}<div class="head"><div><h1>${esc(w.name)}</h1><p>${title}</p></div></div>
-    <div class="detail"><div class="stack">
-      <div class="card">${profileSVG(w.segs)}<div class="axis">${ticks}</div></div>
-      <div class="kv"><div><b>${durTxt(w.minutes)}</b><span>duur</span></div><div><b>${w.tss}</b><span>TSS</span></div><div><b>${nl(w.IF.toFixed(2))}</b><span>intensiteit</span></div>${w.lvl?`<div><b>${w.lvl}/${w.lvlMax}</b><span>trede</span></div>`:''}</div>
-      <div class="card stack"><p>${esc(w.desc)}</p>${why?`<details class="why"><summary>Waarom deze training?</summary><p class="small muted" style="margin-top:8px">${esc(why)}</p></details>`:''}<div class="row">${zs.map(z=>`<span class="zchip"><i style="background:var(--z${z})"></i>${ZN[z]}</span>`).join('')}</div></div>
-    </div><div class="stack">
+    <div class="stack">
+      <div>${profileSVG(w.segs)}<div class="axis">${ticks}</div></div>
+      <div><div class="nrow"><div><b>${durTxt(w.minutes)}</b><span>duur</span></div><div><b>${w.tss}</b><span>TSS</span></div></div>
+        <p class="small muted" style="margin-top:10px">Intensiteit ${nl(w.IF.toFixed(2))}${w.lvl?` · trede ${w.lvl} van ${w.lvlMax}`:''}</p></div>
       ${day&&day.iso<iso(new Date())&&!rideOn(day.iso)?`<div class="card"><h3>Hoe ging deze training?</h3>${state.missed&&state.missed[day.iso]?'<p class="small muted" style="margin-top:3px">Je meldde hem als niet gedaan. Toch gereden? Vul het hieronder in.</p>':''}${checkBtns(day.iso)}</div>`
       :canRide()?`<div class="cta"><button class="btn pri big" data-act="startModal">Start training</button><button class="btn" data-act="zwoModal">Zwift</button></div>`:'<p class="notice small">Rijden met je trainer doe je op je laptop, in Chrome of Edge. Hier bekijk je de training.</p>'}
       ${day?altsHTML(w,day):''}
+      <div class="card stack"><p>${esc(w.desc)}</p>${why?`<details class="why"><summary>Waarom deze training?</summary><p class="small muted" style="margin-top:8px">${esc(why)}</p></details>`:''}</div>
       <details class="card fold"><summary>Specificatie</summary><div style="margin-top:8px">${segList(w)}</div></details>
-      ${adjust}</div></div>`;
+      ${adjust}</div>`;
 }
 
 /* ---------- trainingen ---------- */
@@ -447,11 +446,9 @@ function rideView(){
   const hero=v.length||mark?`<div class="card hero">${mark}<div class="herotxt"><p>${esc(v[0]||'')}</p>${v.slice(1).map(t=>`<p class="small muted">${esc(t)}</p>`).join('')}${ftpBtn?`<div style="margin-top:12px">${ftpBtn}</div>`:''}</div></div>`:'';
   /* met de hand ingevoerd: alleen wat je invulde; iets anders dan een training uit het schema heeft geen geplande duur */
   const other=r.manual&&!TYPES[r.type];
-  const keys=`<div class="keys">
-      <div><span>Duur</span><b>${clock(r.dur)}</b>${r.dist?`<small>${nl((r.dist/1000).toFixed(1))} km</small>`:!outdoor&&!other&&r.planned&&Math.abs(r.planned-r.dur)>30?`<small>van ${clock(r.planned)}</small>`:''}</div>
-      ${r.manual&&!r.avgP?'':`<div><span>Gemiddeld</span><b>${r.avgP||'–'}<i>W</i></b>${r.np?`<small>genormaliseerd ${r.np} W</small>`:''}</div>`}
-      ${r.manual&&!r.avgHr?'':`<div><span>Hartslag</span><b>${r.avgHr||'–'}<i>${r.avgHr?'bpm':''}</i></b>${r.maxHr?`<small>max ${r.maxHr}</small>`:''}</div>`}
-      <div><span>Belasting</span><b>${r.tss}<i>TSS</i></b></div></div>`;
+  const keyN=[[clock(r.dur),!outdoor&&!other&&r.planned&&Math.abs(r.planned-r.dur)>30?`tijd · van ${clock(r.planned)}`:'tijd'],r.avgP?[r.avgP,'watt gemiddeld']:null,[r.tss,'TSS']].filter(Boolean);
+  const keyM=[r.dist?`${nl((r.dist/1000).toFixed(1))} km`:'',r.np?`${r.np} W genormaliseerd`:'',r.avgHr?`♥ ${r.avgHr} bpm${r.maxHr?`, max ${r.maxHr}`:''}`:''].filter(Boolean).join(' · ');
+  const keys=`<div><div class="nrow">${keyN.map(([v,k])=>`<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>${keyM?`<p class="small muted" style="margin-top:10px">${keyM}</p>`:''}</div>`;
   /* gevoel: eerst de vraag; na je antwoord een korte regel die je kunt aanpassen */
   const scale=`<div class="rpe">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="rpe" data-n="${n}" aria-pressed="${r.rpe===n}" aria-label="${n} van 10">${n}</button>`).join('')}</div><div class="rpel"><span>Moeiteloos</span><span>Alles gegeven</span></div>`;
   const rpe=r.sim?'':r.rpe==null?`<div class="card stack"><h3>Hoe zwaar voelde deze training?</h3>${scale}</div>`
@@ -491,10 +488,10 @@ function rideView(){
   const from=TABS.find(t=>t[0]===tabOf('ride'))||TABS[1];
   return `<button class="back" data-act="back" data-v="${from[0]}">${I.l}${from[1]}</button>
     <div class="head"><div><h1>${esc(r.name)}${r.sim?' <span class="badge" style="vertical-align:middle">Demo</span>':''}</h1><p>${dateLong(d)} ${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}</p></div></div>
-    <div class="stack">${r.perf&&/[?&]meet/.test(location.search)?`<div class="card"><h3 style="margin-bottom:6px">Meting 3D-wereld</h3><p><b>${r.perf.fps}</b> beelden per seconde · ${r.perf.big} haperingen · ${r.perf.small} gemiste beelden</p>${r.perf.list.length?`<p class="small muted" style="margin-top:6px">Grootste haperingen: ${r.perf.list.map(x=>`${clock(x.t)} (${x.ms} ms${x.b?', bijbouwen':''})`).join(', ')}</p>`:''}</div>`:''}${hero}${keys}${r.rpe==null?rpe:''}${prs}${chart}${zones}
+    <div class="stack">${r.perf&&/[?&]meet/.test(location.search)?`<div class="card"><h3 style="margin-bottom:6px">Meting 3D-wereld</h3><p><b>${r.perf.fps}</b> beelden per seconde · ${r.perf.big} haperingen · ${r.perf.small} gemiste beelden</p>${r.perf.list.length?`<p class="small muted" style="margin-top:6px">Grootste haperingen: ${r.perf.list.map(x=>`${clock(x.t)} (${x.ms} ms${x.b?', bijbouwen':''})`).join(', ')}</p>`:''}</div>`:''}${hero}${keys}${rpe}${prs}${chart}${zones}
       ${r.manual?'':`<button class="btn deepbtn" data-act="deep" aria-expanded="${!!ui.deep}">Diepgaande analyse<span aria-hidden="true">${ui.deep?I.up:I.down}</span></button>`}
-      ${deep}${r.rpe!=null?rpe:''}
-      <div><button class="btn warn" data-act="delRide">${ui.confirm==='ride'?'Klik nog eens om te verwijderen':'Rit verwijderen'}</button></div></div>`;
+      ${deep}
+      <div><button class="link small down" data-act="delRide">${ui.confirm==='ride'?'Klik nog eens om te verwijderen':'Rit verwijderen'}</button></div></div>`;
 }
 
 /* ---------- profiel ---------- */
