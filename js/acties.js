@@ -30,6 +30,7 @@ const routeState=()=>({view:ui.view,detail:ui.detail,rideId:ui.rideId,rideFrom:u
 function routeParse(h){
   let p=[];try{p=(h||'').replace(/^#\/?/,'').split('/').map(decodeURIComponent)}catch(e){}
   if(p[0]==='rit'&&p[1]&&state.rides.some(r=>r.id===p[1]))return {view:'ride',rideId:p[1],rideFrom:'kalender'};
+  if(p[0]==='dag'&&rideOn(p[1]))return {view:'ride',rideId:rideOn(p[1]).id,rideFrom:'kalender'};
   if(p[0]==='dag'&&/^\d{4}-\d{2}-\d{2}$/.test(p[1]||''))return {view:'training',detail:{kind:'day',iso:p[1],from:'vandaag'}};
   if(p[0]==='training'&&TYPES[p[1]])return {view:'training',detail:{kind:'wo',type:p[1],min:+p[2]||60,from:'lib'}};
   return {view:ROUTE_VIEWS.includes(p[0])?p[0]:'vandaag'};
@@ -60,7 +61,8 @@ window.addEventListener('popstate',e=>{
 const actions={
   nav(d){ui.view=d.v;ui.modal=null;ui.confirm='';ui.draft=null;render();window.scrollTo(0,0)},
   back(d){if(routeBack())return;ui.view=(d&&d.v)||(ui.detail&&ui.detail.from)||'vandaag';render();window.scrollTo(0,0)},
-  openDay(d){ui.detail={kind:'day',iso:d.iso,from:tabOf(ui.view)};ui.view='training';render();window.scrollTo(0,0)},
+  /* een dag waarop je reed: laat zien wat je echt deed, niet wat er gepland stond */
+  openDay(d){const r=rideOn(d.iso);if(r)return actions.openRide({id:r.id});ui.detail={kind:'day',iso:d.iso,from:tabOf(ui.view)};ui.view='training';render();window.scrollTo(0,0)},
   /* je tijd per dag: dag kiezen, wiel bewaart zodra het stilstaat */
   /* de wekelijkse vraag: zonder wijziging telt de week zoals hij er staat (de vorige week) */
   wkAskDone(d){const k=d.k;if(!state.weeks[k]){state.weeks[k]=weekAvail(state,parseISO(k)).slice();save()}ui.wkAsk=null;ui.avSel=null;render();toast('Je schema voor week '+weekNo(parseISO(k))+' staat klaar.')},
@@ -137,7 +139,7 @@ const actions={
     render();toast(!state.avail.some(x=>x)?'Opgeslagen. Je hebt nog geen trainingsdagen gekozen.':state.event&&!state.event.date?'Opgeslagen. Vul nog de datum van je evenement in; tot dan volgt het schema je doel.':'Opgeslagen');
   },
   openRide(d){ui.modal=null;openRide(d.id)},
-  /* hoe ging je training: gedaan zoals gepland, of iets anders; telt mee in je belasting en (bij gedaan) in de trede van die soort training */
+  /* zonder de app gereden: buiten, of iets anders; telt mee in je belasting en (bij een training uit de app) in de trede van die soort */
   openCheck(d){ui.modal={kind:'check',iso:d.iso,m:d.m,rpe:null};render()},
   chkRpe(d,el){ui.modal.rpe=+d.n;el.parentNode.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===el)))},
   saveCheck(){
@@ -146,17 +148,17 @@ const actions={
     if(min<5)return toast('Vul in hoe lang je bezig was.');
     if(!M.rpe)return toast('Kies hoe zwaar het voelde.');
     let name,type,IF,tss,lvl=null,plan=w;
-    const k=M.m==='done'?'':(document.querySelector('input[name="ck"]:checked')||{}).value;
-    /* gedaan, of een andere training uit de app: de belasting komt uit die training */
+    const k=M.m==='buiten'?'buiten':(document.querySelector('input[name="ck"]:checked')||{}).value;
+    /* een andere training uit de app: de belasting komt uit die training; anders uit de duur en hoe zwaar het voelde */
     if(k==='training')plan=libWo(document.getElementById('c-wo').value,min);
-    if(M.m==='done'||k==='training'){name=plan.name;type=plan.type;IF=plan.IF;tss=Math.round(plan.tss*min/Math.max(1,plan.minutes));lvl=plan.lvl||null}
+    if(k==='training'){name=plan.name;type=plan.type;IF=plan.IF;tss=Math.round(plan.tss*min/Math.max(1,plan.minutes));lvl=plan.lvl||null}
     else{if(!CHECK_KIND[k])return toast('Kies wat je hebt gedaan.');
       name=CHECK_KIND[k][1];type=CHECK_KIND[k][2];IF=[.5,.5,.55,.6,.65,.7,.75,.8,.88,.95][M.rpe-1];tss=Math.round(min/60*IF*IF*100)}
     const ride={id:'m'+Date.now().toString(36),date:M.iso,ts:parseISO(M.iso).getTime()+18*36e5,name,type,lvl,manual:true,planned:plan.sec,ftp:state.profile.ftp,sim:false,rpe:M.rpe,adj:true,laps:[],
       dur:min*60,avgP:0,np:0,IF:+IF.toFixed(2),tss,kj:0,avgHr:0,maxHr:0,avgCad:0,zones:[0,0,0,0,0,0,0],best:{},score:null,decoup:null};
     if(LADDER[type]&&lvl){ride.rpeAdj=true;state.prog=state.prog||{};state.prog[type]=clamp(lvl+progStep(ride),1,LADDER[type].steps.length)}
     if(state.missed)delete state.missed[M.iso];
-    state.rides.push(ride);save();ui.modal=null;render();toast(M.m==='done'||k==='training'?`${name} staat als gedaan in je schema.`:`${name} staat in je schema (${tss} TSS).`);
+    state.rides.push(ride);save();ui.modal=null;render();toast(`${name} staat in je schema (${tss} TSS).`);
   },
   openAdd(){ui.modal={kind:'add'};render()},
   async saveManual(){

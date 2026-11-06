@@ -31,7 +31,10 @@ const tabOf=v=>v==='training'?TAB_OF[(ui.detail&&ui.detail.from)||'vandaag']||(u
 const dayShort=d=>`${DAYS[dow(d)]} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}`;
 /* zwaarste blok van een training, voor het gekleurde stipje */
 const woZone=w=>{let f=0;for(const s of w.segs)if(s.d>=30)f=Math.max(f,(s.a+s.b)/2);return zoneOf(f||.5)};
-const dotFor=(d,r)=>r?'<span class="dot done">'+I.check+'</span>':d.event?'<span class="dot ev"></span>':d.wo?`<span class="dot" style="background:var(--z${woZone(d.wo)})"></span>`:'<span class="dot rest"></span>';
+/* elke rit op een dag, ook vrij rijden */
+const realOn=k=>{const l=state.rides.filter(r=>r.date===k&&!r.sim);return l.length?l[l.length-1]:null};
+/* gereden: vinkje; geplande training die voorbij is en niet gereden: kruisje */
+const dotFor=(d,r)=>r?'<span class="dot done">'+I.check+'</span>':d.wo&&!d.event&&d.iso<iso(new Date())?'<span class="dot miss">'+I.x+'</span>':d.event?'<span class="dot ev"></span>':d.wo?`<span class="dot" style="background:var(--z${woZone(d.wo)})"></span>`:'<span class="dot rest"></span>';
 const metaOf=w=>`${durTxt(w.minutes)} · ${w.tss} TSS`;
 
 let enterMain=false,lastScreen='',lastModal='';
@@ -173,7 +176,7 @@ function dayCard(d,tk){
   if(d.wo){
     const why={tijd:'geen tijd',moe:'te moe',ziek:'ziek'}[d.why],miss=why?`Niet gedaan (${why})`:'Gemist';
     const note=d.missed?`<div class="note late">${d.movedTo!=null?miss+', verplaatst naar '+DAYS_L[d.movedTo]:d.why==='moe'?miss+'. De dagen erna zijn lichter.':miss}</div>`:d.movedFrom!=null?`<div class="note moved">Verplaatst van ${DAYS_L[d.movedFrom]}</div>`:'';
-    const already=`<p class="small muted" style="margin-top:10px">Al gereden? <button class="link" data-act="openCheck" data-iso="${d.iso}" data-m="done">Gedaan</button> of <button class="link" data-act="openCheck" data-iso="${d.iso}" data-m="other">iets anders</button></p>`;
+    const already=`<p class="small muted" style="margin-top:10px">Zonder de app gereden? <button class="link" data-act="openCheck" data-iso="${d.iso}" data-m="buiten">Buiten</button> of <button class="link" data-act="openCheck" data-iso="${d.iso}" data-m="other">iets anders</button></p>`;
     const act=d.iso>tk?'':d.missed&&d.why?`<div class="row" style="margin-top:8px"><button class="link small" data-act="undoMissed" data-iso="${d.iso}">Toch niet: melding intrekken</button></div>`
       :d.iso===tk&&!d.missed?(canRide()?`<div class="row" style="margin-top:10px"><button class="btn pri big" data-act="startDay" data-iso="${d.iso}" style="flex:1">Start training</button><button class="btn big" data-act="openMissed" data-iso="${d.iso}">Lukt niet</button></div>${already}`
         :`<div class="noride"><span class="small muted">Rijden met je trainer doe je op je laptop, in Chrome of Edge.</span><button class="btn" data-act="openMissed" data-iso="${d.iso}">Lukt niet</button></div>${already}`)
@@ -184,15 +187,16 @@ function dayCard(d,tk){
   const m=d.health&&d.health.during?`${healthWord(d.health.h).replace(/^./,c=>c.toUpperCase())} gemeld`:d.o.skip?'Overgeslagen':'';
   return `<div class="wcard"><div class="t"><div><h3>Rustdag</h3>${m?`<div class="m">${m}</div>`:''}</div><span class="row">${canRide()?'<button class="btn small" data-act="vrij">Vrij rijden</button>':''}<button class="btn small" data-act="openDay" data-iso="${d.iso}">Toch trainen</button></span></div></div>`;
 }
-/* na een geplande training die voorbij is: hoe ging het? Gedaan (hoe zwaar), iets anders gedaan, of niet gedaan.
-   Alleen de laatste zeven dagen, de nieuwste eerst; een dag met een rit of een afmelding is klaar. */
+/* na een geplande training die voorbij is en waarvan de app niets weet: buiten gereden, iets anders gedaan, of niet gedaan.
+   Geen vraag als je die dag reed, als je dezelfde training die week op een andere dag deed, of als hij is doorgeschoven.
+   Alleen de laatste zeven dagen, de nieuwste eerst. */
 function openChecks(today){
   const tk=iso(today),from=iso(addDays(today,-7)),rep=state.missed||{},out=[];
   for(const off of[-7,0])for(const d of planWeek(state,addDays(mondayOf(today),off),today).days)
-    if(d.wo&&!d.event&&d.iso<tk&&d.iso>=from&&(!state.started||d.iso>=state.started)&&!rideOn(d.iso)&&!rep[d.iso]&&!(d.health&&d.health.during))out.push(d);
+    if(d.wo&&!d.event&&d.iso<tk&&d.iso>=from&&(!state.started||d.iso>=state.started)&&!rep[d.iso]&&!(d.health&&d.health.during)&&d.movedTo==null&&!state.rides.some(r=>!r.sim&&(r.date===d.iso||(r.type===d.wo.type&&iso(mondayOf(parseISO(r.date)))===iso(mondayOf(d.date))))))out.push(d);
   return out.sort((a,b)=>a.iso<b.iso?1:-1);
 }
-const checkBtns=k=>`<div class="hbtns"><button class="btn pri" data-act="openCheck" data-iso="${k}" data-m="done">Gedaan</button><button class="btn" data-act="openCheck" data-iso="${k}" data-m="other">Iets anders</button><button class="btn" data-act="openMissed" data-iso="${k}">Niet gedaan</button></div>`;
+const checkBtns=k=>`<div class="cbtns"><button class="btn" data-act="openCheck" data-iso="${k}" data-m="buiten">Buiten gereden</button><button class="btn" data-act="openCheck" data-iso="${k}" data-m="other">Iets anders</button><button class="btn" data-act="openMissed" data-iso="${k}">Niet gedaan</button></div>`;
 function checkCard(today){
   const l=openChecks(today);if(!l.length)return '';
   const d=l[0],y=d.iso===iso(addDays(today,-1)),when=y?'Gisteren':dateLong(d.date).replace(/^./,c=>c.toUpperCase());
@@ -258,7 +262,7 @@ function weekCard(today){
   if(toEv>=0)sub.push(`${esc(ev.name)} over ${toEv} ${toEv===1?'dag':'dagen'}`);
   else if(plan.ctx.toGo==null&&plan.ctx.kind==='build'){const ph=((((Math.floor(dayDiff(parseISO(state.planStart),mon)/7))%4)+4)%4)+1;sub.push(`herstelweek over ${4-ph} ${4-ph===1?'week':'weken'}`)}
   /* de week in één regel: de dagen zelf staan in de Kalender */
-  const strip=plan.days.map(d=>`<button class="wsd${d.iso===tk?' today':''}" ${d.event?'disabled':`data-act="openDay" data-iso="${d.iso}"`} aria-label="${DAYS_L[d.i]} ${d.date.getDate()}: ${d.event?esc(d.event):d.wo?esc(d.wo.name):'rust'}"><span>${DAYS[d.i]}</span><b>${d.date.getDate()}</b>${dotFor(d,rideOn(d.iso))}</button>`).join('');
+  const strip=plan.days.map(d=>`<button class="wsd${d.iso===tk?' today':''}" ${d.event?'disabled':realOn(d.iso)?`data-act="openRide" data-id="${realOn(d.iso).id}"`:`data-act="openDay" data-iso="${d.iso}"`} aria-label="${DAYS_L[d.i]} ${d.date.getDate()}: ${realOn(d.iso)?esc(realOn(d.iso).name)+', gereden':d.event?esc(d.event):d.wo?esc(d.wo.name):'rust'}"><span>${DAYS[d.i]}</span><b>${d.date.getDate()}</b>${dotFor(d,realOn(d.iso))}</button>`).join('');
   const open=ui.avOpen&&wkAskKey(today)!==k,tip=moreTimeTip(plan);
   return `<div class="card wk"><div class="wkhead"><div><h2>Week ${weekNo(mon)}</h2><p class="small muted">${sub.join(' · ')}</p></div>
       <div class="wnav"><button class="ibtn${open?' on':''}" data-act="avOpen" aria-pressed="${!!open}" aria-label="Tijd per dag" title="Tijd per dag">${ICO.tijd}</button></div></div>
@@ -511,16 +515,16 @@ function missedModal(){
     <div class="stack"><button class="btn big" data-act="missedWhy" data-why="tijd">Geen tijd</button><button class="btn big" data-act="missedWhy" data-why="moe">Te moe</button><button class="btn big" data-act="missedWhy" data-why="ziek">Ziek of geblesseerd</button></div>
     <div><button class="btn" data-act="closeModal">Annuleren</button></div></div></div>`;
 }
-/* gedaan of iets anders gedaan: duur en hoe zwaar het voelde */
+/* buiten gereden of iets anders gedaan: duur en hoe zwaar het voelde */
 const CHECK_KIND={training:['Een andere training','',''],buiten:['Buiten gefietst','Buitenrit','buiten'],hardlopen:['Hardgelopen','Hardlopen','hardlopen'],fitness:['Kracht of fitness','Kracht of fitness','fitness'],anders:['Iets anders','Iets anders','anders']};
 function checkModal(){
   const M=ui.modal,day=planWeek(state,mondayOf(parseISO(M.iso)),new Date()).days.find(x=>x.iso===M.iso),w=day&&day.wo;
   if(!w){ui.modal=null;return ''}
-  const done=M.m==='done',when=dateLong(day.date).replace(/^./,c=>c.toUpperCase());
-  return `<div class="veil" data-act="veil"><div class="modal narrow stack" role="dialog" aria-modal="true" aria-label="${done?'Training gedaan':'Iets anders gedaan'}">
-    <div><h2>${done?'Hoe zwaar was het?':'Wat heb je gedaan?'}</h2><p class="small muted" style="margin-top:3px">${when} · ${done?esc(w.name):'in plaats van '+esc(w.name)}</p></div>
-    ${done?'':`<div class="opts">${Object.entries(CHECK_KIND).map(([k,v],i)=>`<label class="opt"><input type="radio" name="ck" value="${k}"${i?'':' checked'}><span><b>${v[0]}</b></span></label>`).join('')}</div>
-    <div class="ckwo"><label class="f" for="c-wo">Welke training?</label><select id="c-wo" style="width:100%">${CATS.filter(([c])=>c&&c!=='test').map(([c,t])=>`<optgroup label="${t}">${Object.keys(TYPES).filter(k=>CAT_OF[k]===c).map(k=>`<option value="${k}"${k===w.type?' selected':''}>${esc(TYPES[k].name)}</option>`).join('')}</optgroup>`).join('')}</select></div>`}
+  const out=M.m==='buiten',when=dateLong(day.date).replace(/^./,c=>c.toUpperCase());
+  return `<div class="veil" data-act="veil"><div class="modal narrow stack" role="dialog" aria-modal="true" aria-label="${out?'Buiten gereden':'Iets anders gedaan'}">
+    <div><h2>${out?'Buiten gereden':'Wat heb je gedaan?'}</h2><p class="small muted" style="margin-top:3px">${when}${out?'':' · in plaats van '+esc(w.name)}</p></div>
+    ${out?'':`<div class="opts">${Object.entries(CHECK_KIND).filter(([k])=>k!=='buiten').map(([k,v],i)=>`<label class="opt"><input type="radio" name="ck" value="${k}"${i?'':' checked'}><span><b>${v[0]}</b></span></label>`).join('')}</div>
+    <div class="ckwo"><label class="f" for="c-wo">Welke training?</label><select id="c-wo" style="width:100%">${CATS.filter(([c])=>c&&c!=='test').map(([c,t])=>`<optgroup label="${t}">${Object.keys(TYPES).filter(k=>CAT_OF[k]===c&&k!==w.type).map(k=>`<option value="${k}">${esc(TYPES[k].name)}</option>`).join('')}</optgroup>`).join('')}</select></div>`}
     <div><label class="f" for="c-min">Duur in minuten</label><input type="number" id="c-min" min="5" max="900" value="${w.minutes}" style="width:120px"></div>
     <div><div class="f">Hoe zwaar voelde het?</div><div class="rpe">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="chkRpe" data-n="${n}" aria-pressed="${M.rpe===n}" aria-label="${n} van 10">${n}</button>`).join('')}</div>
       <div class="rpel" style="margin-top:6px"><span>Moeiteloos</span><span>Alles gegeven</span></div></div>
