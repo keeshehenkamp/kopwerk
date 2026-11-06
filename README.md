@@ -36,6 +36,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 - `profile.niveau`: beginner, recreant, gevorderd of ervaren. Bepaalt het startvolume en de eerste trede; zodra je FTP bekend is, weegt je watt per kilo mee. De planlog bewaart per dag ook `b`, de blokduur van een lange rit met klimmen.
 
 - Ritten krijgen `prog0`: de trede-stand vóór die rit, zodat een tijdelijke verlaging of verhoging niet als blijvend telt. `coachNo`: weken waarin je een voorstel van de coach afsloeg.
+- Hardlopen is een rit met `type: 'hardlopen'`, `manual: true` en `dist` in meters.
 - `tools/planner-test/`: scenario's die de planner doorrekenen (volgen, overslaan, gevoel, hartslag). Open `index.html` via een lokale webserver.
 
 - `ftpGiven`: de dag waarop je bij de start zelf een FTP invulde. De coach telt dat als test, dus de eerste FTP-test komt pas na zes weken. Ritten krijgen `rpeAdj` als hun trede uit je gevoel komt; pas je je gevoel later aan, dan rekent de coach die trede opnieuw uit (zolang er geen nieuwere rit van die soort is beoordeeld).

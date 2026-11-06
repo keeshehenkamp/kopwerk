@@ -40,17 +40,26 @@ function rideChart(r,rec){
   <div class="legend"><span><i style="background:var(--ink)"></i>Vermogen</span><span><i style="background:var(--muted);opacity:.5;height:9px"></i>Doelvermogen</span>${hv.length?'<span><i style="background:var(--hr)"></i>Hartslag</span>':''}${ui.showCad?'<span><i style="background:var(--z2)"></i>Cadans</span>':''}
     <button class="btn small" data-act="toggleCad" style="padding:4px 10px">${ui.showCad?'Cadans verbergen':'Cadans tonen'}</button></div>`;
 }
-function bindChart(){
-  const c=document.getElementById('ridechart'),s=ui.streams;if(!c||!s)return;
-  const cur=c.querySelector('.cur'),tip=c.querySelector('.tip'),rec=s.rec,n=rec.p.length;
+/* door een grafiek schuiven: at(f) geeft bij een plek (0 tot 1) waar het streepje komt en wat er in de balk staat */
+function scrubOn(c,at){
+  const cur=c.querySelector('.cur'),tip=c.querySelector('.tip');
   const move=e=>{
-    const b=c.getBoundingClientRect(),f=clamp((e.clientX-b.left)/b.width,0,1),i=Math.min(n-1,Math.floor(f*n));
-    const a=Math.max(0,i-2),z=Math.min(n,i+3),pw=Math.round(avg(rec.p.slice(a,z)));
-    cur.style.display='block';cur.style.left=f*100+'%';tip.style.display='block';
-    const small=[rec.cad[i]?`${rec.cad[i]} rpm`:'',rec.hr[i]?`${rec.hr[i]} bpm`:''].filter(Boolean).join(' · ');
-    tip.innerHTML=`<span>${clock(i)}</span><span><b>${pw} W</b>${rec.tgt[i]?` doel ${rec.tgt[i]}`:''}</span>${small?`<span>${small}</span>`:''}`;
-    if(f>.6){tip.style.left='';tip.style.right=(1-f)*100+1+'%'}else{tip.style.right='';tip.style.left=f*100+1+'%'}
+    const b=c.getBoundingClientRect(),{x,html}=at(clamp((e.clientX-b.left)/b.width,0,1));
+    cur.style.display='block';cur.style.left=x*100+'%';tip.style.display='block';tip.innerHTML=html;
+    if(x>.5){tip.style.left='';tip.style.right=(1-x)*100+1+'%'}else{tip.style.right='';tip.style.left=x*100+1+'%'}
   };
   c.addEventListener('pointermove',move);c.addEventListener('pointerdown',move);
   c.addEventListener('pointerleave',()=>{cur.style.display='none';tip.style.display='none'});
 }
+function bindChart(){
+  const c=document.getElementById('ridechart'),s=ui.streams;if(!c||!s)return;
+  const rec=s.rec,n=rec.p.length;
+  scrubOn(c,f=>{
+    const i=Math.min(n-1,Math.floor(f*n)),a=Math.max(0,i-2),z=Math.min(n,i+3),pw=Math.round(avg(rec.p.slice(a,z)));
+    const small=[rec.cad[i]?`${rec.cad[i]} rpm`:'',rec.hr[i]?`${rec.hr[i]} bpm`:''].filter(Boolean).join(' · ');
+    return {x:f,html:`<span>${clock(i)}</span><span><b>${pw} W</b>${rec.tgt[i]?` doel ${rec.tgt[i]}`:''}</span>${small?`<span>${small}</span>`:''}`};
+  });
+}
+/* grafieken op Voortgang en Prestaties: bij het tekenen zetten ze hier wat er bij elke plek hoort */
+const SCRUB={},scrubMarks='<span class="cur"></span><span class="tip"></span>';
+function bindScrubs(){document.querySelectorAll('.chart[data-scrub]').forEach(c=>{const at=SCRUB[c.dataset.scrub];if(at)scrubOn(c,at)})}

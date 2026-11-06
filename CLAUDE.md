@@ -25,6 +25,8 @@ Elk scherm moet in één blik te lezen zijn. Loop deze lijst na vóór je een sc
 - Alleen piek en afbouw hangen aan de datum van het evenement. Daarvoor telt wat je echt reed: een herstelweek is verdiend, en een week met bijna niets begint de opbouw opnieuw.
 - Gevoel en hartslag beslissen samen. Eén rit verandert alleen de volgende zware training, twee of drie ritten de week, een trend de fase. Lichter en zwaarder doet de planner zelf; om meer tijd dan je opgaf vraagt hij.
 - Realistisch blijven: een duurrit is minimaal ongeveer anderhalf uur in zone 2, een lange rit hoeft niet langer dan drie en een half uur. Meer tijd adviseren alleen als er echt te weinig is, en niet elke week.
+- Tijd invullen: deze week alleen via de klok op Home, volgende week via Kalender (en de vraag op zondag). Geen extra knoppen die hetzelfde doen.
+- Hardlopen telt mee in vermoeidheid en fitheid en in hoe zwaar de dag erna mag zijn, niet in je FTP. De belasting komt uit snelheid en gevoel (`runLoad`).
 - De coach zegt op Home één ding tegelijk, in één regel: wat hij zag en wat er daardoor verandert.
 - Het doel is beter worden: wat de app meet, moet de planning veranderen en niet alleen tekst opleveren. Een training die voelt zoals verwacht wordt langzaam zwaarder; zwaarte is altijd relatief aan het verwachte gevoel van die soort. Herstel- en duurritten worden niet zwaarder.
 

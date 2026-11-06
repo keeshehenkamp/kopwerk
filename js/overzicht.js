@@ -49,21 +49,25 @@ function fitChart(path){
   const max=Math.max(20,...all.map(x=>Math.max(x.ctl,x.atl)))*1.1,y=v=>200-v/max*200,part=(k,a,b)=>all.map((x,i)=>i>=a&&i<=b?x[k]:null);
   const ln=(k,c,w,dash,a,b)=>`<path d="${pathOf(part(k,a,b),y)}" fill="none" stroke="${c}" stroke-width="${w}"${dash?' stroke-dasharray="5 4"':''} vector-effect="non-scaling-stroke"/>`;
   const xn=(now/(N-1)*1000).toFixed(1);
-  return `<div class="chart" style="height:200px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Fitheid en vermoeidheid">
+  SCRUB.fit=f=>{
+    const i=Math.round(f*(N-1)),p=all[i],t=Math.round(p.ctl-p.atl);
+    return {x:i/(N-1),html:`<span>${p.d.getDate()} ${MONTHS[p.d.getMonth()].slice(0,3)}${i===now?' · vandaag':i>now?' · verwacht':''}</span><span><b>${Math.round(p.ctl)}</b> fitheid</span><span>Vermoeidheid ${Math.round(p.atl)} · vorm ${t>0?'+':t<0?'−':''}${Math.abs(t)}</span>`};
+  };
+  return `<div class="chart" data-scrub="fit" style="height:200px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Fitheid en vermoeidheid">
       <line x1="${xn}" x2="${xn}" y1="0" y2="200" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>
       ${ln('ctl','var(--acc)',2.2,0,0,now)}${ln('ctl','var(--acc)',2,1,now,N-1)}${ln('atl','var(--muted)',1.5,0,0,now)}${ln('atl','var(--muted)',1.5,1,now,N-1)}</svg>
-      ${dateTick(all[0].d,0)}${now>0&&now<N-1?`<span class="xl" style="left:${now/(N-1)*100}%">vandaag</span>`:''}${dateTick(all[N-1].d,1)}</div>
+      ${dateTick(all[0].d,0)}${now>0&&now<N-1?`<span class="xl" style="left:${now/(N-1)*100}%">vandaag</span>`:''}${dateTick(all[N-1].d,1)}${scrubMarks}</div>
     <div class="legend"><span><i style="background:var(--acc)"></i>Fitheid</span><span><i style="background:var(--muted)"></i>Vermoeidheid</span><span><i class="dash"></i>Verwacht</span></div>`;
 }
 /* ---------- Kalender: één lijst om doorheen te scrollen: bovenaan wat nog komt, daaronder alles wat geweest is ----------
    Verder vooruit plannen heeft geen zin: je tijd verandert elke week. */
 const MISS_WHY={tijd:'geen tijd',moe:'te moe',ziek:'ziek'};
 function calWhen(d){return `<span class="when"><b>${DAYS[dow(d)]}</b>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span>`}
-const calRide=(r,cls='')=>`<button data-act="openRide" data-id="${r.id}" class="${cls}">${calWhen(parseISO(r.date))}<span class="dot done">${I.check}</span><span class="w"><b>${esc(r.name)}</b><span>${clock(r.dur)}${r.rpe?` · gevoel ${r.rpe}`:''}</span></span><span class="r">${r.tss} TSS</span></button>`;
+const calRide=(r,cls='')=>`<button data-act="openRide" data-id="${r.id}" class="${cls}">${calWhen(parseISO(r.date))}<span class="dot done">${I.check}</span><span class="w"><b>${esc(r.name)}</b><span>${clock(r.dur)}${r.type==='hardlopen'&&r.dist?` · ${nl((r.dist/1000).toFixed(1))} km`:''}${r.rpe?` · gevoel ${r.rpe}`:''}</span></span><span class="r">${r.tss} TSS</span></button>`;
 function kalenderView(){
   if(!state.setup)return setupView();
   const today=new Date(),tk=iso(today),mon=mondayOf(today),real=state.rides.filter(r=>!r.sim),rep=state.missed||{};
-  const planned=(m,title)=>{
+  const planned=(m,title,edit)=>{
     const k=iso(m),rows=planWeek(state,m,today).days.filter(d=>d.iso>=tk).flatMap(d=>{
       const rs=real.filter(r=>r.date===d.iso),td=d.iso===tk?'today':'';
       if(rs.length)return rs.map(r=>calRide(r,td));
@@ -71,7 +75,7 @@ function kalenderView(){
       if(!d.wo)return [];
       return [`<button data-act="openDay" data-iso="${d.iso}" class="${td}">${calWhen(d.date)}<span class="dot" style="background:var(--z${woZone(d.wo)})"></span><span class="w"><b>${esc(d.wo.name)}</b><span>${durTxt(d.wo.minutes)}</span></span><span class="r">${d.wo.tss} TSS</span></button>`]});
     const open=ui.calEdit===k;
-    return `<div class="wkh"><h2>${title}</h2><button class="ibtn${open?' on':''}" data-act="calEdit" data-k="${k}" aria-pressed="${open}" aria-label="Tijd per dag, ${title.toLowerCase()}" title="Tijd per dag">${ICO.tijd}</button></div>
+    return `<div class="wkh"><h2>${title}</h2>${edit?`<button class="ibtn${open?' on':''}" data-act="calEdit" data-k="${k}" aria-pressed="${open}" aria-label="Tijd per dag, ${title.toLowerCase()}" title="Tijd per dag">${ICO.tijd}</button>`:''}</div>
       ${open?`<div class="card" style="margin-bottom:8px">${availEditor(k)}</div>`:''}
       <div class="card tl">${rows.length?`<div class="list">${rows.join('')}</div>`:'<p class="muted" style="padding:10px 0">Geen trainingen meer.</p>'}</div>`};
   /* geweest: per week, nieuwste eerst, ook de voorbije dagen van deze week; alleen weken waarin iets gebeurde */
@@ -93,10 +97,10 @@ function kalenderView(){
       return `<div class="li miss">${calWhen(parseISO(x.k))}<span class="dot miss">${I.x}</span><span class="w"><b>${esc(n)}</b><span>Niet gedaan · ${MISS_WHY[x.why]||x.why}</span></span></div>`}).join('');
     log+=`<div class="wkl"><span>Week ${weekNo(m)}</span><span>${rs.length?`${rs.length} ${rs.length===1?'rit':'ritten'} · ${durTxt(Math.round(sec/60))} · ${tss} TSS`:'Niet gereden'}</span></div><div class="card tl"><div class="list">${rows}</div></div>`;
   }
-  const tools=`<div class="row">${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Buitenrit toevoegen</button></div>`;
+  const tools=`<div class="row">${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Buitenrit toevoegen</button><button class="btn" data-act="openCheck" data-iso="${tk}" data-m="other" data-p="1">Iets anders</button></div>`;
   const strip=phaseStrip(today);
   return `<div class="head"><div><h1>Kalender</h1></div>${tools}</div><div class="timeline">${strip?`<div style="margin-bottom:6px">${strip}</div>`:''}
-    ${planned(mon,'Deze week')}${planned(addDays(mon,7),'Volgende week')}
+    ${planned(mon,'Deze week')}${planned(addDays(mon,7),'Volgende week',true)}
     ${log?`<div class="wkh"><h2>Geweest</h2></div>${log}`:''}</div>`;
 }
 
@@ -112,14 +116,31 @@ function prestatiesView(){
   const now=records(sel),prev=per?records(real.filter(r=>r.date<cut&&r.date>=iso(addDays(new Date(),-2*per)))):{};
   const nums=[[60,'1 min'],[300,'5 min'],[1200,'20 min']].map(([w,t])=>{const v=now[w]&&now[w].w,o=prev[w]&&prev[w].w,d=v&&o?v-o:0;
     return `<div><b>${v||'–'}${v?'<i>W</i>':''}</b><span>${t}${d?` · <em class="${d>0?'up':'down'}" style="font-style:normal;font-weight:600">${d>0?'+':'−'}${Math.abs(d)} W</em>`:''}</span></div>`}).join('');
-  /* nieuwste records, de laatste drie */
+  const kg=state.profile.weight||75,perKg=[[60,'1 min'],[300,'5 min'],[1200,'20 min']].filter(([w])=>now[w]).map(([w,t])=>`${t} ${nl((now[w].w/kg).toFixed(1))}`).join(' · ');
+  /* nieuwste records, de laatste drie: groot, en een tik opent de rit */
   const prs=sel.filter(r=>r.prs&&r.prs.length).sort((a,b)=>b.ts-a.ts).flatMap(r=>r.prs.map(x=>({x,r}))).slice(0,3);
-  const prHTML=prs.length?`<div class="card"><h3 style="margin-bottom:4px">Nieuwe records</h3><div class="list">${prs.map(({x,r})=>{const d=parseISO(r.date);
-    return `<button data-act="openRide" data-id="${r.id}"><span class="w"><b>${x.t}: ${x.w} W</b><span>was ${x.old} W</span></span><span class="r">${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span></button>`}).join('')}</div></div>`:'';
-  const ds=BESTS.filter(([w])=>now[w]);
-  const all=ds.length?`<details class="card fold"><summary>Alle duren</summary><div class="list" style="margin-top:6px">${ds.map(([w,t])=>{const d=parseISO(now[w].date);
-    return `<button data-act="openRide" data-id="${now[w].id}"><span class="w"><b>${t}</b></span><span class="r"><b class="gr">${now[w].w} W</b></span><span class="r" style="min-width:52px">${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span></button>`}).join('')}</div></details>`:'';
-  return `${head}<div class="stack">${chips}<div class="nrow prow">${nums}</div>${prHTML}${all}</div>`;
+  const prHTML=prs.length?`<div class="prs"><h3>Nieuwe records</h3><div class="prg">${prs.map(({x,r})=>{const d=parseISO(r.date);
+    return `<button class="prb" data-act="openRide" data-id="${r.id}"><b>${x.w} W</b><span>${x.t} · <em>+${x.w-x.old} W</em></span><span>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span></button>`}).join('')}</div></div>`:'';
+  return `${head}<div class="stack">${chips}<div><div class="nrow prow">${nums}</div>${perKg?`<p class="small muted" style="margin-top:8px">Per kilo: ${perKg} W/kg</p>`:''}</div>${prHTML}${curveChart(now,prev,per)}</div>`;
+}
+/* je beste vermogen per duur: hoe lang je hoeveel watt volhield */
+function curveChart(now,prev,per){
+  const ds=BESTS.filter(([w])=>now[w]);if(ds.length<2)return '';
+  const a=Math.log(ds[0][0]),z=Math.log(ds[ds.length-1][0]),X=w=>(Math.log(w)-a)/(z-a),pv=ds.filter(([w])=>prev[w]);
+  const vals=ds.map(([w])=>now[w].w).concat(pv.map(([w])=>prev[w].w)),hi=Math.max(...vals)*1.08,lo=Math.min(...vals)*.7,y=v=>200-(v-lo)/(hi-lo)*200;
+  const line=(l,G)=>l.map(([w],i)=>`${i?'L':'M'}${(X(w)*1000).toFixed(1)},${y(G[w].w).toFixed(1)}`).join('');
+  const ticks=ds.filter(([w],i)=>[5,60,300].includes(w)||i===ds.length-1).map(([w,t])=>{const q=X(w);return `<span class="xl${q===0?' first':q===1?' last':''}" style="left:${q*100}%">${t}</span>`}).join('');
+  const kg=state.profile.weight||75;
+  SCRUB.curve=f=>{
+    const [w,t]=ds.reduce((p,c)=>Math.abs(X(c[0])-f)<Math.abs(X(p[0])-f)?c:p),d=parseISO(now[w].date),o=prev[w];
+    return {x:X(w),html:`<span>${t}</span><span><b>${now[w].w} W</b> ${nl((now[w].w/kg).toFixed(1))} W/kg</span><span>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}${o?` · ervoor ${o.w} W`:''}</span>`};
+  };
+  return `<div class="card"><h3>Beste vermogen per duur</h3><p class="small muted" style="margin-top:2px">Hoeveel watt je hoe lang volhield.</p>
+    <div class="chart" data-scrub="curve" style="height:170px;margin-top:12px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Beste vermogen per duur">
+      <path d="${line(ds,now)}L1000,200L0,200Z" fill="var(--acc)" fill-opacity=".14"/>
+      ${pv.length>1?`<path d="${line(pv,prev)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>`:''}
+      <path d="${line(ds,now)}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>${ticks}${scrubMarks}</div>
+    ${pv.length>1?`<div class="legend"><span><i style="background:var(--acc)"></i>${PERIODS.find(p=>p[0]===per)[1]}</span><span><i class="dash"></i>De periode ervoor</span></div>`:''}</div>`;
 }
 
 /* ---------- Voortgang: fitheid, vermoeidheid, vorm, eFTP en niveau door de tijd ---------- */

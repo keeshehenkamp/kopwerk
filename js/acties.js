@@ -143,24 +143,28 @@ const actions={
   },
   openRide(d){ui.modal=null;openRide(d.id)},
   /* zonder de app gereden: buiten, of iets anders; telt mee in je belasting en (bij een training uit de app) in de trede van die soort */
-  openCheck(d){ui.modal={kind:'check',iso:d.iso,m:d.m,rpe:null};render()},
-  chkRpe(d,el){ui.modal.rpe=+d.n;el.parentNode.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===el)))},
+  openCheck(d){ui.modal={kind:'check',iso:d.iso,m:d.m,rpe:null,pick:!!d.p};render()},
+  chkRpe(d,el){ui.modal.rpe=+d.n;el.parentNode.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===el)));runPreview()},
   saveCheck(){
-    const M=ui.modal,day=planWeek(state,mondayOf(parseISO(M.iso)),new Date()).days.find(x=>x.iso===M.iso),w=day&&day.wo;if(!w)return;
+    const M=ui.modal,dEl=document.getElementById('c-date'),date=dEl?dEl.value:M.iso;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>iso(new Date()))return toast('Kies een datum van vandaag of eerder.');
+    const day=planWeek(state,mondayOf(parseISO(date)),new Date()).days.find(x=>x.iso===date),w=day&&day.wo;
     const min=clamp(Math.round(+document.getElementById('c-min').value)||0,0,900);
     if(min<5)return toast('Vul in hoe lang je bezig was.');
     if(!M.rpe)return toast('Kies hoe zwaar het voelde.');
-    let name,type,IF,tss,lvl=null,plan=w;
+    let name,type,IF,tss,lvl=null,plan=w||{sec:min*60},dist=0;
     const k=M.m==='buiten'?'buiten':(document.querySelector('input[name="ck"]:checked')||{}).value;
     /* een andere training uit de app: de belasting komt uit die training; anders uit de duur en hoe zwaar het voelde */
     if(k==='training')plan=libWo(document.getElementById('c-wo').value,min);
     if(k==='training'){name=plan.name;type=plan.type;IF=plan.IF;tss=Math.round(plan.tss*min/Math.max(1,plan.minutes));lvl=plan.lvl||null}
     else{if(!CHECK_KIND[k])return toast('Kies wat je hebt gedaan.');
-      name=CHECK_KIND[k][1];type=CHECK_KIND[k][2];IF=[.5,.5,.55,.6,.65,.7,.75,.8,.88,.95][M.rpe-1];tss=Math.round(min/60*IF*IF*100)}
-    const ride={id:'m'+Date.now().toString(36),date:M.iso,ts:parseISO(M.iso).getTime()+18*36e5,name,type,lvl,manual:true,planned:plan.sec,ftp:state.profile.ftp,sim:false,rpe:M.rpe,adj:true,laps:[],
+      name=CHECK_KIND[k][1];type=CHECK_KIND[k][2];IF=FEEL_IF[M.rpe-1];tss=Math.round(min/60*IF*IF*100);
+      /* hardlopen: de belasting komt uit je snelheid en je gevoel */
+      if(k==='hardlopen'){const km=+document.getElementById('c-km').value;if(!(km>=.2))return toast('Vul in hoeveel kilometer je liep.');const L=runLoad(km,min,M.rpe);IF=L.IF;tss=L.tss;dist=Math.round(km*1000)}}
+    const ride={id:'m'+Date.now().toString(36),dist,date,ts:parseISO(date).getTime()+18*36e5,name,type,lvl,manual:true,planned:plan.sec,ftp:state.profile.ftp,sim:false,rpe:M.rpe,adj:true,laps:[],
       dur:min*60,avgP:0,np:0,IF:+IF.toFixed(2),tss,kj:0,avgHr:0,maxHr:0,avgCad:0,zones:[0,0,0,0,0,0,0],best:{},score:null,decoup:null};
     if(LADDER[type]&&lvl){ride.rpeAdj=true;applyProg(ride)}
-    if(state.missed)delete state.missed[M.iso];
+    if(state.missed)delete state.missed[date];
     state.rides.push(ride);save();ui.modal=null;render();toast(`${name} staat in je schema (${tss} TSS).`);
   },
   openAdd(){ui.modal={kind:'add'};render()},
@@ -326,7 +330,7 @@ document.addEventListener('click',e=>{
   else a(el.dataset,el,e);
 });
 /* getypte waarden in je gegevens bewaren tot je opslaat */
-document.addEventListener('input',e=>{const el=e.target;if(el&&el.id&&/^s-(?!theme)/.test(el.id))(ui.draft=ui.draft||{})[el.id]=el.value});
+document.addEventListener('input',e=>{const el=e.target;if(el&&el.id&&/^s-(?!theme)/.test(el.id))(ui.draft=ui.draft||{})[el.id]=el.value;if(el&&(el.id==='c-km'||el.id==='c-min'))runPreview()});
 document.addEventListener('change',e=>{
   const id=e.target.id||'';
   /* evenement, afstand, datum en niveau veranderen wat er in het formulier staat (afstanden, haalbaarheid): opnieuw opbouwen */

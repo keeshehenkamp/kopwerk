@@ -166,7 +166,7 @@ function feelHTML(plan,today,H){
 function coachLine(plan,today,rd){
   const fat=plan.fat,R=plan.read,tk=iso(today),k=iso(plan.monday),hs=healthOn(state,tk);
   if(fat.health||fat.tired||(hs&&hs.ret)||plan.ctx.kind==='event')return null;
-  const test=plan.days.some(d=>d.test&&d.iso>=tk),timeBtn='<button class="btn small" data-act="avOpen">Tijd per dag</button>';
+  const test=plan.days.some(d=>d.test&&d.iso>=tk);
   if(fat.back!=null)return {t:fat.back>=14?`${fat.back} dagen niet gereden: je bouwt rustig weer op.`:'Weinig gereden de laatste weken: je bouwt rustig weer op.'};
   if(R&&R.k==='diep')return {t:'Het voelt zwaar en je hartslag blijft laag: je bent waarschijnlijk diep vermoeid. Deze week rustiger.'};
   if(R&&R.k==='moe')return {t:'Het voelt zwaar en je hartslag is hoog: je lichaam vraagt om rust. Deze week minder.'};
@@ -175,14 +175,14 @@ function coachLine(plan,today,rd){
   if(fat.level&&fat.pct)return {t:fat.plan?'Je belasting liep snel op. De zware trainingen zijn een stap lichter.':`Je reed de laatste week ${fat.pct}% meer dan gewoonlijk. De zware trainingen zijn een stap lichter.`};
   const nx=plan.days.find(d=>d.adj&&d.iso>tk);if(nx)return {t:`${nx.adj.split(':')[0]}: ${DAYS_L[nx.i]} een stap lichter.`};
   const log=state.plog||{},from=iso(addDays(today,-14)),wanted=Object.keys(log).filter(x=>x>=from&&x<tk&&log[x].t),ridden=x=>state.rides.some(r=>!r.sim&&r.date===x);
-  if(wanted.length>=4&&wanted.filter(ridden).length<wanted.length/2)return {t:'Je reed de afgelopen twee weken minder dan gepland, dus het schema gaat mee omlaag. Klopt je tijd per dag nog?',btn:timeBtn};
+  if(wanted.length>=4&&wanted.filter(ridden).length<wanted.length/2)return {t:'Je reed de afgelopen twee weken minder dan gepland, dus het schema gaat mee omlaag. Klopt je tijd nog? Tik op de klok bij je week.'};
   if(R&&R.k==='gegroeid')return {t:`Het voelt lichter en je hartslag is lager: je wordt sterker. De trainingen gaan omhoog.${test?' Deze week test je je FTP.':''}`};
   if(R&&R.k==='kanmeer'){
     const d=!(state.coachNo||{})[k]&&plan.days.find(x=>x.long&&x.wo&&x.iso>=tk&&!x.logged&&plan.coach.longT>x.minutes&&x.wo.minutes>=x.minutes-5);
     return d?{t:`Het voelt lichter dan verwacht: je kunt meer aan. Heb je ${DAYS_L[d.i]} een half uur extra?`,btn:`<button class="btn small" data-act="coachMore" data-iso="${d.iso}" data-m="${d.minutes+30}">Ja, ${durTxt(d.minutes+30)}</button><button class="btn small" data-act="coachNo" data-k="${k}">Nee</button>`}:{t:'Het voelt lichter dan verwacht: je kunt meer aan. De trainingen gaan omhoog.'};
   }
   /* echt te weinig tijd: eens in de vier weken noemen, niet elke week */
-  const tip=weekNo(plan.monday)%4===0?moreTimeTip(plan):'';if(tip)return {t:tip,btn:timeBtn};
+  const tip=weekNo(plan.monday)%4===0?moreTimeTip(plan):'';if(tip)return {t:tip};
   if(rd.lvl==='ok'&&state.rides.filter(r=>!r.sim&&r.date>=from).length>=2)return {t:'Lekker bezig. Zo doorgaan.'};
   return null;
 }
@@ -200,14 +200,15 @@ function statusCard(plan,today){
     ${feelHTML(plan,today,H)}
     ${e&&e>ftp*1.02?`<p class="small" style="margin-top:10px">Je ritten wijzen op een hogere FTP. <button class="link" data-act="setFtp" data-w="${e}">FTP op ${e} W zetten</button></p>`:''}</div>`;
 }
+const otherLine=d=>`<p class="small muted" style="margin-top:10px">Iets anders gedaan? <button class="link" data-act="openCheck" data-iso="${d.iso}" data-m="other">Hardlopen of iets anders</button> of <button class="link" data-act="openCheck" data-iso="${d.iso}" data-m="buiten">buiten gefietst</button></p>`;
 function dayCard(d,tk){
   const r=rideOn(d.iso);
-  if(r)return `<button class="wcard" data-act="openRide" data-id="${r.id}"><div class="t"><div><h3>${esc(r.name)}</h3><div class="m">Gereden · ${clock(r.dur)} · ${r.tss} TSS${cijfer(r)!=null?` · cijfer ${nl(cijfer(r).toFixed(1))}`:''}</div></div><span class="chev">${I.r}</span></div></button>`;
+  if(r)return `<button class="wcard" data-act="openRide" data-id="${r.id}"><div class="t"><div><h3>${esc(r.name)}</h3><div class="m">${r.type==='hardlopen'?'Gelopen':'Gereden'} · ${clock(r.dur)} · ${r.tss} TSS${cijfer(r)!=null?` · cijfer ${nl(cijfer(r).toFixed(1))}`:''}</div></div><span class="chev">${I.r}</span></div></button>`;
   if(d.event)return `<div class="wcard"><h3>${esc(d.event)}</h3><div class="m">Evenement</div></div>`;
   if(d.wo){
     const why={tijd:'geen tijd',moe:'te moe',ziek:'ziek'}[d.why],miss=why?`Niet gedaan (${why})`:'Gemist';
     const note=d.adj?`<div class="note moved">${esc(d.adj)}</div>`:d.missed?`<div class="note late">${d.movedTo!=null?miss+', verplaatst naar '+DAYS_L[d.movedTo]:d.why==='moe'?miss+'. De dagen erna zijn lichter.':miss}</div>`:d.movedFrom!=null?`<div class="note moved">Verplaatst van ${DAYS_L[d.movedFrom]}</div>`:'';
-    const already=`<p class="small muted" style="margin-top:10px">Zonder de app gereden? <button class="link" data-act="openCheck" data-iso="${d.iso}" data-m="buiten">Buiten</button> of <button class="link" data-act="openCheck" data-iso="${d.iso}" data-m="other">iets anders</button></p>`;
+    const already=otherLine(d);
     const act=d.iso>tk?'':d.missed&&d.why?`<div class="row" style="margin-top:8px"><button class="link small" data-act="undoMissed" data-iso="${d.iso}">Toch niet: melding intrekken</button></div>`
       :d.iso===tk&&!d.missed?(canRide()?`<div class="row" style="margin-top:10px"><button class="btn pri big" data-act="startDay" data-iso="${d.iso}" style="flex:1">Start training</button><button class="btn big" data-act="openMissed" data-iso="${d.iso}">Lukt niet</button></div>${already}`
         :`<div class="noride"><span class="small muted">Rijden met je trainer doe je op je laptop, in Chrome of Edge.</span><button class="btn" data-act="openMissed" data-iso="${d.iso}">Lukt niet</button></div>${already}`)
@@ -216,7 +217,7 @@ function dayCard(d,tk){
       ${act}`;
   }
   const m=d.health&&d.health.during?`${healthWord(d.health.h).replace(/^./,c=>c.toUpperCase())} gemeld`:d.o.skip?'Overgeslagen':'';
-  return `<div class="wcard"><div class="t"><div><h3>Rustdag</h3>${m?`<div class="m">${m}</div>`:''}</div><span class="row">${canRide()?'<button class="btn small" data-act="vrij">Vrij rijden</button>':''}<button class="btn small" data-act="openDay" data-iso="${d.iso}">Toch trainen</button></span></div></div>`;
+  return `<div class="wcard"><div class="t"><div><h3>Rustdag</h3>${m?`<div class="m">${m}</div>`:''}</div><span class="row">${canRide()?'<button class="btn small" data-act="vrij">Vrij rijden</button>':''}<button class="btn small" data-act="openDay" data-iso="${d.iso}">Toch trainen</button></span></div></div>${d.iso===tk&&!(d.health&&d.health.during)?otherLine(d):''}`;
 }
 /* na een geplande training die voorbij is en waarvan de app niets weet: buiten gereden, iets anders gedaan, of niet gedaan.
    Geen vraag als je die dag reed, als je dezelfde training die week op een andere dag deed, of als hij is doorgeschoven.
@@ -251,30 +252,28 @@ function weekAskCard(today){
     <div style="margin-top:14px">${availEditor(k)}</div>
     <div class="row" style="margin-top:12px"><button class="btn pri" data-act="wkAskDone" data-k="${k}">Klaar</button></div></div>`;
 }
-/* waarom het schema er zo uitziet: ingeklapt onder de week */
+/* waarom het schema er zo uitziet: ingeklapt onder de week, per onderwerp één of twee korte zinnen */
+const joinEn=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' en '+a[a.length-1],cap=t=>t.replace(/^./,c=>c.toUpperCase());
 function whyHTML(plan){
-  const goal=GOALS[state.profile.goal]||GOALS.ftp,prof=plan.prof,sum=weekSum(plan),K=plan.ctx.kind;
-  const phaseTxt={build:'Elke opbouwweek zit er iets meer werk in de zware blokken.',rec:'Minder en lichter, zodat het werk van de afgelopen weken kan landen.',base:'Basisfase: vooral rustige uren en lange blokken onder je drempel.',peak:'Piekfase: de zwaarste weken, gericht op precies wat je evenement vraagt.',taper:'Afbouw: korter trainen op dezelfde intensiteit, zodat je fris wordt zonder scherpte te verliezen.',event:'Alleen korte prikkels. De vorm zit er al in; nu gaat het om fris aan de start staan.'}[K];
-  const C=plan.coach,availM=plan.days.reduce((a,d)=>a+(d.event?0:d.minutes),0),idealM=r5(C.weekH*60);
-  const nv=NIVEAU[state.profile.niveau];
-  const basis=C.hist==null?`Bij ${nv&&!C.known?`je niveau (${nv.name.toLowerCase()})`:nv?`je niveau (${nv.name.toLowerCase()}) en je FTP (${nl(C.wkg.toFixed(1))} W/kg)`:`je FTP (${nl(C.wkg.toFixed(1))} W/kg)`} en ${prof===goal?'je doel':'je evenement'} past ongeveer ${durTxt(r5(C.ideal*60))} training per week.`:`De afgelopen vier weken reed je gemiddeld ${durTxt(r5(C.hist*60))} per week; het schema bouwt daar geleidelijk op voort.`;
-  const ruimte=K==='event'?'':availM-sum.m>=60&&idealM-sum.m<45?` Je hebt ${durTxt(availM)} beschikbaar. Meer trainen helpt je deze week niet verder: de vrije dagen zijn nodig om te herstellen.`:availM-sum.m>=30?` Je hebt ${durTxt(availM)} beschikbaar. Niet elk vrij moment wordt een training: een korte rit vlak na een zware dag levert weinig op, een rustdag helpt je meer.`:idealM-sum.m>=45?` Met meer beschikbare tijd zou deze week ongeveer ${durTxt(idealM)} zijn.`:'';
+  const goal=GOALS[state.profile.goal]||GOALS.ftp,prof=plan.prof,sum=weekSum(plan),K=plan.ctx.kind,C=plan.coach;
+  const phaseTxt={build:'Elke opbouwweek komt er iets meer werk bij in de zware blokken.',rec:'Minder en lichter, zodat het werk van de afgelopen weken kan landen.',base:'Vooral rustige uren en lange blokken onder je drempel.',peak:'De zwaarste weken, gericht op wat je evenement vraagt.',taper:'Korter trainen op dezelfde zwaarte, zodat je fris wordt en scherp blijft.',event:'Alleen korte prikkels. De vorm zit er al in, nu gaat het om fris aan de start staan.'}[K];
+  const availM=plan.days.reduce((a,d)=>a+(d.event?0:d.minutes),0),idealM=r5(C.weekH*60),free=availM-sum.m;
+  const basis=C.hist==null?`Bij jouw niveau past ongeveer ${durTxt(r5(C.ideal*60))} per week.`:`Je reed de laatste vier weken gemiddeld ${durTxt(r5(C.hist*60))} per week. Daar bouwen we op voort.`;
+  const tijd=K==='event'||!sum.m?'':`Je hebt ${durTxt(availM)}, er staat ${durTxt(sum.m)} gepland.${free>=60&&idealM-sum.m<45?' Meer helpt deze week niet: je lichaam heeft de vrije dagen nodig.':free>=30?' De rest is rust: een korte rit vlak na een zware dag levert weinig op.':''}`;
   const pf=plan.ctx.toGo!=null&&evProfile(state.event),PS=pf&&profileSummary(pf,state.profile.ftp,state.profile.weight||75);
-  const pfTxt=PS?` Afgestemd op ${esc(pf.naam)}: ${Math.round(pf.afstand_km)} km${pf.hoogtemeters?`, ${Math.round(pf.hoogtemeters).toLocaleString('nl-NL')} hoogtemeters`:''}${PS.climbs.length?`, ${PS.climbs.length} hellingen die voor jou meestal ${durTxt(Math.max(1,Math.round(PS.median)))} duren`:''}.`:'';
-  const chk=plan.ctx.toGo!=null&&evCheck(state,state.event,new Date()),chkTxt=chk&&chk.st!=='ok'?`<p class="small"><b style="font-weight:600">${chk.st==='krap'?'Krap':'Waarschijnlijk te zwaar'}:</b> <span class="muted">op de dag ben je ongeveer ${durTxt(r5(chk.h*60))} onderweg. Kijk bij Profiel voor een kortere afstand.</span></p>`:'';
-  const adj=state.levelAdj?`<p class="small muted">De zware trainingen staan een stap ${state.levelAdj>0?'zwaarder':'lichter'}. <button class="link" data-act="resetAdj">Terugzetten</button></p>`:'';
-  const tr=plan.trend,trTxt=tr?`<p class="small"><b style="font-weight:600">FTP-test:</b> <span class="muted">van ${tr.from} naar ${tr.to} W. ${plan.stalled?'Weinig groei, dus deze weken ligt het accent anders.':tr.stall?'Weinig groei.':'Dit werkt, dus we gaan door.'}</span></p>`:'';
-  return `<details class="why"><summary>Waarom dit schema?</summary><div class="stack" style="margin-top:10px;max-width:80ch">
-      <p class="small muted">${phaseTxt}</p>
-      <p class="small"><b style="font-weight:600">${esc(prof===goal?'Doel: '+goal.name.replace(/^[A-Z](?=[a-z])/,c=>c.toLowerCase()):prof.name)}.</b> <span class="muted">${esc(prof.plan)}</span></p>
-      <p class="small muted">${basis}${ruimte}${pfTxt}</p>${rodeHTML(plan)}${trTxt}${chkTxt}${adj}</div></details>`;
+  const chk=plan.ctx.toGo!=null&&evCheck(state,state.event,new Date());
+  const evt=PS?`${esc(pf.naam)}: ${Math.round(pf.afstand_km)} km${pf.hoogtemeters?`, ${Math.round(pf.hoogtemeters).toLocaleString('nl-NL')} hoogtemeters`:''}${PS.climbs.length?`, ${PS.climbs.length} hellingen van meestal ${durTxt(Math.max(1,Math.round(PS.median)))}`:''}.`:'';
+  const evc=chk&&chk.st!=='ok'?`${chk.st==='krap'?'Krap':'Waarschijnlijk te zwaar'}: je bent op de dag ongeveer ${durTxt(r5(chk.h*60))} onderweg. Bij Profiel kun je een kortere afstand kiezen.`:'';
+  const tr=plan.trend,ftpT=tr?`Van ${tr.from} naar ${tr.to} W. ${plan.stalled?'Weinig groei, dus deze weken ligt het accent anders.':tr.stall?'Weinig groei.':'Dit werkt, dus we gaan door.'}`:'';
+  const rows=[['Deze week',esc(plan.label)+'. '+phaseTxt],[prof===goal?goal.name:prof.name,esc(prof.plan)],['Jouw tijd',`${basis} ${tijd}`],['Evenement',[evt,evc].filter(Boolean).join(' ')],['Aangepast',rodeTxt(plan)],['FTP-test',ftpT],
+    ['Zwaarte',state.levelAdj?`De zware trainingen staan een stap ${state.levelAdj>0?'zwaarder':'lichter'}. <button class="link" data-act="resetAdj">Terugzetten</button>`:'']].filter(r=>r[1]);
+  return `<details class="why"><summary>Waarom dit schema?</summary><dl class="whyl">${rows.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl></details>`;
 }
-/* aangepast aan wat je echt reed: zwaarder of rustiger dan gepland */
-function rodeHTML(plan){
-  const a=plan.days.filter(d=>d.unplanned||d.easier).map(d=>`${DAYS_L[d.i]} ${d.easier?(d.done.long?'een lange rit in plaats van de zware training':'rustiger dan gepland'):d.done.hard?'een zware rit':'een lange rit'}`);
-  if(!a.length)return '';
-  const any=plan.days.some(d=>d.easier);
-  return `<p class="small"><b style="font-weight:600">Aangepast aan wat je reed:</b> <span class="muted">${a.join(', ')}. ${plan.days.some(d=>d.unplanned)?'De dag erna is rustig en er gaat een zware training af.':''}${any?' De zware training die je niet deed, komt later in de week terug als daar ruimte voor is.':''}</span></p>`;
+/* aangepast aan wat je echt deed: zwaarder of rustiger dan gepland */
+function rodeTxt(plan){
+  const on=fn=>joinEn(plan.days.filter(fn).map(d=>DAYS_L[d.i])),hard=on(d=>d.unplanned&&d.done.hard),long=on(d=>d.unplanned&&!d.done.hard&&d.done.long),swap=on(d=>d.easier&&d.done.long),easy=on(d=>d.easier&&!d.done.long);
+  return [hard&&`${cap(hard)} trainde je zwaar, dus de dag erna is rustig en er valt een zware training af.`,long&&`${cap(long)} reed je lang, dus de dag erna is rustig.`,
+    swap&&`${cap(swap)} reed je lang in plaats van de zware training.`,easy&&`${cap(easy)} ging rustiger dan gepland.`,swap||easy?'De zware training komt later in de week terug als dat past.':''].filter(Boolean).join(' ');
 }
 /* meer tijd adviseren alleen als het echt nodig is: voor je evenement, of ruim onder wat je doel vraagt */
 function moreTimeTip(plan){
@@ -301,7 +300,7 @@ function weekCard(today){
     <div class="kvl"><span><b>${Math.min(wk.length,planned.length)} van ${planned.length}</b> trainingen</span><span>${durTxt(doneM)} van ${durTxt(sum.m)}</span></div>
     ${open?`<div class="wkedit">${availEditor(k)}</div>`:''}
     <div class="wstrip">${strip}</div>
-    <div class="row spread" style="margin-top:6px">${whyHTML(plan)}${canRide()?'<button class="btn small" data-act="zwoWeek">Zwift</button>':''}</div></div>`;
+    <div class="row spread" style="margin-top:6px;align-items:flex-start;flex-wrap:nowrap">${whyHTML(plan)}${canRide()?'<button class="btn small" data-act="zwoWeek">Zwift</button>':''}</div></div>`;
 }
 function vandaagView(){
   if(!state.setup)return setupView();
@@ -423,10 +422,14 @@ function progressCard(){
   const dots=pts.map((p,i)=>p.est&&!(pts[i-1]&&pts[i-1].est)&&!(pts[i+1]&&pts[i+1].est)?`<path d="M${(i/(N-1)*1000).toFixed(1)},${y(p.est).toFixed(1)}h.01" stroke="var(--acc)" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`:'').join('');
   /* geschatte FTP voorop: de lijn laat zien hoe die groeit; de ingestelde FTP eronder ter vergelijking */
   const estAt=i=>pts[i]&&pts[i].est,e0=pts.slice(0,Math.max(1,N-6)).reverse().map(p=>p.est).find(v=>v),grow=est&&e0&&N>=7?est-e0:null,head=est||now,hk=head/kg;
+  SCRUB.ftp=f=>{
+    const i=Math.round(f*(N-1)),p=pts[i];
+    return {x:i/(N-1),html:`<span>Week ${weekNo(p.m)} · ${p.m.getDate()} ${MONTHS[p.m.getMonth()].slice(0,3)}</span><span><b>${p.est||p.f||'–'} W</b> ${p.est?'geschat':'ingesteld'}</span>${p.est&&p.f?`<span>Ingesteld ${p.f} W</span>`:''}`};
+  };
   const ftpCard=`<div class="card"><div class="bignum"><span>${est?'Geschatte FTP':'FTP'}</span><b>${head}<i>W</i></b><small>${nl(hk.toFixed(1))} W/kg · ${levelOf(hk)}${grow?` · <em class="${grow>0?'up':'down'}">${grow>0?'+':''}${grow} W</em> in zes weken`:''}${est&&est!==now?` · ingesteld ${now} W`:''}</small></div>
-    <div class="chart" style="height:120px;margin-top:14px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je geschatte FTP door de weken">
+    <div class="chart" data-scrub="ftp" style="height:150px;margin-top:14px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je geschatte FTP door de weken">
       <path d="${line('f')}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
-      <path d="${line('est')}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>${dots}</svg>${tk}</div>
+      <path d="${line('est')}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>${dots}</svg>${tk}${scrubMarks}</div>
     <div class="legend">${pts.some(p=>p.est)?'<span><i style="background:var(--acc)"></i>Geschat uit je ritten en gevoel</span>':''}<span><i class="dash"></i>Ingesteld</span></div>
     ${est?'':'<p class="small muted" style="margin-top:10px">Nog geen schatting. Die komt uit een FTP-test, een stevig blok of je gevoel na een rit.</p>'}</div>`;
   return {ftpCard};
@@ -463,7 +466,8 @@ function rideView(){
   const hero=v.length||mark?`<div class="card hero">${mark}<div class="herotxt"><p>${esc(v[0]||'')}</p>${v.slice(1).map(t=>`<p class="small muted">${esc(t)}</p>`).join('')}${ftpBtn?`<div style="margin-top:12px">${ftpBtn}</div>`:''}</div></div>`:'';
   /* met de hand ingevoerd: alleen wat je invulde; iets anders dan een training uit het schema heeft geen geplande duur */
   const other=r.manual&&!TYPES[r.type];
-  const keyN=[[clock(r.dur),!outdoor&&!other&&r.planned&&Math.abs(r.planned-r.dur)>30?`tijd · van ${clock(r.planned)}`:'tijd'],r.avgP?[r.avgP,'watt gemiddeld']:null,[r.tss,'TSS']].filter(Boolean);
+  const run=r.type==='hardlopen'&&r.dist;
+  const keyN=[run?[nl((r.dist/1000).toFixed(1)),'km']:null,[clock(r.dur),!outdoor&&!other&&r.planned&&Math.abs(r.planned-r.dur)>30?`tijd · van ${clock(r.planned)}`:'tijd'],r.avgP?[r.avgP,'watt gemiddeld']:null,[r.tss,'TSS']].filter(Boolean);
   const keyM=[r.dist?`${nl((r.dist/1000).toFixed(1))} km`:'',r.np?`${r.np} W genormaliseerd`:'',r.avgHr?`♥ ${r.avgHr} bpm${r.maxHr?`, max ${r.maxHr}`:''}`:''].filter(Boolean).join(' · ');
   const keys=`<div class="nrow md">${keyN.map(([v,k])=>`<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>`;
   /* gevoel: eerst de vraag; na je antwoord een korte regel die je kunt aanpassen */
@@ -547,16 +551,26 @@ function missedModal(){
     <div><button class="btn" data-act="closeModal">Annuleren</button></div></div></div>`;
 }
 /* buiten gereden of iets anders gedaan: duur en hoe zwaar het voelde */
-const CHECK_KIND={training:['Een andere training','',''],buiten:['Buiten gefietst','Buitenrit','buiten'],hardlopen:['Hardgelopen','Hardlopen','hardlopen'],fitness:['Kracht of fitness','Kracht of fitness','fitness'],anders:['Iets anders','Iets anders','anders']};
+const CHECK_KIND={hardlopen:['Hardgelopen','Hardlopen','hardlopen'],training:['Een andere training','',''],buiten:['Buiten gefietst','Buitenrit','buiten'],fitness:['Kracht of fitness','Kracht of fitness','fitness'],anders:['Iets anders','Iets anders','anders']};
+/* wat je invult bij hardlopen: snelheid, tempo en de belasting die daaruit volgt */
+function runPreview(){
+  const el=document.getElementById('c-run');if(!el)return;
+  const km=+document.getElementById('c-km').value,min=+document.getElementById('c-min').value;
+  if(!(km>0&&min>0)){el.textContent='';return}
+  const L=runLoad(km,min,ui.modal&&ui.modal.rpe);
+  el.innerHTML=`<b>${nl(L.kmh.toFixed(1))} km/u</b> · ${L.pace} per km · ongeveer <b>${L.tss} TSS</b>`;
+}
 function checkModal(){
   const M=ui.modal,day=planWeek(state,mondayOf(parseISO(M.iso)),new Date()).days.find(x=>x.iso===M.iso),w=day&&day.wo;
-  if(!w){ui.modal=null;return ''}
   const out=M.m==='buiten',when=dateLong(day.date).replace(/^./,c=>c.toUpperCase());
   return `<div class="veil" data-act="veil"><div class="modal narrow stack" role="dialog" aria-modal="true" aria-label="${out?'Buiten gereden':'Iets anders gedaan'}">
-    <div><h2>${out?'Buiten gereden':'Wat heb je gedaan?'}</h2><p class="small muted" style="margin-top:3px">${when}${out?'':' · in plaats van '+esc(w.name)}</p></div>
+    <div><h2>${out?'Buiten gereden':'Wat heb je gedaan?'}</h2><p class="small muted" style="margin-top:3px">${M.pick?'':when}${out||!w||M.pick?'':' · in plaats van '+esc(w.name)}</p></div>
+    ${M.pick?`<div><label class="f" for="c-date">Wanneer?</label><input type="date" id="c-date" value="${M.iso}" max="${iso(new Date())}"></div>`:''}
     ${out?'':`<div class="opts">${Object.entries(CHECK_KIND).filter(([k])=>k!=='buiten').map(([k,v],i)=>`<label class="opt"><input type="radio" name="ck" value="${k}"${i?'':' checked'}><span><b>${v[0]}</b></span></label>`).join('')}</div>
-    <div class="ckwo"><label class="f" for="c-wo">Welke training?</label><select id="c-wo" style="width:100%">${CATS.filter(([c])=>c&&c!=='test').map(([c,t])=>`<optgroup label="${t}">${Object.keys(TYPES).filter(k=>CAT_OF[k]===c&&k!==w.type).map(k=>`<option value="${k}">${esc(TYPES[k].name)}</option>`).join('')}</optgroup>`).join('')}</select></div>`}
-    <div><label class="f" for="c-min">Duur in minuten</label><input type="number" id="c-min" min="5" max="900" value="${w.minutes}" style="width:120px"></div>
+    <div class="ckrun"><label class="f" for="c-km">Afstand in km</label><input type="number" id="c-km" min="0" max="100" step="0.1" inputmode="decimal" value="5" style="width:120px"></div>
+    <div class="ckwo"><label class="f" for="c-wo">Welke training?</label><select id="c-wo" style="width:100%">${CATS.filter(([c])=>c&&c!=='test').map(([c,t])=>`<optgroup label="${t}">${Object.keys(TYPES).filter(k=>CAT_OF[k]===c&&!(w&&k===w.type)).map(k=>`<option value="${k}">${esc(TYPES[k].name)}</option>`).join('')}</optgroup>`).join('')}</select></div>`}
+    <div><label class="f" for="c-min">Duur in minuten</label><input type="number" id="c-min" min="5" max="900" value="${out?(w?w.minutes:60):30}" style="width:120px"></div>
+    ${out?'':'<p class="small ckrun" id="c-run"></p>'}
     <div><div class="f">Hoe zwaar voelde het?</div><div class="rpe">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="chkRpe" data-n="${n}" aria-pressed="${M.rpe===n}" aria-label="${n} van 10">${n}</button>`).join('')}</div>
       <div class="rpel" style="margin-top:6px"><span>Moeiteloos</span><span>Alles gegeven</span></div></div>
     <div class="mfoot"><button class="btn pri" data-act="saveCheck">Opslaan</button><button class="btn" data-act="closeModal">Annuleren</button></div></div></div>`;
@@ -617,6 +631,7 @@ function render(){
   lastModal=mk;
   initWheels();
   if(ui.view==='ride')bindChart();
+  bindScrubs();if(ui.modal&&ui.modal.kind==='check')runPreview();
   routeSync();
 }
 async function openRide(id){

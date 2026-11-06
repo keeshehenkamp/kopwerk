@@ -105,6 +105,15 @@ function fitness(rides,today,span){
   return {series,ctl:Math.round(ctl),atl:Math.round(atl),tsb:Math.round(ctl-atl)};
 }
 
+/* Belasting van een stuk hardlopen. Je drempeltempo is geschat uit je FTP: FTP geeft je maximale zuurstofopname (ACSM-formules),
+   en die de snelheid waarop je die haalt; je drempel ligt op ongeveer 85% daarvan. Omdat je loopvorm die schatting kan
+   tegenspreken, telt je gevoel voor de helft mee. Belasting = uren x intensiteit in het kwadraat x 100, net als op de fiets. */
+const FEEL_IF=[.5,.5,.55,.6,.65,.7,.75,.8,.88,.95];
+function runLoad(km,min,rpe){
+  const p=state.profile,kg=clamp(p.weight||75,35,200),vo2=(p.ftp/.75)*10.8/kg+7,thr=(vo2-3.5)/.2*.06*.85,kmh=km/(min/60);
+  const bySpeed=kmh/thr,IF=clamp(rpe?(bySpeed+FEEL_IF[rpe-1])/2:bySpeed,.4,1.2),s=Math.round(60*min/km);
+  return {kmh,pace:`${Math.floor(s/60)}:${pad(s%60)}`,IF,tss:Math.round(min/60*IF*IF*100)};
+}
 /* schatting uit een rit die niet voluit ging: je beste blok, gecorrigeerd voor hoe zwaar het voelde.
    Alleen voor de lijn bij Voortgang; je FTP zelf verandert hier niet door. */
 const FEEL={5:.8,6:.84,7:.88,8:.92,9:.96,10:1};
@@ -182,6 +191,7 @@ function verdict(r,ftp){
     return out;
   }
   if(r.type==='vrij'){out.push(r.dist>200?`Vrij gereden: ${nl((r.dist/1000).toFixed(1))} km in ${clock(r.dur)}, gemiddeld ${r.avgP} W.`:`Vrij gereden: ${clock(r.dur)}, gemiddeld ${r.avgP} W.`);return out}
+  if(r.type==='hardlopen'&&r.dist){const L=runLoad(r.dist/1000,r.dur/60);out.push(`${nl((r.dist/1000).toFixed(1))} km in ${clock(r.dur)}: ${L.pace} per km, ${nl(L.kmh.toFixed(1))} km/u.`,'Telt mee in je vermoeidheid en fitheid, niet in je FTP.');return out}
   if(r.manual){out.push(TYPES[r.type]?'Met de hand ingevoerd. De belasting is geschat uit de training en de duur.':'Met de hand ingevoerd. De belasting is geschat uit de duur en hoe zwaar het voelde.');return out}
   const done=r.dur/Math.max(1,r.planned);
   if(r.score!=null)out.push(r.score>=90?'Strak uitgevoerd.':r.score>=75?'Grotendeels volgens plan.':done<.9?'Eerder gestopt, dus de training telt maar gedeeltelijk mee.':'Het doelvermogen was vandaag te hoog gegrepen.');
