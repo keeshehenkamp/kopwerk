@@ -298,6 +298,9 @@ const actions={
   samenCopy(){samenCopy()},
   samenGo(){samenGo()},
   pause(){if(!P||P.end)return;if(P.mode==='run')P.mode='pause';else if(P.mode==='pause'){P.mode='run';P.last=now();P.sent=-1}P.stopArm=false;renderPlayer()},
+  /* hoe je je vandaag voelt: nog een keer tikken haalt het weg; oude dagen hoeven niet bewaard */
+  feel(d){const k=iso(new Date()),f=state.feel=state.feel||{};for(const x of Object.keys(f))if(x<iso(addDays(new Date(),-14)))delete f[x];
+    if(f[k]===d.v)delete f[k];else f[k]=d.v;save();render();const w=planWeek(state,mondayOf(new Date()),new Date()).days.find(x=>x.iso===k);if(w&&w.adj)toast(w.adj)},
   blockMore(d){if(!P||P.free||P.mode==='ready')return;P.wo.segs[segAt(Math.min(P.pos,P.total-1))].d+=+d.s;rebuild();renderPlayer();toast(`Dit blok duurt ${+d.s===60?'een minuut':'30 seconden'} langer.`)},
   skip(){if(!P||P.mode==='ready')return;const i=segAt(P.pos);if(i>=P.wo.segs.length-1)return finishRide();P.pos=P.starts[i+1];P.sent=-1;paintPlayer()},
   stop(){if(!P)return;endRide('stop')},

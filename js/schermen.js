@@ -77,7 +77,7 @@ function settingsForm(first){
   const st=first?ui.step||0:-1,hid=i=>first&&st!==i?' hidden':'';
   const save=`<div class="row spread setupnav">${st>0?`<button class="btn big" data-act="setupStep" data-s="${st-1}">Terug</button>`:'<span></span>'}${st<2?`<button class="btn pri big" data-act="setupStep" data-s="${st+1}">Verder</button>`:'<button class="btn pri big" data-act="saveSettings">Maak mijn schema</button>'}</div>`;
   /* doelen: 'gewoon beter worden' voorop; een evenement is optioneel */
-  const goals=['fit','ftp','klimmen','duur','koers'].filter(k=>GOALS[k]).map(k=>[k,GOALS[k].name]);
+  const goals=['fit','ftp','klimmen','sprint','duur','koers'].filter(k=>GOALS[k]).map(k=>[k,GOALS[k].name]);
   /* evenement: kies uit de lijst, of 'Ander evenement' en vul het zelf in. Wat je net koos (ui.draft) gaat voor. */
   const cur=formEvent(),E=EVBY[cur.id];
   const opts=`<option value="">Kies een evenement</option>${EVGROUPS.map(([g,t])=>`<optgroup label="${t}">${EVLIST.filter(e=>e.groep===g).map(e=>`<option value="${e.id}"${cur.id===e.id?' selected':''}>${esc(e.naam)} · ${e.land}</option>`).join('')}</optgroup>`).join('')}<option value="eigen"${cur.id==='eigen'?' selected':''}>Ander evenement</option>`;
@@ -155,9 +155,17 @@ function initWheels(){
 
 /* ---------- vandaag ---------- */
 /* hoe je ervoor staat: gereedheid, ziek gemeld of een lichtere week; bovenaan, met ziek melden als icoon */
+/* één tik: hoe voel je je vandaag? Alleen als er vandaag een training staat die je nog niet reed */
+function feelHTML(plan,today,H){
+  const k=iso(today),d=plan.days.find(x=>x.iso===k);
+  if(H||!d||!d.wo||d.event||realOn(k)||(state.missed||{})[k])return '';
+  const v=(state.feel||{})[k];
+  return `<div class="feel"><span class="small muted">Hoe voel je je?</span><div class="seg" role="group" aria-label="Hoe voel je je vandaag">${[['goed','Goed'],['moe','Moe'],['slecht','Slecht']].map(([x,t])=>`<button class="btn small" data-act="feel" data-v="${x}" aria-pressed="${v===x}">${t}</button>`).join('')}</div></div>`;
+}
 function statusCard(plan,today){
   const rd=readiness(today),f=rd.f,e=eftpAt(today),ftp=state.profile.ftp,H=state.health,fat=plan.fat,hs=H?null:healthOn(state,iso(today));
   const note=H||fat.health||fat.tired?'':fat.heavy>=2?'Twee trainingen voelden deze week zwaarder dan verwacht. De rest van de week is een stap lichter.':fat.heavy?'De rest van de week is een stap lichter.'
+    :fat.back!=null?(fat.back>=14?`${fat.back} dagen niet gereden: je bouwt rustig weer op.`:'Weinig gereden de laatste weken: je bouwt rustig weer op.')
     :fat.hr?'De zware trainingen zijn een stap lichter.':fat.level?`Je reed de laatste week ${fat.pct}% meer dan gewoonlijk. De zware trainingen zijn een stap lichter.`:'';
   const why=H?`Sinds ${dateLong(parseISO(H.from))} · ${HEALTH[H.kind].cap?'alleen korte, rustige ritjes':'niet trainen'}`:rd.lvl==='ok'?'':rd.why;
   /* cijfers voorop: vorm, fitheid en FTP; bij een ziekmelding alleen de melding */
@@ -167,6 +175,7 @@ function statusCard(plan,today){
       ${H?'':`<button class="ibtn" data-act="openHealth" aria-label="Ziek of geblesseerd melden" title="Ziek of geblesseerd">${ICO.ziek}</button>`}</div>${nums}
     ${H?`<div class="hbtns"><button class="btn small pri" data-act="healthBetter">Ik ben weer beter</button><button class="btn small" data-act="openHealth">Aanpassen</button><button class="btn small" data-act="healthDrop">Intrekken</button></div>`
       :hs&&hs.ret?`<div class="row" style="margin-top:12px"><button class="btn small" data-act="healthUndo" data-from="${hs.h.from}">Melding intrekken</button></div>`:''}
+    ${feelHTML(plan,today,H)}
     ${e&&e>ftp*1.02?`<p class="small" style="margin-top:10px">Je ritten wijzen op een hogere FTP. <button class="link" data-act="setFtp" data-w="${e}">FTP op ${e} W zetten</button></p>`:''}</div>`;
 }
 function dayCard(d,tk){
@@ -175,7 +184,7 @@ function dayCard(d,tk){
   if(d.event)return `<div class="wcard"><h3>${esc(d.event)}</h3><div class="m">Evenement</div></div>`;
   if(d.wo){
     const why={tijd:'geen tijd',moe:'te moe',ziek:'ziek'}[d.why],miss=why?`Niet gedaan (${why})`:'Gemist';
-    const note=d.missed?`<div class="note late">${d.movedTo!=null?miss+', verplaatst naar '+DAYS_L[d.movedTo]:d.why==='moe'?miss+'. De dagen erna zijn lichter.':miss}</div>`:d.movedFrom!=null?`<div class="note moved">Verplaatst van ${DAYS_L[d.movedFrom]}</div>`:'';
+    const note=d.adj?`<div class="note moved">${esc(d.adj)}</div>`:d.missed?`<div class="note late">${d.movedTo!=null?miss+', verplaatst naar '+DAYS_L[d.movedTo]:d.why==='moe'?miss+'. De dagen erna zijn lichter.':miss}</div>`:d.movedFrom!=null?`<div class="note moved">Verplaatst van ${DAYS_L[d.movedFrom]}</div>`:'';
     const already=`<p class="small muted" style="margin-top:10px">Zonder de app gereden? <button class="link" data-act="openCheck" data-iso="${d.iso}" data-m="buiten">Buiten</button> of <button class="link" data-act="openCheck" data-iso="${d.iso}" data-m="other">iets anders</button></p>`;
     const act=d.iso>tk?'':d.missed&&d.why?`<div class="row" style="margin-top:8px"><button class="link small" data-act="undoMissed" data-iso="${d.iso}">Toch niet: melding intrekken</button></div>`
       :d.iso===tk&&!d.missed?(canRide()?`<div class="row" style="margin-top:10px"><button class="btn pri big" data-act="startDay" data-iso="${d.iso}" style="flex:1">Start training</button><button class="btn big" data-act="openMissed" data-iso="${d.iso}">Lukt niet</button></div>${already}`
@@ -232,10 +241,11 @@ function whyHTML(plan){
   const pfTxt=PS?` Afgestemd op ${esc(pf.naam)}: ${Math.round(pf.afstand_km)} km${pf.hoogtemeters?`, ${Math.round(pf.hoogtemeters).toLocaleString('nl-NL')} hoogtemeters`:''}${PS.climbs.length?`, ${PS.climbs.length} hellingen die voor jou meestal ${durTxt(Math.max(1,Math.round(PS.median)))} duren`:''}.`:'';
   const chk=plan.ctx.toGo!=null&&evCheck(state,state.event,new Date()),chkTxt=chk&&chk.st!=='ok'?`<p class="small"><b style="font-weight:600">${chk.st==='krap'?'Krap':'Waarschijnlijk te zwaar'}:</b> <span class="muted">op de dag ben je ongeveer ${durTxt(r5(chk.h*60))} onderweg. Kijk bij Profiel voor een kortere afstand.</span></p>`:'';
   const adj=state.levelAdj?`<p class="small muted">De zware trainingen staan een stap ${state.levelAdj>0?'zwaarder':'lichter'}. <button class="link" data-act="resetAdj">Terugzetten</button></p>`:'';
+  const tr=plan.trend,trTxt=tr?`<p class="small"><b style="font-weight:600">FTP-test:</b> <span class="muted">van ${tr.from} naar ${tr.to} W. ${plan.stalled?'Weinig groei, dus deze weken ligt het accent anders.':tr.stall?'Weinig groei.':'Dit werkt, dus we gaan door.'}</span></p>`:'';
   return `<details class="why"><summary>Waarom dit schema?</summary><div class="stack" style="margin-top:10px;max-width:80ch">
       <p class="small muted">${phaseTxt}</p>
       <p class="small"><b style="font-weight:600">${esc(prof===goal?'Doel: '+goal.name.replace(/^[A-Z](?=[a-z])/,c=>c.toLowerCase()):prof.name)}.</b> <span class="muted">${esc(prof.plan)}</span></p>
-      <p class="small muted">${basis}${ruimte}${pfTxt}</p>${rodeHTML(plan)}${chkTxt}${adj}</div></details>`;
+      <p class="small muted">${basis}${ruimte}${pfTxt}</p>${rodeHTML(plan)}${trTxt}${chkTxt}${adj}</div></details>`;
 }
 /* aangepast aan wat je echt reed: zwaarder of rustiger dan gepland */
 function rodeHTML(plan){
@@ -260,7 +270,7 @@ function weekCard(today){
   const planned=plan.days.filter(d=>d.wo),wk=state.rides.filter(r=>!r.sim&&r.date>=k&&r.date<=iso(addDays(mon,6))),doneM=Math.round(wk.reduce((a,r)=>a+r.dur,0)/60);
   const ev=state.event,evDate=ev&&ev.date?parseISO(ev.date):null,toEv=evDate?dayDiff(today,evDate):-1,sub=[esc(plan.label)];
   if(toEv>=0)sub.push(`${esc(ev.name)} over ${toEv} ${toEv===1?'dag':'dagen'}`);
-  else if(plan.ctx.toGo==null&&plan.ctx.kind==='build'){const ph=((((Math.floor(dayDiff(parseISO(state.planStart),mon)/7))%4)+4)%4)+1;sub.push(`herstelweek over ${4-ph} ${4-ph===1?'week':'weken'}`)}
+  else if(plan.ctx.toGo==null&&plan.ctx.kind==='build'){const n=3-plan.ctx.ph;sub.push(`herstelweek over ${n} ${n===1?'week':'weken'}`)}
   /* de week in één regel: de dagen zelf staan in de Kalender */
   const strip=plan.days.map(d=>`<button class="wsd${d.iso===tk?' today':''}" ${d.event?'disabled':realOn(d.iso)?`data-act="openRide" data-id="${realOn(d.iso).id}"`:`data-act="openDay" data-iso="${d.iso}"`} aria-label="${DAYS_L[d.i]} ${d.date.getDate()}: ${realOn(d.iso)?esc(realOn(d.iso).name)+', gereden':d.event?esc(d.event):d.wo?esc(d.wo.name):'rust'}"><span>${DAYS[d.i]}</span><b>${d.date.getDate()}</b>${dotFor(d,realOn(d.iso))}</button>`).join('');
   const open=ui.avOpen&&wkAskKey(today)!==k,tip=moreTimeTip(plan);
