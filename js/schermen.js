@@ -158,7 +158,7 @@ function initWheels(){
 function statusCard(plan,today){
   const rd=readiness(today),f=rd.f,e=eftpAt(today),ftp=state.profile.ftp,H=state.health,fat=plan.fat,hs=H?null:healthOn(state,iso(today));
   const note=H||fat.health||fat.tired?'':fat.heavy>=2?'Twee trainingen voelden deze week zwaarder dan verwacht. De rest van de week is een stap lichter.':fat.heavy?'De rest van de week is een stap lichter.'
-    :fat.level?`Je reed de laatste week ${fat.pct}% meer dan gewoonlijk. De zware trainingen zijn een stap lichter.`:'';
+    :fat.hr?'De zware trainingen zijn een stap lichter.':fat.level?`Je reed de laatste week ${fat.pct}% meer dan gewoonlijk. De zware trainingen zijn een stap lichter.`:'';
   const why=H?`Sinds ${dateLong(parseISO(H.from))} · ${HEALTH[H.kind].cap?'alleen korte, rustige ritjes':'niet trainen'}`:rd.lvl==='ok'?'':rd.why;
   /* cijfers voorop: vorm, fitheid en FTP; bij een ziekmelding alleen de melding */
   const sg=n=>n>0?'+'+n:n<0?'−'+(-n):'0';
@@ -435,7 +435,7 @@ function rideView(){
   const other=r.manual&&!TYPES[r.type];
   const keyN=[[clock(r.dur),!outdoor&&!other&&r.planned&&Math.abs(r.planned-r.dur)>30?`tijd · van ${clock(r.planned)}`:'tijd'],r.avgP?[r.avgP,'watt gemiddeld']:null,[r.tss,'TSS']].filter(Boolean);
   const keyM=[r.dist?`${nl((r.dist/1000).toFixed(1))} km`:'',r.np?`${r.np} W genormaliseerd`:'',r.avgHr?`♥ ${r.avgHr} bpm${r.maxHr?`, max ${r.maxHr}`:''}`:''].filter(Boolean).join(' · ');
-  const keys=`<div><div class="nrow">${keyN.map(([v,k])=>`<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>${keyM?`<p class="small muted" style="margin-top:10px">${keyM}</p>`:''}</div>`;
+  const keys=`<div class="nrow md">${keyN.map(([v,k])=>`<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>`;
   /* gevoel: eerst de vraag; na je antwoord een korte regel die je kunt aanpassen */
   const scale=`<div class="rpe">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="rpe" data-n="${n}" aria-pressed="${r.rpe===n}" aria-label="${n} van 10">${n}</button>`).join('')}</div><div class="rpel"><span>Moeiteloos</span><span>Alles gegeven</span></div>`;
   const rpe=r.sim?'':r.rpe==null?`<div class="card stack"><h3>Hoe zwaar voelde deze training?</h3>${scale}</div>`
@@ -459,7 +459,8 @@ function rideView(){
         hz=`<div class="card"><h3 style="margin-bottom:10px">Tijd per hartslagzone</h3>${z.map((s,i)=>`<div class="zrow"><span>${HZN[i]}</span><span class="bar"><i style="width:${s/ht*100}%;background:var(--z${[1,2,3,5,6][i]})"></i></span><span>${clock(s)} &nbsp;${Math.round(s/ht*100)}%</span></div>`).join('')}
           ${r.maxHr>mh?`<p class="small muted" style="margin-top:10px">${r.maxHr} bpm gehaald, boven je maximum van ${mh}. Pas het aan bij Profiel.</p>`:''}</div>`}
       else hz=`<div class="card"><h3 style="margin-bottom:8px">Tijd per hartslagzone</h3><p class="muted">Vul je maximale hartslag in bij Profiel.</p></div>`}
-    deep=`<div class="stack">${more}<div class="cols"><div class="card"><h3 style="margin-bottom:8px">Beste inspanningen</h3><table><tbody>${best||'<tr><td class="muted">Geen vermogensgegevens.</td></tr>'}</tbody></table></div>${hz||'<div></div>'}</div>
+    const why=verdictMore(r).map(t=>`<p class="small muted">${esc(t)}</p>`).join('');
+    deep=`<div class="stack">${why?`<div class="stack" style="gap:6px">${why}</div>`:''}${keyM?`<p class="small muted">${keyM}</p>`:''}${more}<div class="cols"><div class="card"><h3 style="margin-bottom:8px">Beste inspanningen</h3><table><tbody>${best||'<tr><td class="muted">Geen vermogensgegevens.</td></tr>'}</tbody></table></div>${hz||'<div></div>'}</div>
       ${rec?'<div><button class="btn" data-act="csv">Download meetgegevens</button></div>':''}</div>`;
   }
   const from=TABS.find(t=>t[0]===tabOf('ride'))||TABS[1];

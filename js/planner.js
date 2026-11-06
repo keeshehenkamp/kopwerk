@@ -238,6 +238,8 @@ function planWeek(st,monday,today){
   const heavy=today&&thisWeek===0?rides.filter(r=>rpeHeavy(r)&&r.date<=iso(today)&&r.date>=iso(addDays(today,-6))):[];
   if(fat.level<2&&heavy.length&&(heavy.length>=2||heavy.some(r=>r.date>=iso(addDays(today,-2)))))fat={level:2,pct:0,heavy:heavy.length};
   if(today&&thisWeek===0&&fat.level<2&&Object.entries(st.missed||{}).some(([k,v])=>v.why==='moe'&&k<=iso(today)&&k>=iso(addDays(today,-2))))fat={level:2,pct:0,tired:true};
+  /* hartslag duidelijk hoger dan normaal in de laatste dagen: de zware trainingen een stap lichter */
+  if(today&&thisWeek===0&&!fat.level&&rides.some(r=>!r.sim&&r.hrOff>=6&&r.date<=iso(today)&&r.date>=iso(addDays(today,-2))))fat={level:1,pct:0,hr:true};
   const L=rec?0:clamp(ctx.L+(st.levelAdj||0)-(fat.level?1:0),0,2);
   const days=[],wk=(st.weeks||{})[iso(monday)],av=weekAvail(st,monday);
   for(let i=0;i<7;i++){
@@ -386,7 +388,9 @@ function planWeek(st,monday,today){
       const tests=rides.filter(r=>!r.sim&&r.type==='ramptest').map(r=>r.date).concat(st.ftpGiven?[st.ftpGiven]:[]).sort(),last=tests[tests.length-1];
       /* na twee weken of langer ziek of geblesseerd: opnieuw testen zodra je weer zwaar mag trainen */
       const brk=(st.healthLog||[]).some(h=>h.to&&dayDiff(parseISO(h.from),parseISO(h.to))>=13&&(!last||last<h.to)&&iso(monday)>h.to)&&!hw.some(x=>x&&x.cap!=null);
-      const due=brk||(last?dayDiff(parseISO(last),addDays(monday,6))>=42&&(rec||ctx.kind==='base'):(rec||iso(monday)===st.planStart));
+      /* hartslag bij drie ritten lager dan normaal: je FTP loopt waarschijnlijk achter, dus eerder testen */
+      const fitter=last&&dayDiff(parseISO(last),addDays(monday,6))>=21&&rides.filter(r=>!r.sim&&r.hrOff<=-5&&r.date>last).length>=3;
+      const due=brk||fitter||(last?dayDiff(parseISO(last),addDays(monday,6))>=42&&(rec||ctx.kind==='base'):(rec||iso(monday)===st.planStart));
       const td=due&&H.filter(d=>d.iso>=tk).sort((a,b)=>a.i-b.i)[0];
       if(td){td.wo=buildWorkout('ramptest',45,0);td.key=true;td.test=true}
     }

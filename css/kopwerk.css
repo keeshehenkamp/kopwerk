@@ -663,3 +663,5 @@ h1{font-size:36px;line-height:1.05}h2{font-size:24px}.wcard h3{font-size:23px;li
 /* hoe ging je training: drie gelijke keuzes */
 .cbtns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}.cbtns .btn{padding-left:6px;padding-right:6px}
 .dot.miss{background:none;width:14px;height:14px;margin:0 -2px;color:var(--muted)}.dot.miss .ic,.dot.miss svg{display:block;width:14px;height:14px;stroke-width:3}
+.nrow.md b{font-size:clamp(34px,4.6vw,44px)}
+.herotxt p+p{margin-top:2px}.herotxt p.small{font-size:15px}

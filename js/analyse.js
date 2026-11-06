@@ -65,11 +65,16 @@ function analyze(rec,ftp,laps,plannedSec,type){
 /* cijfer van 1 tot 10 voor de uitvoering: hoe dicht je bij het doelvermogen bleef en of je de hele training reed */
 const cijfer=r=>r&&r.score!=null?Math.max(1,r.score/10):null;
 /* stap op de opbouwladder na een rit: terug bij te zwaar, omhoog als het goed ging */
+/* Hoeveel een training de volgende keer verandert, in tredes. Beter word je door steeds iets meer te doen:
+   voelt hij zoals verwacht, dan gaat hij langzaam omhoog. Alles rekent vanaf het verwachte gevoel van die soort training.
+   Slecht uitgevoerd gaat voor; een hoge hartslag houdt de stap tegen, een lage geeft een extra duwtje. */
 function progStep(r){
-  if(r.rpe>=9||(r.score!=null&&r.score<70))return -1;
-  if(r.rpe>=8||(r.score!=null&&r.score<85))return 0;
-  if(r.rpe<=5&&(r.score==null||r.score>=90))return 1;
-  return .5;
+  if(r.score!=null&&r.score<70)return -1;
+  if(r.score!=null&&r.score<85)return 0;
+  const rel=r.rpe-(rpeExp(r.type)??6);
+  let st=rel>=2?-1:rel===1?0:rel===0?.5:1;
+  if(r.hrOff!=null){if(r.hrOff>=6)st=Math.min(st,0);else if(r.hrOff<=-6&&rel<=0)st+=.5}
+  return st;
 }
 function ftpEstimate(r){
   if(r.sim)return 0;
@@ -102,8 +107,11 @@ function ftpFromFeel(r){
 }
 /* ---------- gevoel en hartslag als controle ----------
    Verwachte zwaarte (1-10) per soort training. Voelt een training twee punten of meer zwaarder, dan is dat een signaal. */
-const RPE_EXP={herstel:3,duur:4,souplesse:4,openers:4,tempo:5,kracht:6,sweetspot:6,duurtempo:6,duurklim:6,duurheuvels:6,klim:7,drempel:7,sprint:7,heuvels:8,vo2:8,anaeroob:8};
-const rpeHeavy=r=>!r.sim&&r.rpe!=null&&RPE_EXP[r.type]!=null&&r.rpe>=RPE_EXP[r.type]+2;
+const RPE_EXP={herstel:2,duur:4,souplesse:4,openers:4,tempo:5,kracht:6,sweetspot:6,duurtempo:6,duurklim:6,duurheuvels:6,klim:7,drempel:7,sprint:7,heuvels:8,vo2:8,anaeroob:8};
+/* verwacht gevoel: per soort, anders naar de groep; alleen voor trainingen uit de app, niet voor de FTP-test */
+const RPE_CAT={rustig:4,techniek:4,drempel:7,vo2:8,klim:7,kracht:7};
+const rpeExp=t=>RPE_EXP[t]??(TYPES[t]?RPE_CAT[CAT_OF[t]]:undefined);
+const rpeHeavy=r=>!r.sim&&r.rpe!=null&&rpeExp(r.type)!=null&&r.rpe>=rpeExp(r.type)+2;
 /* gemiddelden per minuut van rustige stukken (vermogen een paar minuten gelijk, na de eerste acht minuten) */
 function hrPairs(rec,ftp){
   const p=rec.p,h=rec.hr||[],M=Math.floor(p.length/60),mp=[],mh=[],out=[];
@@ -145,28 +153,31 @@ function verdict(r,ftp){
   if(r.type==='vrij'){out.push(r.dist>200?`Vrij gereden: ${nl((r.dist/1000).toFixed(1))} km in ${clock(r.dur)}, gemiddeld ${r.avgP} W.`:`Vrij gereden: ${clock(r.dur)}, gemiddeld ${r.avgP} W.`);return out}
   if(r.manual){out.push(TYPES[r.type]?'Met de hand ingevoerd. De belasting is geschat uit de training en de duur.':'Met de hand ingevoerd. De belasting is geschat uit de duur en hoe zwaar het voelde.');return out}
   const done=r.dur/Math.max(1,r.planned);
-  if(r.score!=null){
-    const m=r.miss,wat=m&&m.n?`In ${m.n} van de ${m.N} ${m.N===1?'blok':'blokken'} zat je meer dan 6% ${m.low*2>=m.n?'onder':'boven'} het doel.`:'';
-    if(r.score>=90)out.push('Strak uitgevoerd: je bleef in vrijwel elk blok dicht bij het doelvermogen.');
-    else if(r.score>=75)out.push(wat?'Grotendeels volgens plan. '+wat:'Grotendeels volgens plan. In een paar blokken week je vermogen merkbaar af van het doel.');
-    else out.push(done<.9?'Je bent eerder gestopt dan gepland, dus de training telt maar gedeeltelijk mee.':wat?'Het doelvermogen was vandaag te hoog gegrepen. '+wat:'Het doelvermogen was vandaag te hoog gegrepen: in meerdere blokken zat je er duidelijk onder of boven.');
+  if(r.score!=null)out.push(r.score>=90?'Strak uitgevoerd.':r.score>=75?'Grotendeels volgens plan.':done<.9?'Eerder gestopt, dus de training telt maar gedeeltelijk mee.':'Het doelvermogen was vandaag te hoog gegrepen.');
+  if(r.rpe!=null&&!r.sim){
+    if(r.lvl&&LADDER[r.type]){const st=progStep(r);out.push(st<0?'Volgende keer iets lichter.':st===0?'Volgende keer even zwaar.':st<1?'Volgende keer iets zwaarder.':'Volgende keer zwaarder.')}
+    else if((r.type==='herstel'||r.type==='duur')&&r.rpe>rpeExp(r.type))out.push('Volgende keer rustiger, het doel is hier juist rustig blijven.');
   }
-  if(done<.95&&r.score!=null&&r.score>=75)out.push(`Je reed ${Math.round(r.dur/60)} van de ${Math.round(r.planned/60)} geplande minuten.`);
-  if(r.decoup!=null&&!r.sim){
-    if(r.decoup>5)out.push(`In de tweede helft leverde je ${nl(r.decoup)}% minder vermogen per hartslag dan in de eerste. Dat wijst op vermoeidheid, warmte of te weinig drinken.`);
-    else if(r.decoup>-5)out.push('Je hartslag bleef in verhouding tot je vermogen stabiel. Deze duur en intensiteit kun je goed aan.');
-  }
-  if(r.hrOff!=null&&!r.sim){
-    if(r.hrOff>=6)out.push(`Je hartslag lag gemiddeld ${r.hrOff} slagen hoger dan normaal bij dit vermogen. Warmte, weinig slaap, stress of een opkomende verkoudheid kunnen meespelen. Voelt het ook zwaar, neem dan gas terug.`);
-    else if(r.hrOff<=-6)out.push(`Je hartslag lag gemiddeld ${-r.hrOff} slagen lager dan normaal bij dit vermogen. Hetzelfde werk kost je minder: een goed teken.`);
-  }
-  if(rpeHeavy(r))out.push('Dit voelde zwaarder dan je bij deze training mag verwachten. De rest van de week wordt een stap lichter.');
-  if(r.rpe!=null&&r.lvl&&LADDER[r.type]&&!r.sim){
-    const st=progStep(r);
-    out.push(st<0?'Dit was te zwaar. De volgende keer wordt deze training iets lichter.':st===0?'Stevig, maar goed te doen. De volgende keer blijft deze training even zwaar.':st<1?'Goed gedaan. De volgende keer wordt deze training iets zwaarder.':'Dit ging je makkelijk af. De volgende keer wordt deze training zwaarder.');
-  }
+  if(r.hrOff!=null&&!r.sim){if(r.hrOff>=6)out.push('Hartslag hoger dan normaal: de komende dagen iets lichter.');else if(r.hrOff<=-6)out.push('Hartslag lager dan normaal: hetzelfde werk kost je minder.')}
+  if(rpeHeavy(r))out.push('Zwaarder dan verwacht: de rest van de week wordt lichter.');
   const e=ftpEstimate(r);
-  if(e>ftp*1.02)out.push(`Je beste 20 minuten (${r.best[1200]} W) wijzen op een FTP van ongeveer ${e} W, hoger dan je ingestelde ${ftp} W.`);
+  if(e>ftp*1.02)out.push(`Deze rit wijst op een FTP van ongeveer ${e} W.`);
+  return out;
+}
+/* de uitleg achter de conclusie: onder Meer cijfers */
+function verdictMore(r){
+  const out=[];if(r.sim||r.manual||r.type==='ramptest'||r.type==='vrij')return out;
+  const m=r.miss,done=r.dur/Math.max(1,r.planned);
+  if(m&&m.n)out.push(`In ${m.n} van de ${m.N} ${m.N===1?'blok':'blokken'} zat je meer dan 6% ${m.low*2>=m.n?'onder':'boven'} het doel.`);
+  if(done<.95)out.push(`Je reed ${Math.round(r.dur/60)} van de ${Math.round(r.planned/60)} geplande minuten.`);
+  if(r.decoup!=null){
+    if(r.decoup>5)out.push(`In de tweede helft leverde je ${nl(r.decoup)}% minder vermogen per hartslag dan in de eerste. Dat wijst op vermoeidheid, warmte of te weinig drinken.`);
+    else if(r.decoup>-5)out.push('Je hartslag bleef in verhouding tot je vermogen stabiel.');
+  }
+  if(r.hrOff!=null){
+    if(r.hrOff>=6)out.push(`Je hartslag lag gemiddeld ${r.hrOff} slagen hoger dan normaal bij dit vermogen. Warmte, weinig slaap, stress of een opkomende verkoudheid kunnen meespelen.`);
+    else if(r.hrOff<=-6)out.push(`Je hartslag lag gemiddeld ${-r.hrOff} slagen lager dan normaal bij dit vermogen.`);
+  }
   return out;
 }
 

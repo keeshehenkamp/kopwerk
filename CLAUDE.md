@@ -21,6 +21,7 @@ Elk scherm moet in één blik te lezen zijn. Loop deze lijst na vóór je een sc
 - De planner haalt het meeste uit de tijd die je hebt. Meer tijd alleen adviseren als dat echt nodig is.
 - De planning verandert elke week: niet verder vooruit tonen dan deze en volgende week.
 - Op zondag vraagt de app de tijd voor volgende week.
+- Het doel is beter worden: wat de app meet, moet de planning veranderen en niet alleen tekst opleveren. Een training die voelt zoals verwacht wordt langzaam zwaarder; zwaarte is altijd relatief aan het verwachte gevoel van die soort. Herstel- en duurritten worden niet zwaarder.
 
 ## Niet doen
 
