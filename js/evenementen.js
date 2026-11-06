@@ -184,7 +184,7 @@ function evClimbMin(ev,ftp,weight){
 
 /* ---------- haalbaarheid ----------
    Hoe lang je onderweg bent, wat je nu aankunt (je niveau of je langste ritten) en wat je tot de start kunt opbouwen.
-   Voor een toertocht is het advies dat je langste trainingsrit ongeveer 60% van de tijd op de dag zelf duurt. */
+   Je langste trainingsrit hoeft maar een deel van de tijd op de dag zelf te duren: ongeveer 45%, en nooit meer dan drie en een half uur. */
 function evHours(km,hm,wkg,kind){
   const f=clamp(wkg/3,.8,1.25)**.4;
   return km?(hm?km/(28*f)+hm/(1100*clamp(wkg/3,.8,1.3)):km/(((EVENTS[kind]||{}).kmh||25)*f)):0;
@@ -200,14 +200,14 @@ function evCheck(st,ev,today){
   const wkg=st.profile.ftp/clamp(st.profile.weight||75,35,200),weeks=dayDiff(today,parseISO(ev.date))/7;
   if(!(weeks>0))return null;
   const now=longNow(st,today),reach=Math.min(now*1.25**(Math.max(0,weeks-1)/4),now*3,8);
-  const one=(km,hm)=>{const h=evHours(km,hm,wkg,ev.kind),need=Math.min(h*.6,7);return {h,need,st:reach>=need?'ok':reach>=need*.8?'krap':'zwaar'}};
+  const one=(km,hm)=>{const h=evHours(km,hm,wkg,ev.kind),need=clamp(h*.45,1.5,3.5);return {h,need,st:reach>=need?'ok':reach>=need*.8?'krap':'zwaar'}};
   const e=EVBY[ev.id];
   const km=e?evVar(e,ev.v).km:ev.km||EVENT_KM[ev.kind]||0,hm=e?evVar(e,ev.v).hm:0;
   if(!km)return null;
   const r=Object.assign(one(km,hm),{reach,weeks,km});
-  /* langste dag in je week: daar moet de lange rit op passen */
+  /* langste dag in je week: alleen onder de twee uur is dat echt te weinig */
   const av=weekAvail(st,mondayOf(today)),maxDay=Math.max(0,...av)/60;
-  r.day=maxDay&&maxDay<r.need*.9?maxDay:0;
+  r.dayNeed=Math.min(r.need,2);r.day=maxDay&&maxDay<r.dayNeed?maxDay:0;
   if(r.st!=='ok'&&e){
     const opts=e.v.map((x,i)=>Object.assign(one(x.km,x.hm),{i,km:x.km})).filter(o=>o.i!==(ev.v|0)&&o.km<km);
     r.alt=opts.find(o=>o.st==='ok')||null;

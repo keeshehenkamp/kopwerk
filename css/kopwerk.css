@@ -228,6 +228,8 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .chart .xl.first{transform:none}.chart .xl.last{transform:translateX(-100%)}
 .chart .cur{position:absolute;top:0;bottom:0;width:1px;background:var(--ink);display:none;pointer-events:none}
 .chart .tip{position:absolute;top:8px;background:var(--ink);color:var(--bg);font-size:13px;padding:7px 10px;border-radius:8px;display:none;pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums;z-index:2}
+.chart .tip span{display:block;opacity:.72;font-size:12px;line-height:1.35}.chart .tip span:nth-child(2){opacity:1;font-size:13px;margin:2px 0}
+.chart .tip b{font-family:var(--cond);font-weight:600;font-size:22px;line-height:1;margin-right:4px}
 .zrow{display:grid;grid-template-columns:96px 1fr 96px;gap:10px;align-items:center;font-size:14px;margin:8px 0;font-variant-numeric:tabular-nums}
 .zrow .bar{height:12px;background:var(--sunk);border-radius:6px;overflow:hidden}
 .zrow .bar i{display:block;height:100%;border-radius:6px}
@@ -295,7 +297,9 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .keys b i{font-style:normal;font-size:13px;font-weight:500;color:var(--muted);margin-left:3px}
 .keys small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 @media (max-width:700px){.keys{grid-template-columns:repeat(2,minmax(0,1fr))}.grade{width:76px;height:76px}.grade b{font-size:30px}.herotxt p{font-size:15px}}
-.prs h3{margin-bottom:8px}.prs .kvl{padding:4px 0;font-size:14.5px}
+.prs h3{margin-bottom:8px;color:var(--acc)}.prs em{font-style:normal;font-weight:600;color:var(--acc)}
+.coachl{margin-top:5px}.coachb{margin-top:10px;gap:8px}
+.zend .prs .nrow{flex-wrap:wrap;justify-content:flex-start;gap:8px 24px}.zend .prs .muted{margin-top:4px}
 .zstack{display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px}
 .zstack i{display:block;min-width:2px}
 .zonelist{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 18px;margin-top:14px}

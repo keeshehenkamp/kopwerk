@@ -328,10 +328,20 @@ function renderPlayer(){if(!P)return;const sb=document.querySelector('.zsbody'),
   document.getElementById('app').innerHTML=playerHTML();const nb=document.querySelector('.zsbody');if(nb)nb.scrollTop=top;P.drawn=-1;paintPlayer();worldSync()}
 /* eerste keer in 3D: eerst je fietser kiezen */
 const startTab=()=>ui.startTab||(state.profile.kit==null?'fietser':'rit');
-function markRecords(ride){
-  if(ride.sim)return;
+function newRecords(ride){
   const old=records(state.rides),prs=[];
   for(const[w,t]of BESTS){const v=ride.best[w]||0;if(v&&old[w]&&v>old[w].w)prs.push({d:w,t,w:v,old:old[w].w})}
+  return prs;
+}
+function recordsHTML(prs){
+  if(!prs||!prs.length)return '';
+  /* de drie langste groot; de rest klein op één regel */
+  const top=prs.slice(-3),rest=prs.slice(0,-3);
+  return `<div class="prs"><h3>${prs.length>1?'Nieuwe records':'Nieuw record'}</h3><div class="nrow md">${top.map(x=>`<div><b>${x.w} W</b><span>${x.t} · <em>+${x.w-x.old} W</em></span></div>`).join('')}</div>${rest.length?`<p class="small muted" style="margin-top:6px">Ook op ${rest.map(x=>x.t).join(', ')}</p>`:''}</div>`;
+}
+function markRecords(ride){
+  if(ride.sim)return;
+  const prs=newRecords(ride);
   ride.prs=prs;
   if(prs.length)setTimeout(()=>toast(`Nieuw record: ${prs[prs.length-1].t} op ${prs[prs.length-1].w} W`),600);
 }
@@ -379,6 +389,7 @@ function endHTML(){
       <div><h2>${fin?'Finish':'Rit gestopt'}</h2><span class="small muted">${esc(P.wo.name)}${g?` · ★ ${g.stars} van ${g.max}`:''}</span></div>
       <div class="nrow">${nums.map(([v,k])=>`<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>
       ${more?`<p class="small muted">${more}</p>`:''}
+      ${P.sim?'':recordsHTML(newRecords(r))}
       ${rpe}
       <div class="zendbt"><button class="btn pri big" data-act="endSave">Opslaan</button><button class="link small" data-act="endResume">Doorrijden</button></div>
     </div>`;

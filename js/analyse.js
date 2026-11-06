@@ -76,6 +76,13 @@ function progStep(r){
   if(r.hrOff!=null){if(r.hrOff>=6)st=Math.min(st,0);else if(r.hrOff<=-6&&rel<=0)st+=.5}
   return st;
 }
+/* De nieuwe trede komt uit de stand vóór deze rit, niet uit de trede die je reed: zo telt een tijdelijke verlaging
+   (moe, herstelweek) of verhoging (piek) niet als blijvend. Pas je je gevoel later aan, dan rekent hij vanaf dezelfde stand. */
+function applyProg(r,again){
+  state.prog=state.prog||{};
+  if(r.prog0==null)r.prog0=!again&&state.prog[r.type]!=null?state.prog[r.type]:r.lvl;
+  state.prog[r.type]=clamp(r.prog0+progStep(r),1,LADDER[r.type].steps.length);
+}
 function ftpEstimate(r){
   if(r.sim)return 0;
   if(r.type==='ramptest')return r.best[60]?Math.round(r.best[60]*.75):0;
@@ -112,6 +119,30 @@ const RPE_EXP={herstel:2,duur:4,souplesse:4,openers:4,tempo:5,kracht:6,sweetspot
 const RPE_CAT={rustig:4,techniek:4,drempel:7,vo2:8,klim:7,kracht:7};
 const rpeExp=t=>RPE_EXP[t]??(TYPES[t]?RPE_CAT[CAT_OF[t]]:undefined);
 const rpeHeavy=r=>!r.sim&&r.rpe!=null&&rpeExp(r.type)!=null&&r.rpe>=rpeExp(r.type)+2;
+/* Wat één rit zegt: gevoel tegenover het verwachte gevoel van die soort training (f) en hartslag tegenover normaal bij dit vermogen (h).
+   1 is zwaarder of hoger, -1 lichter of lager. */
+function rideSignal(r){
+  const e=r.rpe!=null?rpeExp(r.type):null,rel=e==null?null:r.rpe-e;
+  return {f:rel==null?0:rel>=2?1:rel<=-1?-1:0,h:r.hrOff==null?0:r.hrOff>=6?1:r.hrOff<=-6?-1:0,known:rel!=null||r.hrOff!=null};
+}
+/* Gevoel en hartslag samen, over de ritten van de twee weken vóór 'upto'. Tegenstrijdige signalen zijn de nuttigste:
+   zwaar met een lage hartslag wijst op diepe vermoeidheid, licht met een lage hartslag op groei. */
+function coachRead(st,upto){
+  const from=iso(addDays(parseISO(upto),-14));
+  const S=(st.rides||[]).filter(r=>!r.sim&&r.date>=from&&r.date<upto).map(rideSignal).filter(s=>s.known);
+  const n=fn=>S.filter(fn).length,zl=n(s=>s.f>0&&s.h<0),zh=n(s=>s.f>0&&s.h>0),heavy=n(s=>s.f>0),hi=n(s=>s.f<=0&&s.h>0),ll=n(s=>s.f<0&&s.h<0),light=n(s=>s.f<0&&s.h<=0);
+  const out={k:'',n:S.length,rest:false,lighter:false,more:false,fresh:false,test:false};
+  if(S.length<2)return out;
+  const clean=!heavy&&!hi;
+  out.fresh=clean&&S.length>=3&&light>=2;
+  if(zl+zh>=2){out.k=zl>zh?'diep':'moe';out.rest=true}
+  else if(heavy>=2){out.k='zwaar';out.lighter=true;out.test=heavy>=3}
+  else if(hi>=2){out.k='hoog';out.lighter=true}
+  else if(clean&&ll>=2){out.k='gegroeid';out.more=true}
+  else if(clean&&light>=3){out.k='kanmeer';out.more=true}
+  else out.k='goed';
+  return out;
+}
 /* gemiddelden per minuut van rustige stukken (vermogen een paar minuten gelijk, na de eerste acht minuten) */
 function hrPairs(rec,ftp){
   const p=rec.p,h=rec.hr||[],M=Math.floor(p.length/60),mp=[],mh=[],out=[];
@@ -158,8 +189,9 @@ function verdict(r,ftp){
     if(r.lvl&&LADDER[r.type]){const st=progStep(r);out.push(st<0?'Volgende keer iets lichter.':st===0?'Volgende keer even zwaar.':st<1?'Volgende keer iets zwaarder.':'Volgende keer zwaarder.')}
     else if((r.type==='herstel'||r.type==='duur')&&r.rpe>rpeExp(r.type))out.push('Volgende keer rustiger, het doel is hier juist rustig blijven.');
   }
-  if(r.hrOff!=null&&!r.sim){if(r.hrOff>=6)out.push('Hartslag hoger dan normaal: de komende dagen iets lichter.');else if(r.hrOff<=-6)out.push('Hartslag lager dan normaal: hetzelfde werk kost je minder.')}
-  if(rpeHeavy(r))out.push('Zwaarder dan verwacht: de rest van de week wordt lichter.');
+  if(rpeHeavy(r))out.push('Zwaarder dan verwacht: je volgende zware training wordt iets lichter.');
+  else if(r.hrOff>=6&&!r.sim)out.push('Hartslag hoger dan normaal: je volgende zware training wordt iets lichter.');
+  if(r.hrOff<=-6&&!r.sim)out.push('Hartslag lager dan normaal: hetzelfde werk kost je minder.');
   const e=ftpEstimate(r);
   if(e>ftp*1.02)out.push(`Deze rit wijst op een FTP van ongeveer ${e} W.`);
   return out;

@@ -37,7 +37,7 @@ function rideChart(r,rec){
     <span class="yl" style="top:${yP(maxP*.92)/3}%">${Math.round(maxP*.92)} W</span>
     ${ticks}<span class="cur"></span><span class="tip"></span>
   </div>
-  <div class="legend"><span><i style="background:var(--ink)"></i>Vermogen</span><span><i style="background:var(--z3);opacity:.5;height:9px"></i>Doel, in zonekleur</span>${hv.length?'<span><i style="background:var(--hr)"></i>Hartslag</span>':''}${ui.showCad?'<span><i style="background:var(--z2)"></i>Cadans</span>':''}
+  <div class="legend"><span><i style="background:var(--ink)"></i>Vermogen</span><span><i style="background:var(--muted);opacity:.5;height:9px"></i>Doelvermogen</span>${hv.length?'<span><i style="background:var(--hr)"></i>Hartslag</span>':''}${ui.showCad?'<span><i style="background:var(--z2)"></i>Cadans</span>':''}
     <button class="btn small" data-act="toggleCad" style="padding:4px 10px">${ui.showCad?'Cadans verbergen':'Cadans tonen'}</button></div>`;
 }
 function bindChart(){
@@ -47,7 +47,8 @@ function bindChart(){
     const b=c.getBoundingClientRect(),f=clamp((e.clientX-b.left)/b.width,0,1),i=Math.min(n-1,Math.floor(f*n));
     const a=Math.max(0,i-2),z=Math.min(n,i+3),pw=Math.round(avg(rec.p.slice(a,z)));
     cur.style.display='block';cur.style.left=f*100+'%';tip.style.display='block';
-    tip.textContent=`${clock(i)}   ${pw} W   doel ${rec.tgt[i]} W`+(rec.hr[i]?`   ${rec.hr[i]} bpm`:'')+(rec.cad[i]?`   ${rec.cad[i]} rpm`:'');
+    const small=[rec.cad[i]?`${rec.cad[i]} rpm`:'',rec.hr[i]?`${rec.hr[i]} bpm`:''].filter(Boolean).join(' · ');
+    tip.innerHTML=`<span>${clock(i)}</span><span><b>${pw} W</b>${rec.tgt[i]?` doel ${rec.tgt[i]}`:''}</span>${small?`<span>${small}</span>`:''}`;
     if(f>.6){tip.style.left='';tip.style.right=(1-f)*100+1+'%'}else{tip.style.right='';tip.style.left=f*100+1+'%'}
   };
   c.addEventListener('pointermove',move);c.addEventListener('pointerdown',move);

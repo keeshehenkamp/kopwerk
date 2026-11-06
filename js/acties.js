@@ -66,6 +66,9 @@ const actions={
   /* je tijd per dag: dag kiezen, wiel bewaart zodra het stilstaat */
   /* de wekelijkse vraag: zonder wijziging telt de week zoals hij er staat (de vorige week) */
   wkAskDone(d){const k=d.k;if(!state.weeks[k]){state.weeks[k]=weekAvail(state,parseISO(k)).slice();save()}ui.wkAsk=null;ui.avSel=null;render();toast('Je schema voor week '+weekNo(parseISO(k))+' staat klaar.')},
+  /* voorstel van de coach: een rit langer, of deze week niet */
+  coachMore(d){setOverride(d.iso,{minutes:+d.m});toast('Je rit is langer gemaakt.')},
+  coachNo(d){(state.coachNo=state.coachNo||{})[d.k]=1;save();render()},
   avOpen(){ui.avOpen=!ui.avOpen;ui.avSel=ui.avOpen?ui.avSel:null;render()},
   avDay(d){const i=+d.i;ui.avSel=ui.avSel&&ui.avSel.k===d.k&&ui.avSel.i===i?null:{k:d.k,i};avRefresh(d.k)},
   wheelTo(d,el){const w=el.closest('.wheel');if(w)w.scrollTo({top:+d.i*WROW,behavior:'smooth'})},
@@ -156,7 +159,7 @@ const actions={
       name=CHECK_KIND[k][1];type=CHECK_KIND[k][2];IF=[.5,.5,.55,.6,.65,.7,.75,.8,.88,.95][M.rpe-1];tss=Math.round(min/60*IF*IF*100)}
     const ride={id:'m'+Date.now().toString(36),date:M.iso,ts:parseISO(M.iso).getTime()+18*36e5,name,type,lvl,manual:true,planned:plan.sec,ftp:state.profile.ftp,sim:false,rpe:M.rpe,adj:true,laps:[],
       dur:min*60,avgP:0,np:0,IF:+IF.toFixed(2),tss,kj:0,avgHr:0,maxHr:0,avgCad:0,zones:[0,0,0,0,0,0,0],best:{},score:null,decoup:null};
-    if(LADDER[type]&&lvl){ride.rpeAdj=true;state.prog=state.prog||{};state.prog[type]=clamp(lvl+progStep(ride),1,LADDER[type].steps.length)}
+    if(LADDER[type]&&lvl){ride.rpeAdj=true;applyProg(ride)}
     if(state.missed)delete state.missed[M.iso];
     state.rides.push(ride);save();ui.modal=null;render();toast(`${name} staat in je schema (${tss} TSS).`);
   },
@@ -210,9 +213,7 @@ const actions={
        pas je je antwoord aan, dan telt het nieuwe zolang er nog geen nieuwere rit van deze soort is beoordeeld */
     const later=state.rides.some(x=>x!==r&&!x.sim&&x.type===r.type&&x.ts>r.ts&&x.rpe!=null);
     if(!r.sim&&LADDER[r.type]&&r.lvl&&(!r.adj||(r.rpeAdj&&!later))){
-      r.adj=true;r.rpeAdj=true;
-      state.prog=state.prog||{};
-      state.prog[r.type]=clamp(r.lvl+progStep(r),1,LADDER[r.type].steps.length);
+      applyProg(r,r.adj);r.adj=true;r.rpeAdj=true;
     }
     ui.rpeEdit=false;save();render();
   },

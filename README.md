@@ -35,6 +35,9 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 - Evenement uit de lijst: `event.id` en `event.v` (welke afstand); naam, afstand en hellingen komen uit `js/evenementen.js`. Een eigen evenement heeft `name`, `kind` en `km`. Een oud `event.profile` (van de vroegere AI-coach) wordt nog gelezen. De app verwijdert een oude sleutel `kopwerk.ai` bij het opstarten.
 - `profile.niveau`: beginner, recreant, gevorderd of ervaren. Bepaalt het startvolume en de eerste trede; zodra je FTP bekend is, weegt je watt per kilo mee. De planlog bewaart per dag ook `b`, de blokduur van een lange rit met klimmen.
 
+- Ritten krijgen `prog0`: de trede-stand vóór die rit, zodat een tijdelijke verlaging of verhoging niet als blijvend telt. `coachNo`: weken waarin je een voorstel van de coach afsloeg.
+- `tools/planner-test/`: scenario's die de planner doorrekenen (volgen, overslaan, gevoel, hartslag). Open `index.html` via een lokale webserver.
+
 - `ftpGiven`: de dag waarop je bij de start zelf een FTP invulde. De coach telt dat als test, dus de eerste FTP-test komt pas na zes weken. Ritten krijgen `rpeAdj` als hun trede uit je gevoel komt; pas je je gevoel later aan, dan rekent de coach die trede opnieuw uit (zolang er geen nieuwere rit van die soort is beoordeeld).
 - Van demo-ritten (`sim`) bewaart de app alleen de laatste. Ze tellen niet mee in het schema, de kalender of je beste ritten.
 
