@@ -14,7 +14,7 @@ function run(sc){
   const weeks=[];let w=null,day=parseISO('2026-11-09');
   for(;day<end;day=addDays(day,1)){
     NOW=new RD(day.getFullYear(),day.getMonth(),day.getDate(),8).getTime();
-    const today=new Date(NOW),mon=mondayOf(today),plan=planWeek(state,mon,today);logPlan(plan,today);
+    const today=new Date(NOW);if(sc.block)ensureBlock(state,today);const mon=mondayOf(today),plan=planWeek(state,mon,today);logPlan(plan,today);
     const wi=weeks.length;
     if(dow(today)===0){
       let tip='';try{tip=moreTimeTip(plan)}catch(e){tip='ERR '+e.message}
@@ -57,6 +57,8 @@ const SC={
  X_zwaar_hoog:{drpe:w=>w>=8?2:0,hr:w=>w>=8?8:null},
  Y_licht_laag:{drpe:()=>-1,hr:()=>-8},
  T_noEvent_30wk:{noEvent:true,weeks:30,goal:'ftp'},
+ Z_blok_ftp:{noEvent:true,weeks:26,goal:'ftp',block:true},
+ Z_blok_sprint:{noEvent:true,weeks:14,goal:'sprint',block:true},
  M_noEvent_volgt:{noEvent:true,weeks:16,goal:'ftp'},
  N_noEvent_helft:{noEvent:true,weeks:16,goal:'ftp',skip:(w,R)=>R()<.5},
  O_noEvent_weinig:{noEvent:true,weeks:16,goal:'ftp',skip:(w,R)=>R()<.7},

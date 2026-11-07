@@ -25,6 +25,7 @@ Elk scherm moet in één blik te lezen zijn. Loop deze lijst na vóór je een sc
 - Het doel of evenement bepaalt de trainingen. De planner verandert het schema uit zichzelf en zegt dat erbij: fase uit wat je echt reed, rustig terug na een gat, kiezen wat te weinig gedaan is, accent verschuiven als FTP-tests niet stijgen, vandaag aanpassen op gevoel en vorm.
 - Alleen piek en afbouw hangen aan de datum van het evenement. Daarvoor telt wat je echt reed: een herstelweek is verdiend, en een week met bijna niets begint de opbouw opnieuw.
 - Gevoel en hartslag beslissen samen. Eén rit verandert alleen de volgende zware training, twee of drie ritten de week, een trend de fase. Lichter en zwaarder doet de planner zelf; om meer tijd dan je opgaf vraagt hij.
+- Zonder evenement werk je in doelblokken van twaalf weken. De coach kiest het doel zelf (de gebruiker hoeft niets te bedenken), de laatste week is een testweek, daarna begint het volgende blok.
 - Realistisch blijven: een duurrit is minimaal ongeveer anderhalf uur in zone 2, een lange rit hoeft niet langer dan drie en een half uur. Meer tijd adviseren alleen als er echt te weinig is, en niet elke week.
 - Tijd invullen: deze week alleen via de klok op Home, volgende week via Kalender (en de vraag op zondag). Geen extra knoppen die hetzelfde doen.
 - Hardlopen telt mee in vermoeidheid en fitheid en in hoe zwaar de dag erna mag zijn, niet in je FTP. De belasting komt uit snelheid en gevoel (`runLoad`).

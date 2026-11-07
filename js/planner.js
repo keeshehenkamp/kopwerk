@@ -167,6 +167,40 @@ function buildState(st,monday){
   }
   return {acc,rec,ph:clamp(Math.floor(acc),0,2)};
 }
+/* ---------- doelblok ----------
+   Zonder evenement werk je in blokken van twaalf weken naar een doel dat de coach zelf kiest. De laatste week is lichter,
+   met een test: zo zie je wat het blok opleverde, en daarna begint het volgende blok vanaf waar je dan staat.
+   Wat haalbaar is in twaalf weken (richtwaarden van coaches, geen harde wetenschap): wie begint of terugkomt 8-15%,
+   gevorderd 3-8%, wie al jaren gestructureerd traint 1-5%. Sprintvermogen 4-7% in studies van 4-12 weken.
+   Minder tijd dan bij je niveau past: een kleiner doel. */
+const BLOCK_WEEKS=12;
+const blockKind=g=>g==='sprint'?'sprint':g==='klimmen'?'wkg':'ftp';
+function blockMetric(st,goal,today){
+  if(blockKind(goal)!=='sprint')return st.profile.ftp||0;
+  const r=records((st.rides||[]).filter(x=>!x.sim&&x.date>=iso(addDays(today,-42))&&x.date<=iso(today)))[15];return r?r.w:0;
+}
+function blockTarget(st,goal,from){
+  if(!from)return 0;
+  const wkg=st.profile.ftp/clamp(st.profile.weight||75,35,200),g=blockKind(goal)==='sprint'?.06:wkg<2.5?.1:wkg<3.2?.07:wkg<4?.05:.03;
+  const nv=NIVEAU[st.profile.niveau],avail=(st.avail||[]).reduce((a,m)=>a+m,0)/60,tf=nv?clamp(avail/nv.base,.6,1):1;
+  return r5(from*(1+g*tf));
+}
+/* zorgt dat er een blok loopt; true als er iets veranderde (dan opslaan) */
+function ensureBlock(st,today){
+  if(!st.setup||(st.event&&st.event.date&&st.event.date>=iso(today)))return false;
+  const b=st.block,tk=iso(today),goal=st.profile.goal||'fit';
+  if(b&&b.goal===goal&&tk<=b.end){
+    /* sprint zonder meting bij de start: het doel volgt uit je eerste sprints */
+    if(!b.from){const m=blockMetric(st,goal,today);if(m){b.from=m;b.target=blockTarget(st,goal,m);return true}}
+    return false;
+  }
+  if(b&&b.goal===goal&&tk>b.end)(st.blockLog=st.blockLog||[]).push(Object.assign({},b,{result:blockMetric(st,goal,parseISO(b.end))}));
+  const start=iso(mondayOf(today)),from=blockMetric(st,goal,today);
+  st.block={goal,start,end:iso(addDays(parseISO(start),BLOCK_WEEKS*7-1)),from,target:blockTarget(st,goal,from)};
+  return true;
+}
+/* het pad van het blok: vooraan gaat het snelst, naar het eind toe vlakt het af */
+const blockPath=(b,day)=>{const K=BLOCK_WEEKS*7,j=clamp(dayDiff(parseISO(b.start),day),0,K);return Math.round(b.from+(b.target-b.from)*(1-Math.pow(1-j/K,1.5)))};
 function weekCtx(st,monday){
   const ev=st.event&&st.event.date?parseISO(st.event.date):null,B=buildState(st,monday);
   if(ev&&!isNaN(ev)){
@@ -184,6 +218,8 @@ function weekCtx(st,monday){
       c.toGo=w;c.evIso=st.event.date;return c;
     }
   }
+  /* laatste week van het doelblok: lichter, met een test */
+  const bl=st.block;if(bl&&bl.end&&iso(monday)<=bl.end&&iso(addDays(monday,6))>=bl.end)return {label:'Testweek',kind:'test',rec:false,L:1,sp:2,vol:.75,cap:2};
   return CYCLE(B.rec?3:B.ph);
 }
 /* Belasting van de laatste 7 dagen tegenover het weekgemiddelde van de 4 weken ervoor. */
@@ -244,13 +280,13 @@ function coachTargets(st,monday,ctx,fat){
   const now=mondayOf(new Date()),hist=recentHours(st,monday<now?monday:now);
   /* weinig gereden: geleidelijk omhoog, maar nooit zo laag dat er weinig overblijft om op te bouwen */
   const base=hist==null?ideal*.85:hist<ideal?Math.min(ideal,Math.max(ideal*.45,hist*1.1+.5)):Math.min(hist,ideal*1.25);
-  const phase=k=>({build:[.92,1,1.08][ctx.L],base:[.95,1,1.05][ctx.L],peak:1.05,rec:.6,taper:.65,event:.4}[k]||1);
+  const phase=k=>({build:[.92,1,1.08][ctx.L],base:[.95,1,1.05][ctx.L],peak:1.05,rec:.6,taper:.65,test:.75,event:.4}[k]||1);
   const weekH=base*phase(ctx.kind)*(fat.level===2?.8:fat.level?.9:fat.more?1.08:1);
   let longT=clamp(level*60*.3,nv&&nivIdx(st)===0?60:90,210)*(p.goal==='duur'?1.25:1);
   if(evH){const evLong=clamp(evH*60*.5,120,210);if(evLong>longT)longT+=(evLong-longT)*clamp((14-ctx.toGo)/10,0,1)}
-  longT*={build:[.9,1,1.1][ctx.L],base:[.9,1,1.05][ctx.L],peak:1.1,rec:.7,taper:.6}[ctx.kind]||1;
+  longT*={build:[.9,1,1.1][ctx.L],base:[.9,1,1.05][ctx.L],peak:1.1,rec:.7,taper:.6,test:.7}[ctx.kind]||1;
   /* een duurrit levert pas echt iets op vanaf ongeveer anderhalf uur; alleen in een lichte week mag hij korter */
-  longT=r5(Math.max(['rec','taper','event'].includes(ctx.kind)||fat.level===2?60:90,Math.min(longT,weekH*60*.45)));
+  longT=r5(Math.max(['rec','taper','test','event'].includes(ctx.kind)||fat.level===2?60:90,Math.min(longT,weekH*60*.45)));
   return {wkg,level,ideal,hist,evH,weekH,longT,known,
     keyT:r5(clamp(level*8+15,60,level>=10?105:90)),keyTi:r5(clamp(level*8+15,60,75)),easyCap:level>=9||p.goal==='duur'?150:120};
 }
@@ -380,12 +416,12 @@ function planWeek(st,monday,today){
     let nDays=effH<=3.5?3:effH<=5.5?4:effH<=8.5?5:6;
     /* weinig momenten (hooguit drie): die benut je zo goed mogelijk. Herstel komt dan uit de dagen ertussen, dus twee kwaliteitstrainingen
        achter elkaar mogen als er daarna minstens twee dagen rust volgen. Niet bij vermoeidheid, ziekte, afbouw of voor een beginner. */
-    const live=forced.filter(d=>!gone(d)),slots=free.length+live.length,scarce=!rec&&fat.level<2&&nivIdx(st)>0&&ctx.kind!=='taper'&&slots<=3&&!free.some(d=>d.easyOnly);
-    const lightWk=rec||ctx.kind==='taper'||fat.level===2,longMin=lightWk?60:90;
+    const live=forced.filter(d=>!gone(d)),slots=free.length+live.length,scarce=!rec&&fat.level<2&&nivIdx(st)>0&&ctx.kind!=='taper'&&ctx.kind!=='test'&&slots<=3&&!free.some(d=>d.easyOnly);
+    const lightWk=rec||ctx.kind==='taper'||ctx.kind==='test'||fat.level===2,longMin=lightWk?60:90;
     if(rec)nDays=Math.min(nDays,4);
     /* twee zware trainingen per week; drie bij veel uren, of als er geen tijd is voor een lange rit en je dus alleen korte ritten hebt */
     const longSlot=free.some(d=>d.minutes>=longMin&&!d.easyOnly);
-    let nHard=rec?1:ctx.kind==='base'||ctx.kind==='taper'?2:effH>=7||!longSlot?3:2;
+    let nHard=rec?1:ctx.kind==='base'||ctx.kind==='taper'||ctx.kind==='test'?2:effH>=7||!longSlot?3:2;
     if(fat.level===2&&nHard>1)nHard--;
     /* met weinig dagen blijft er naast de lange rit ruimte voor een rustige dag */
     nHard=scarce?Math.min(nHard,2,slots):Math.min(nHard,Math.max(1,slots-(longSlot?2:1)));
@@ -470,7 +506,11 @@ function planWeek(st,monday,today){
       const tooHigh=read&&read.test&&since>=(rides.some(r=>!r.sim&&r.type==='ramptest')?42:21);
       /* gewoon op tijd: liefst in een rustige week, na acht weken ook in een andere. Niet als je net terug bent of eerst moet herstellen */
       const calm=rec||ctx.kind==='base',onTime=last?(since>=42&&calm)||since>=56:calm||iso(monday)===st.planStart||since>=42;
-      const due=brk||(fat.back==null&&fat.level<2&&(fitter||tooHigh||onTime));
+      /* testweek aan het eind van het doelblok: altijd een test, tenzij je net getest hebt */
+      const blockTest=ctx.kind==='test'&&since>=14;
+      /* binnen vijf weken komt de testweek van het blok: dan geen extra test ertussen */
+      const soon=ctx.toGo==null&&st.block&&ctx.kind!=='test'&&dayDiff(monday,parseISO(st.block.end))<=35&&dayDiff(monday,parseISO(st.block.end))>=0;
+      const due=brk||(fat.back==null&&fat.level<2&&(blockTest||(!soon&&(fitter||tooHigh||onTime))));
       const td=due&&H.filter(d=>d.iso>=tk).sort((a,b)=>a.i-b.i)[0];
       if(td){td.wo=buildWorkout('ramptest',45,0);td.key=true;td.test=true}
     }
