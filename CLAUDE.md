@@ -28,6 +28,7 @@ Elk scherm moet in één blik te lezen zijn. Loop deze lijst na vóór je een sc
 - Zonder evenement werk je in doelblokken van twaalf weken. De coach kiest het doel zelf (de gebruiker hoeft niets te bedenken), de laatste week is een testweek, daarna begint het volgende blok.
 - Realistisch blijven: een duurrit is minimaal ongeveer anderhalf uur in zone 2, een lange rit hoeft niet langer dan drie en een half uur. Meer tijd adviseren alleen als er echt te weinig is, en niet elke week.
 - Tijd invullen: deze week alleen via de klok op Home, volgende week via Kalender (en de vraag op zondag). Geen extra knoppen die hetzelfde doen.
+- Zonder de app gefietst en iets anders gedaan zijn twee aparte dingen. Een fietsrit voeg je toe (bestand of Strava) en wordt vergeleken met de training van die dag; iets anders (hardlopen, kracht) vul je los in.
 - Hardlopen telt mee in vermoeidheid en fitheid en in hoe zwaar de dag erna mag zijn, niet in je FTP. De belasting komt uit snelheid en gevoel (`runLoad`).
 - Een slimme planner betekent niet veel informatie. Wisselen is één knop op dezelfde plek, zonder lijst of extra uitleg (`PACKS`: pakketten van minstens vier trainingen met hetzelfde doel). De dag blijft even lang en even zwaar bedoeld.
 - Vandaag staat op Home en niet ook nog in Kalender.

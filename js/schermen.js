@@ -212,7 +212,8 @@ function statusCard(plan,today){
     ${feelHTML(plan,today,H)}
     ${e&&e>ftp*1.02?`<p class="small" style="margin-top:10px">Je ritten wijzen op een hogere FTP. <button class="link" data-act="setFtp" data-w="${e}">FTP op ${e} W zetten</button></p>`:''}</div>`;
 }
-const otherLine=d=>`<p class="small muted" style="margin-top:10px">Iets anders gedaan? <button class="link" data-act="openCheck" data-iso="${d.iso}" data-m="other">Hardlopen of iets anders</button> of <button class="link" data-act="openCheck" data-iso="${d.iso}" data-m="buiten">buiten gefietst</button></p>`;
+/* zonder de app: gefietst (een rit toevoegen, die wordt naast de training gelegd) of iets anders (hardlopen, kracht) */
+const otherLine=d=>`<p class="small muted" style="margin-top:10px"><button class="link" data-act="openAdd" data-iso="${d.iso}">Rit toevoegen</button> · <button class="link" data-act="openCheck" data-iso="${d.iso}" data-m="other">Iets anders gedaan</button></p>`;
 function dayCard(d,tk){
   const r=rideOn(d.iso);
   if(r)return `<button class="wcard" data-act="openRide" data-id="${r.id}"><div class="t"><div><h3>${esc(r.name)}</h3><div class="m">${r.type==='hardlopen'?'Gelopen':'Gereden'} · ${clock(r.dur)} · ${r.tss} TSS${cijfer(r)!=null?` · cijfer ${nl(cijfer(r).toFixed(1))}`:''}</div></div><span class="chev">${I.r}</span></div></button>`;
@@ -240,7 +241,7 @@ function openChecks(today){
     if(d.wo&&!d.event&&d.iso<tk&&d.iso>=from&&(!state.started||d.iso>=state.started)&&!rep[d.iso]&&!(d.health&&d.health.during)&&d.movedTo==null&&!state.rides.some(r=>!r.sim&&(r.date===d.iso||(r.type===d.wo.type&&iso(mondayOf(parseISO(r.date)))===iso(mondayOf(d.date))))))out.push(d);
   return out.sort((a,b)=>a.iso<b.iso?1:-1);
 }
-const checkBtns=k=>`<div class="cbtns"><button class="btn" data-act="openCheck" data-iso="${k}" data-m="buiten">Buiten gereden</button><button class="btn" data-act="openCheck" data-iso="${k}" data-m="other">Iets anders</button><button class="btn" data-act="openMissed" data-iso="${k}">Niet gedaan</button></div>`;
+const checkBtns=k=>`<div class="cbtns"><button class="btn" data-act="openAdd" data-iso="${k}">Gefietst</button><button class="btn" data-act="openCheck" data-iso="${k}" data-m="other">Iets anders</button><button class="btn" data-act="openMissed" data-iso="${k}">Niet gedaan</button></div>`;
 function checkCard(today){
   const l=openChecks(today);if(!l.length)return '';
   const d=l[0],y=d.iso===iso(addDays(today,-1)),when=y?'Gisteren':dateLong(d.date).replace(/^./,c=>c.toUpperCase());
@@ -462,14 +463,14 @@ function progressCard(){
   return {ftpCard};
 }
 function addModal(){
-  const t=iso(new Date());
-  return `<div class="veil" data-act="veil"><div class="modal stack" role="dialog" aria-modal="true" aria-label="Buitenrit toevoegen">
-    <div class="row spread"><h2>Buitenrit toevoegen</h2><button class="btn small" data-act="closeModal">Sluiten</button></div>
-    <div class="stack" style="padding-bottom:18px;border-bottom:1px solid var(--line)"><h3>Bestand van je fietscomputer</h3>
+  const t=iso(new Date()),k=ui.modal.iso||t,d=planWeek(state,mondayOf(parseISO(k)),new Date()).days.find(x=>x.iso===k),w=d&&d.wo&&!rideOn(k)?d.wo:null;
+  return `<div class="veil" data-act="veil"><div class="modal stack" role="dialog" aria-modal="true" aria-label="Rit toevoegen">
+    <div class="row spread"><h2>Rit toevoegen</h2><button class="btn small" data-act="closeModal">Sluiten</button></div>
+    <div class="stack" style="padding-bottom:18px;border-bottom:1px solid var(--line)"><div><h3>Bestand van je fietscomputer</h3><p class="small muted" style="margin-top:3px">${w?`We leggen de rit naast ${esc(w.name)} en geven er een cijfer voor.`:'Een .fit- of .tcx-bestand, bijvoorbeeld van Garmin, Wahoo of Strava.'}</p></div>
       <div><label class="btn pri" style="cursor:pointer;display:inline-block">Kies .fit of .tcx<input type="file" accept=".fit,.tcx" data-chg="importRide" style="position:absolute;opacity:0;width:1px;height:1px"></label></div></div>
     <div class="stack"><h3>Of vul de rit zelf in</h3>
       <div class="form">
-        <div><label class="f" for="a-date">Datum</label><input type="date" id="a-date" value="${t}" max="${t}"></div>
+        <div><label class="f" for="a-date">Datum</label><input type="date" id="a-date" value="${k}" max="${t}"></div>
         <div><label class="f" for="a-min">Duur in minuten</label><input type="number" id="a-min" min="10" max="900" value="90"></div>
         <div><label class="f" for="a-eff">Hoe zwaar voelde het?</label>${sel('id="a-eff"',EFFORT.map((e,i)=>[i,e[1]]),1)}</div>
         <div><label class="f" for="a-pw">Gemiddeld vermogen</label><input type="number" id="a-pw" min="0" max="600" placeholder="optioneel"></div>
@@ -578,7 +579,7 @@ function missedModal(){
     <div><button class="btn" data-act="closeModal">Annuleren</button></div></div></div>`;
 }
 /* buiten gereden of iets anders gedaan: duur en hoe zwaar het voelde */
-const CHECK_KIND={hardlopen:['Hardgelopen','Hardlopen','hardlopen'],training:['Een andere training','',''],buiten:['Buiten gefietst','Buitenrit','buiten'],fitness:['Kracht of fitness','Kracht of fitness','fitness'],anders:['Iets anders','Iets anders','anders']};
+const CHECK_KIND={hardlopen:['Hardgelopen','Hardlopen','hardlopen'],training:['Een andere training','',''],buiten:['Buiten gefietst','Buitenrit','buiten'],fitness:['Krachttraining','Krachttraining','fitness'],anders:['Iets anders','Iets anders','anders']};
 /* wat je invult bij hardlopen: snelheid, tempo en de belasting die daaruit volgt */
 function runPreview(){
   const el=document.getElementById('c-run');if(!el)return;
@@ -591,9 +592,9 @@ function checkModal(){
   const M=ui.modal,day=planWeek(state,mondayOf(parseISO(M.iso)),new Date()).days.find(x=>x.iso===M.iso),w=day&&day.wo;
   const out=M.m==='buiten',when=dateLong(day.date).replace(/^./,c=>c.toUpperCase());
   return `<div class="veil" data-act="veil"><div class="modal narrow stack" role="dialog" aria-modal="true" aria-label="${out?'Buiten gereden':'Iets anders gedaan'}">
-    <div><h2>${out?'Buiten gereden':'Wat heb je gedaan?'}</h2><p class="small muted" style="margin-top:3px">${M.pick?'':when}${out||!w||M.pick?'':' · in plaats van '+esc(w.name)}</p></div>
+    <div><h2>${out?'Buiten gereden':'Iets anders gedaan'}</h2><p class="small muted" style="margin-top:3px">${M.pick?'Geen fietsrit: die voeg je toe met Rit toevoegen.':when+(out||!w?'':' · in plaats van '+esc(w.name))}</p></div>
     ${M.pick?`<div><label class="f" for="c-date">Wanneer?</label><input type="date" id="c-date" value="${M.iso}" max="${iso(new Date())}"></div>`:''}
-    ${out?'':`<div class="opts">${Object.entries(CHECK_KIND).filter(([k])=>k!=='buiten').map(([k,v],i)=>`<label class="opt"><input type="radio" name="ck" value="${k}"${i?'':' checked'}><span><b>${v[0]}</b></span></label>`).join('')}</div>
+    ${out?'':`<div class="opts">${Object.entries(CHECK_KIND).filter(([k])=>k!=='buiten'&&k!=='training').map(([k,v],i)=>`<label class="opt"><input type="radio" name="ck" value="${k}"${i?'':' checked'}><span><b>${v[0]}</b></span></label>`).join('')}</div>
     <div class="ckrun"><label class="f" for="c-km">Afstand in km</label><input type="number" id="c-km" min="0" max="100" step="0.1" inputmode="decimal" value="5" style="width:120px"></div>
     <div class="ckwo"><label class="f" for="c-wo">Welke training?</label><select id="c-wo" style="width:100%">${CATS.filter(([c])=>c&&c!=='test').map(([c,t])=>`<optgroup label="${t}">${Object.keys(TYPES).filter(k=>CAT_OF[k]===c&&!(w&&k===w.type)).map(k=>`<option value="${k}">${esc(TYPES[k].name)}</option>`).join('')}</optgroup>`).join('')}</select></div>`}
     <div><label class="f" for="c-min">Duur in minuten</label><input type="number" id="c-min" min="5" max="900" value="${out?(w?w.minutes:60):30}" style="width:120px"></div>

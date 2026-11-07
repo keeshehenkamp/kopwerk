@@ -86,7 +86,7 @@ function kalenderView(){
     if(mt!==month){month=mt;log+=`<div class="month">${mt}</div>`}
     log+=`<details class="wkf" data-wk="${w}"${open[w]?' open':''}><summary class="wkl"><span>Week ${weekNo(m)}</span><span>${rs.length} ${rs.length===1?'training':'trainingen'} · ${durTxt(Math.round(sec/60))} · ${tss} TSS</span></summary><div class="card tl"><div class="list">${rs.map(r=>calRide(r)).join('')}</div></div></details>`;
   }
-  const tools=`<div class="row">${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Buitenrit toevoegen</button><button class="btn" data-act="openCheck" data-iso="${tk}" data-m="other" data-p="1">Iets anders</button></div>`;
+  const tools=`<div class="row">${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Rit toevoegen</button><button class="btn" data-act="openCheck" data-iso="${tk}" data-m="other" data-p="1">Iets anders</button></div>`;
   const strip=phaseStrip(today);
   return `<div class="head"><div><h1>Kalender</h1></div>${tools}</div><div class="timeline">${strip?`<div style="margin-bottom:6px">${strip}</div>`:''}
     ${planned(mon,'Deze week')}${planned(addDays(mon,7),'Volgende week',true)}

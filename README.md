@@ -37,6 +37,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 
 - Ritten krijgen `prog0`: de trede-stand vóór die rit, zodat een tijdelijke verlaging of verhoging niet als blijvend telt. `coachNo`: weken waarin je een voorstel van de coach afsloeg.
 - `block`: het doelblok van twaalf weken zonder evenement (`goal`, `start`, `end`, `from`, `target`), door de coach gekozen in `ensureBlock`; afgeronde blokken staan in `blockLog` met `result`. De laatste week heet Testweek (`kind: 'test'`). Rond week 6 komt een tussentest; ligt die boven het schema, dan gaat `target` omhoog (`raised`, `tested`). `v: 2` = doel volgens de huidige regels.
+- Een rit van buiten (bestand of Strava) wordt naast de training van die dag gelegd (`matchPlan`, `compareRide` in `js/analyse.js`): `cmp` met het cijfer, `as` met wat de rit was. Cijfer 7,5 of meer: de rit telt als die training.
 - Hardlopen is een rit met `type: 'hardlopen'`, `manual: true` en `dist` in meters.
 - `tools/planner-test/`: scenario's die de planner doorrekenen (volgen, overslaan, gevoel, hartslag). Open `index.html` via een lokale webserver.
 

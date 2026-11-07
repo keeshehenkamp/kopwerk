@@ -167,7 +167,7 @@ const actions={
     if(state.missed)delete state.missed[date];
     state.rides.push(ride);save();ui.modal=null;render();toast(`${name} staat in je schema (${tss} TSS).`);
   },
-  openAdd(){ui.modal={kind:'add'};render()},
+  openAdd(d){ui.modal={kind:'add',iso:d&&d.iso};render()},
   async saveManual(){
     const g=id=>document.getElementById(id),date=g('a-date').value,min=clamp(Math.round(+g('a-min').value)||0,0,900),pw=Math.round(+g('a-pw').value)||0;
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>iso(new Date()))return toast('Kies een datum van vandaag of eerder.');
@@ -189,10 +189,10 @@ const actions={
         ride.id='i'+Math.round(start/1000).toString(36);ride.adj=true;
         if(!r.hasP){const IF=EFFORT[eff][0];ride.IF=IF;ride.tss=Math.round(ride.dur/3600*IF*IF*100);ride.noPower=true;ride.best={};ride.zones=[0,0,0,0,0,0,0]}
         if(state.rides.some(x=>x.id===ride.id)){ui.modal=null;render();return toast('Deze rit staat er al in.')}
-        if(r.hasP)learnHr(r.rec,ftp);markRecords(ride);state.rides.push(ride);save();
+        if(r.hasP){learnHr(r.rec,ftp);matchPlan(ride,r.rec)}markRecords(ride);state.rides.push(ride);save();
         await idb.put('s:'+ride.id,r.rec);
         ui.modal=null;ui.rideFrom=tabOf(ui.view);ui.streams={id:ride.id,rec:r.rec};ui.view='ride';ui.rideId=ride.id;render();window.scrollTo(0,0);
-        if(!r.hasP)toast('Geen vermogen in dit bestand: de belasting is geschat.');
+        if(!r.hasP)toast('Geen vermogen in dit bestand: de belasting is geschat.');else if(ride.cmp)toast(`Vergeleken met ${ride.cmp.name}: cijfer ${nl((ride.cmp.score/10).toFixed(1))}.`);
       }catch(e){toast('Dit bestand kon niet worden gelezen. Gebruik een .fit- of .tcx-bestand van een rit.')}
     };
     if(isFit)rd.readAsArrayBuffer(f);else rd.readAsText(f);

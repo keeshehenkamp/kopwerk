@@ -98,7 +98,7 @@ const baseOf=t=>Object.keys(FAM).find(b=>FAM[b].includes(t))||t;
 function pickSlots(st,src,monday,n,stalled){
   /* werkt het niet (FTP-test zonder groei): verder terugkijken en zwaarder laten wegen, zodat je iets doet wat je weinig deed */
   const from=iso(addDays(monday,stalled?-42:-21)),to=iso(monday),cnt={},wt=stalled?1.5:.75;
-  for(const r of st.rides||[])if(!r.sim&&r.date>=from&&r.date<to&&TYPES[r.type]){const b=baseOf(r.type);cnt[b]=(cnt[b]||0)+1}
+  for(const r of st.rides||[]){const t=TYPES[r.type]?r.type:r.as;if(!r.sim&&r.date>=from&&r.date<to&&TYPES[t]){const b=baseOf(t);cnt[b]=(cnt[b]||0)+1}}
   return src.map((b,i)=>({b,i,s:i+(cnt[b]||0)*wt})).sort((x,y)=>x.s-y.s||x.i-y.i).slice(0,n).sort((x,y)=>x.i-y.i).map(x=>x.b);
 }
 /* werkt het? De laatste twee FTP-tests, minstens vier weken uit elkaar. Bijna geen groei: het accent verschuift. */

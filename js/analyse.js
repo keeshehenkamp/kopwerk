@@ -105,6 +105,46 @@ function fitness(rides,today,span){
   return {series,ctl:Math.round(ctl),atl:Math.round(atl),tsb:Math.round(ctl-atl)};
 }
 
+/* ---------- een rit buiten de app naast de training van die dag ----------
+   Per werkblok uit de training zoeken we in de rit het beste stuk van dezelfde lengte (zonder overlap, zwaarste blok eerst).
+   Gehaald als het gemiddelde minstens 93% van het doel is (korte blokken 90%). Zonder werkblokken (duurrit): lang genoeg
+   en niet veel harder dan bedoeld. Het cijfer is voor de training die je zou doen; wat de rit wel was, telt apart. */
+function compareRide(wo,p,ftp){
+  const n=p.length,pre=new Float64Array(n+1);for(let i=0;i<n;i++)pre[i+1]=pre[i]+(p[i]||0);
+  const work=wo.segs.filter(s=>s.kind==='work'&&s.d>=20).map(s=>({d:s.d,t:ftp*(s.a+s.b)/2})).sort((a,b)=>b.t-a.t),used=[];
+  const dur=Math.min(1,n/Math.max(1,wo.sec));
+  if(!work.length){
+    const IF=ftp?normPower(p)/ftp:0,over=Math.max(0,IF-wo.IF-.08);
+    return {score:Math.round(100*(.6*dur+.4*clamp(1-over*5,0,1))),hit:0,n:0};
+  }
+  let got=0,all=0,hit=0;
+  for(const w of work){
+    let best=0,at=-1;
+    for(let i=0;i+w.d<=n;i+=5){if(used.some(([a,b])=>i<b&&i+w.d>a))continue;const v=(pre[i+w.d]-pre[i])/w.d;if(v>best){best=v;at=i}}
+    /* gehaald telt volledig; een kwart of meer onder het doel telt niet */
+    const need=w.d<60?.9:.93,c=w.t?clamp((best/(w.t*need)-.75)/.25,0,1):0;
+    if(at>=0)used.push([at,at+w.d]);if(c>=1)hit++;got+=w.d*c;all+=w.d;
+  }
+  return {score:Math.round(100*(.75*got/all+.25*dur)),hit,n:work.length};
+}
+/* wat een rit buiten de app was, naar soort: telt mee bij het kiezen van wat je te weinig deed */
+function rideKind(r){
+  const z=(r.zones||[]).map(s=>s/60),hard=(z[4]||0)+(z[5]||0)+(z[6]||0);
+  const b20=r.ftp&&r.best&&r.best[1200]?r.best[1200]/r.ftp:0;
+  return hard>=6?'vo2':b20>=.95?'drempel':b20>=.86?'sweetspot':(z[2]||0)+(z[3]||0)>=25?'tempo':'duur';
+}
+/* een geïmporteerde rit koppelen aan de training van die dag. Lijkt hij er genoeg op (cijfer 7,5 of meer), dan telt hij
+   als die training, ook voor de opbouw; anders blijft het een buitenrit met het cijfer voor de gemiste training */
+function matchPlan(ride,rec){
+  if(ride.sim||!rec||!rec.p||!rec.p.some(x=>x>0))return;
+  ride.as=rideKind(ride);
+  if(state.rides.some(r=>!r.sim&&r.date===ride.date&&r.id!==ride.id&&TYPES[r.type]))return;
+  const d=planWeek(state,mondayOf(parseISO(ride.date)),new Date()).days.find(x=>x.iso===ride.date),wo=d&&d.wo;
+  if(!wo||wo.type==='ramptest')return;
+  const c=compareRide(wo,rec.p,ride.ftp);
+  ride.cmp={t:wo.type,name:wo.name,score:c.score,hit:c.hit,n:c.n};ride.score=c.score;ride.planned=wo.sec;
+  if(c.score>=75){ride.type=wo.type;ride.lvl=wo.lvl||null;ride.name=wo.name;ride.outdoor=true;ride.adj=false}
+}
 /* Belasting van een stuk hardlopen. Je drempeltempo is geschat uit je FTP: FTP geeft je maximale zuurstofopname (ACSM-formules),
    en die de snelheid waarop je die haalt; je drempel ligt op ongeveer 85% daarvan. Omdat je loopvorm die schatting kan
    tegenspreken, telt je gevoel voor de helft mee. Belasting = uren x intensiteit in het kwadraat x 100, net als op de fiets. */
@@ -188,6 +228,14 @@ function verdict(r,ftp){
     if(r.sim){out.push('Dit was een demo. Een FTP volgt alleen uit een test die je echt op de trainer rijdt.');return out}
     const e=ftpEstimate(r);
     out.push(e?`Je beste minuut was ${r.best[60]} W. Daaruit volgt een FTP van ongeveer ${e} W.`:'De test was te kort om een FTP uit af te leiden. Rijd door tot je de cadans echt niet meer vasthoudt.');
+    return out;
+  }
+  /* buiten gereden en vergeleken met de training van die dag */
+  if(r.cmp){
+    const c=r.cmp,w=c.n?`${c.hit} van ${c.n} ${c.n===1?'blok':'blokken'} gehaald`:c.score>=75?'lang genoeg en rustig genoeg':'te kort of te hard voor een rustige rit';
+    out.push(`Vergeleken met ${c.name}: ${w}.`);
+    if(TYPES[r.type]){if(r.rpe!=null&&r.lvl&&LADDER[r.type]){const st=progStep(r);out.push(st<0?'Volgende keer iets lichter.':st===0?'Volgende keer even zwaar.':'Volgende keer zwaarder.')}}
+    else if(r.as)out.push(`Deze rit telt als ${TYPES[r.as].name.toLowerCase()}. De training zelf komt later terug als dat past.`);
     return out;
   }
   if(r.type==='vrij'){out.push(r.dist>200?`Vrij gereden: ${nl((r.dist/1000).toFixed(1))} km in ${clock(r.dur)}, gemiddeld ${r.avgP} W.`:`Vrij gereden: ${clock(r.dur)}, gemiddeld ${r.avgP} W.`);return out}
