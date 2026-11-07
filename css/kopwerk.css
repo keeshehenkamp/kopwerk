@@ -506,7 +506,10 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 @media (pointer:coarse){.vtabs button{padding:10px 16px}}
 /* filter in de trainingenbibliotheek */
 .libbar{display:flex;align-items:center;gap:12px;margin:0 0 12px}
-.libfil{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 16px}
+.libfil{display:grid;gap:14px;margin:0 0 18px}
+.libgrp{display:grid;grid-template-columns:76px minmax(0,1fr);align-items:start;gap:10px}.libgrp>span{font-size:13.5px;font-weight:600;padding-top:6px}
+.libgrp>div{display:flex;flex-wrap:wrap;gap:6px}
+@media (max-width:520px){.libgrp{grid-template-columns:1fr;gap:6px}.libgrp>span{padding-top:0}}
 .libfil .btn[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 
 /* kalender: één lijst om door te scrollen */

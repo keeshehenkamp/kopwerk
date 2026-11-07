@@ -116,7 +116,7 @@ const actions={
   },
   pickAlt(d){setOverride(ui.detail.iso,{type:d.t||null});window.scrollTo(0,0);toast(d.t?`${TYPES[d.t].name} staat nu op het schema.`:'Weer de training van het schema.')},
   ovType(d,el){setOverride(ui.detail.iso,{type:el.value||null})},
-  libMin(d,el){ui.lib.min=+el.value;render()},
+  libMin(d){ui.lib.min=+d.m;render()},
   resetAdj(){state.levelAdj=0;save();render()},
   saveSettings(d,el,e,quiet){
     const g=id=>document.getElementById(id);
@@ -229,7 +229,8 @@ const actions={
   },
   libFilter(){ui.lib.open=!ui.lib.open;render()},
   libCat(d){const c=ui.lib.cats=ui.lib.cats||[],i=c.indexOf(d.c);if(i<0)c.push(d.c);else c.splice(i,1);render()},
-  libClear(){ui.lib.cats=[];render()},
+  libZw(d){const z=ui.lib.zw=ui.lib.zw||[],i=z.indexOf(d.z);if(i<0)z.push(d.z);else z.splice(i,1);render()},
+  libClear(){ui.lib.cats=[];ui.lib.zw=[];render()},
   /* wisselen: de volgende uit het pakket; na de laatste weer de training van het schema */
   swapWo(d){
     const day=planWeek(state,mondayOf(parseISO(d.iso)),new Date()).days.find(x=>x.iso===d.iso);if(!day||!day.wo||!day.planType)return;

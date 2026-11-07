@@ -351,7 +351,10 @@ function planWeek(st,monday,today){
     d.logged=d.logged||{t:''};d.planKey=!!d.key;d.planLong=!!d.long;d.key=d.done.hard;d.long=d.done.long;
     d.unplanned=d.done.hard&&!d.planKey||d.done.long&&!d.planLong;d.easier=d.planKey&&!d.done.hard;
   }
-  const mins=d=>d.done?d.done.min:d.wo?d.wo.minutes:0;
+  /* een geplande training die voorbij is en niet gereden (of afgemeld) kost geen tijd en geen trainingsdag meer:
+     anders denkt de planner dat je week al vol zit en blijft je vrije tijd later in de week leeg */
+  const gone=d=>!!tk&&!d.done&&(d.iso<tk||!!(st.missed||{})[d.iso]);
+  const mins=d=>d.done?d.done.min:gone(d)?0:d.wo?d.wo.minutes:0;
   const forced=days.filter(d=>d.o.type&&!d.event&&!d.logged&&TYPES[d.o.type]);
   for(const d of forced){
     const t=d.o.type;d.T=d.minutes>=20?Math.min(d.minutes,lenFor(t)):lenFor(t);
@@ -377,7 +380,7 @@ function planWeek(st,monday,today){
     let nDays=effH<=3.5?3:effH<=5.5?4:effH<=8.5?5:6;
     /* weinig momenten (hooguit drie): die benut je zo goed mogelijk. Herstel komt dan uit de dagen ertussen, dus twee kwaliteitstrainingen
        achter elkaar mogen als er daarna minstens twee dagen rust volgen. Niet bij vermoeidheid, ziekte, afbouw of voor een beginner. */
-    const slots=free.length+forced.length,scarce=!rec&&fat.level<2&&nivIdx(st)>0&&ctx.kind!=='taper'&&slots<=3&&!free.some(d=>d.easyOnly);
+    const live=forced.filter(d=>!gone(d)),slots=free.length+live.length,scarce=!rec&&fat.level<2&&nivIdx(st)>0&&ctx.kind!=='taper'&&slots<=3&&!free.some(d=>d.easyOnly);
     const lightWk=rec||ctx.kind==='taper'||fat.level===2,longMin=lightWk?60:90;
     if(rec)nDays=Math.min(nDays,4);
     /* twee zware trainingen per week; drie bij veel uren, of als er geen tijd is voor een lange rit en je dus alleen korte ritten hebt */
@@ -388,7 +391,7 @@ function planWeek(st,monday,today){
     nHard=scarce?Math.min(nHard,2,slots):Math.min(nHard,Math.max(1,slots-(longSlot?2:1)));
     if(nivIdx(st)===0)nHard=Math.min(nHard,2);
     nHard=Math.max(0,nHard-forced.filter(d=>d.key).length);
-    nDays=Math.max(0,nDays-forced.length);
+    nDays=Math.max(0,nDays-live.length);
     const wantLong=!forced.some(d=>d.long);
     const fixed=forced.filter(d=>d.key||d.long).map(d=>d.i);
     /* een rustige rit van een half uur levert alleen een beginner iets op; anders liever een rustdag */
@@ -517,7 +520,8 @@ function planWeek(st,monday,today){
       const sc=x=>(x.wo?1:0)+x.minutes/1000;
       cand.sort((a,b)=>sc(b)-sc(a));
       const t=cand[0];
-      t.T=Math.min(t.minutes,d.wo.minutes);t.wo=buildWorkout(d.wo.type,t.T,d.wo.L,d.wo.lvl);t.key=true;t.movedFrom=d.i;d.movedTo=t.i;
+      /* de tijd die je die dag hebt, benut je: wat over is na de training wordt rustig doorrijden (tot anderhalf uur) */
+      t.T=Math.min(t.minutes,Math.max(d.wo.minutes,90));t.wo=buildWorkout(d.wo.type,t.T,d.wo.L,d.wo.lvl);t.key=true;t.movedFrom=d.i;d.movedTo=t.i;
     }
   }
   /* vandaag: hoe je je voelt (één tik op Home) gaat voor; anders kijkt de coach naar je vorm */

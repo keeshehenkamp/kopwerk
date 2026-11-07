@@ -279,11 +279,11 @@ function rodeTxt(plan){
 function moreTimeTip(plan){
   if(state.health||plan.ctx.rec||['rec','taper','event'].includes(plan.ctx.kind))return '';
   const chk=plan.ctx.toGo!=null&&state.event&&evCheck(state,state.event,new Date());
-  if(chk&&chk.st!=='ok')return `Advies voor ${esc(state.event.name)}: ${chk.day?`plan minstens één dag van ${durTxt(r5(chk.dayNeed*60))}; je langste dag is nu ${durTxt(r5(chk.day*60))}.`:`je langste trainingsrit moet naar ${durTxt(r5(chk.need*60))}, en daar kom je nu niet aan.`}`;
+  /* kort, zonder uitleg: alleen wat zou helpen */
+  if(chk&&chk.st!=='ok')return chk.day?`Plan als het kan één dag van ${durTxt(r5(chk.dayNeed*60))}.`:`Je langste rit moet naar ${durTxt(r5(chk.need*60))}.`;
   const av=plan.days.reduce((a,d)=>a+(d.event?0:d.minutes),0),ideal=Math.round(plan.coach.ideal*2)*30;
   if(!av||ideal-av<60||av>=ideal*.6)return '';
-  const long=plan.days.some(d=>d.minutes>=90);
-  return `Advies: voor je doel werkt ongeveer ${durTxt(ideal)} per week het best, je hebt nu ${durTxt(av)}. ${long?'Een extra dag':'Eén rit van anderhalf uur of langer'} levert het meeste op.`;
+  return plan.days.some(d=>d.minutes>=90)?`Meer tijd helpt: ongeveer ${durTxt(ideal)} per week.`:'Meer tijd helpt: één rit van anderhalf uur.';
 }
 /* de week: fase, voortgang, de dagen en je tijd per dag; met pijlen naar andere weken */
 function weekCard(today){
@@ -375,14 +375,21 @@ function libWo(t,min){
   const mon=mondayOf(new Date()),ctx=weekCtx(state,mon),fat={level:0},C=coachTargets(state,mon,ctx,fat);
   return buildWorkout(t,min,1,lvlFor(state,t,C,ctx,fat));
 }
+/* zwaarte van een soort training: uit het gevoel dat erbij hoort (1-10) */
+const ZWAAR=[['licht','Licht'],['middel','Gemiddeld'],['zwaar','Zwaar']],zwaarOf=t=>{const e=t==='ramptest'?10:rpeExp(t)??5;return e<=4?'licht':e<=6?'middel':'zwaar'};
+const LIB_MIN=[30,45,60,75,90,120];
 function libView(){
-  const l=ui.lib,on=l.cats||[],keys=Object.keys(TYPES).filter(k=>!on.length||on.includes(CAT_OF[k]));
+  const l=ui.lib,on=l.cats||[],zw=l.zw||[],n=on.length+zw.length;
+  const keys=Object.keys(TYPES).filter(k=>(!on.length||on.includes(CAT_OF[k]))&&(!zw.length||zw.includes(zwaarOf(k))));
+  const grp=(title,items)=>`<div class="libgrp" role="group" aria-label="${title}"><span>${title}</span><div>${items}</div></div>`;
   const cards=keys.map(k=>{const w=libWo(k,l.min);
     return `<button class="wcard" data-act="openWo" data-type="${k}"><h3>${esc(w.name)}</h3><div class="m">${durTxt(w.minutes)} · ${w.tss} TSS</div>${profileSVG(w.segs)}</button>`}).join('');
   return `<div class="head"><div><h1>Trainingen</h1></div>
-    <div class="row">${canRide()?'<button class="btn pri" data-act="vrij">Vrij rijden</button>':''}<label class="small muted">Duur ${sel('data-chg="libMin"',[30,45,60,75,90,120].map(m=>[m,durTxt(m)]),l.min)}</label></div></div>
-    <div class="libbar"><button class="btn small" data-act="libFilter" aria-expanded="${!!l.open}">Filter${on.length?` · ${on.length}`:''}</button><span class="small muted">${keys.length} trainingen</span></div>
-    ${l.open?`<div class="libfil" role="group" aria-label="Soort training">${CATS.filter(([k])=>k).map(([k,t])=>`<button class="btn small" data-act="libCat" data-c="${k}" aria-pressed="${on.includes(k)}">${t}</button>`).join('')}${on.length?'<button class="link small" data-act="libClear">Wissen</button>':''}</div>`:''}
+    ${canRide()?'<div class="row"><button class="btn pri" data-act="vrij">Vrij rijden</button></div>':''}</div>
+    <div class="libbar"><button class="btn small" data-act="libFilter" aria-expanded="${!!l.open}">Filter${n?` · ${n}`:''}</button><span class="small muted">${keys.length} trainingen · ${durTxt(l.min)}</span>${n?'<button class="link small" data-act="libClear">Wissen</button>':''}</div>
+    ${l.open?`<div class="libfil">${grp('Soort',CATS.filter(([k])=>k).map(([k,t])=>`<button class="btn small" data-act="libCat" data-c="${k}" aria-pressed="${on.includes(k)}">${t}</button>`).join(''))}
+      ${grp('Zwaarte',ZWAAR.map(([k,t])=>`<button class="btn small" data-act="libZw" data-z="${k}" aria-pressed="${zw.includes(k)}">${t}</button>`).join(''))}
+      ${grp('Tijd',LIB_MIN.map(m=>`<button class="btn small" data-act="libMin" data-m="${m}" aria-pressed="${l.min===m}">${durTxt(m)}</button>`).join(''))}</div>`:''}
     <div class="grid">${cards}</div>${canRide()?'<p style="margin-top:18px"><button class="link small" data-act="demo">Bekijk de demo</button></p>':''}`;
 }
 

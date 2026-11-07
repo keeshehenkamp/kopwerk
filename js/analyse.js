@@ -123,7 +123,7 @@ function ftpFromFeel(r){
 }
 /* ---------- gevoel en hartslag als controle ----------
    Verwachte zwaarte (1-10) per soort training. Voelt een training twee punten of meer zwaarder, dan is dat een signaal. */
-const RPE_EXP={herstelcad:2,herstelgolf:2,herstelspin:2,duursprint:6,duurss:6,tempolang:5,tempogolf:5,sslang:6,ssgolf:6,herstel:2,duur:4,souplesse:4,openers:4,tempo:5,kracht:6,sweetspot:6,duurtempo:6,duurklim:6,duurheuvels:6,klim:7,drempel:7,sprint:7,heuvels:8,vo2:8,anaeroob:8};
+const RPE_EXP={ssaanzet:6,oplopend:6,tempocad:5,herstelcad:2,herstelgolf:2,herstelspin:2,duursprint:6,duurss:6,tempolang:5,tempogolf:5,sslang:6,ssgolf:6,herstel:2,duur:4,souplesse:4,openers:4,tempo:5,kracht:6,sweetspot:6,duurtempo:6,duurklim:6,duurheuvels:6,klim:7,drempel:7,sprint:7,heuvels:8,vo2:8,anaeroob:8};
 /* verwacht gevoel: per soort, anders naar de groep; alleen voor trainingen uit de app, niet voor de FTP-test */
 const RPE_CAT={rustig:4,techniek:4,drempel:7,vo2:8,klim:7,kracht:7};
 const rpeExp=t=>RPE_EXP[t]??(TYPES[t]?RPE_CAT[CAT_OF[t]]:undefined);

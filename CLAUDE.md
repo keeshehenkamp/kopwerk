@@ -18,7 +18,8 @@ Elk scherm moet in één blik te lezen zijn. Loop deze lijst na vóór je een sc
 
 ## Coach en planning
 
-- De planner haalt het meeste uit de tijd die je hebt. Meer tijd alleen adviseren als dat echt nodig is.
+- De planner haalt het meeste uit de tijd die je hebt. Meer tijd alleen adviseren als dat echt nodig is, in één korte zin zonder uitleg.
+- Vrije tijd later in de week blijft niet leeg omdat er eerder een training gemist is: een gemiste dag telt niet als gebruikte trainingsdag of tijd.
 - De planning verandert elke week: niet verder vooruit tonen dan deze en volgende week.
 - Op zondag vraagt de app de tijd voor volgende week.
 - Het doel of evenement bepaalt de trainingen. De planner verandert het schema uit zichzelf en zegt dat erbij: fase uit wat je echt reed, rustig terug na een gat, kiezen wat te weinig gedaan is, accent verschuiven als FTP-tests niet stijgen, vandaag aanpassen op gevoel en vorm.
