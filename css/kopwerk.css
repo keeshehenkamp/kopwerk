@@ -516,6 +516,10 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .timeline{max-width:760px}
 .wkh{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:22px 2px 8px;min-height:44px}.timeline>.wkh:first-of-type{margin-top:4px}
 .wkl{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;color:var(--muted);margin:14px 2px 6px}.wkl span:first-child{font-weight:600}
+.wkf>summary{list-style:none;cursor:pointer;align-items:center;padding:6px 0}.wkf>summary::-webkit-details-marker{display:none}
+.wkf>summary span:last-child{margin-left:auto}.wkf>summary::after{content:'';flex:none;width:7px;height:7px;border:solid currentColor;border-width:0 2px 2px 0;transform:translateY(-2px) rotate(45deg);transition:transform .15s;margin:0 3px 0 4px}
+.wkf[open]>summary::after{transform:translateY(2px) rotate(-135deg)}.wkf>summary:hover{color:var(--ink)}
+.wkf+.wkf>summary{border-top:1px solid var(--line)}
 .timeline .month{margin-top:22px}
 .tl{padding:4px 12px}.tl .list>*{padding:12px 6px;min-height:56px}
 .tl .today{background:var(--sunk);border-radius:8px;border-bottom-color:transparent}

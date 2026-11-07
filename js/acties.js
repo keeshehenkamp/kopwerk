@@ -339,6 +339,8 @@ document.addEventListener('click',e=>{
   else a(el.dataset,el,e);
 });
 /* getypte waarden in je gegevens bewaren tot je opslaat */
+/* een week onder Geweest open of dicht: onthouden, zodat hij zo blijft als je terugkomt van een rit */
+document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.dataset&&d.dataset.wk){const o=ui.calOpen=ui.calOpen||{};if(d.open)o[d.dataset.wk]=1;else delete o[d.dataset.wk]}},true);
 document.addEventListener('input',e=>{const el=e.target;if(el&&el.id&&/^s-(?!theme)/.test(el.id))(ui.draft=ui.draft||{})[el.id]=el.value;if(el&&(el.id==='c-km'||el.id==='c-min'))runPreview()});
 document.addEventListener('change',e=>{
   const id=e.target.id||'';

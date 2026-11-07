@@ -59,14 +59,13 @@ function fitChart(path){
       ${dateTick(all[0].d,0)}${now>0&&now<N-1?`<span class="xl" style="left:${now/(N-1)*100}%">vandaag</span>`:''}${dateTick(all[N-1].d,1)}${scrubMarks}</div>
     <div class="legend"><span><i style="background:var(--acc)"></i>Fitheid</span><span><i style="background:var(--muted)"></i>Vermoeidheid</span><span><i class="dash"></i>Verwacht</span></div>`;
 }
-/* ---------- Kalender: één lijst om doorheen te scrollen: bovenaan wat nog komt, daaronder alles wat geweest is ----------
+/* ---------- Kalender: bovenaan wat nog komt, daaronder wat je deed, per week in te klappen ----------
    Verder vooruit plannen heeft geen zin: je tijd verandert elke week. */
-const MISS_WHY={tijd:'geen tijd',moe:'te moe',ziek:'ziek'};
 function calWhen(d){return `<span class="when"><b>${DAYS[dow(d)]}</b>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span>`}
 const calRide=(r,cls='')=>`<button data-act="openRide" data-id="${r.id}" class="${cls}">${calWhen(parseISO(r.date))}<span class="dot done">${I.check}</span><span class="w"><b>${esc(r.name)}</b><span>${clock(r.dur)}${r.type==='hardlopen'&&r.dist?` · ${nl((r.dist/1000).toFixed(1))} km`:''}${r.rpe?` · gevoel ${r.rpe}`:''}</span></span><span class="r">${r.tss} TSS</span></button>`;
 function kalenderView(){
   if(!state.setup)return setupView();
-  const today=new Date(),tk=iso(today),mon=mondayOf(today),real=state.rides.filter(r=>!r.sim),rep=state.missed||{};
+  const today=new Date(),tk=iso(today),mon=mondayOf(today),real=state.rides.filter(r=>!r.sim);
   const planned=(m,title,edit)=>{
     /* vandaag staat op Home; hier wat daarna komt */
     const k=iso(m),rows=planWeek(state,m,today).days.filter(d=>d.iso>tk).flatMap(d=>{
@@ -77,24 +76,15 @@ function kalenderView(){
     return `<div class="wkh"><h2>${title}</h2>${edit?`<button class="ibtn${open?' on':''}" data-act="calEdit" data-k="${k}" aria-pressed="${open}" aria-label="Tijd per dag, ${title.toLowerCase()}" title="Tijd per dag">${ICO.tijd}</button>`:''}</div>
       ${open?`<div class="card" style="margin-bottom:8px">${availEditor(k)}</div>`:''}
       <div class="card tl">${rows.length?`<div class="list">${rows.join('')}</div>`:'<p class="muted" style="padding:10px 0">Geen trainingen meer.</p>'}</div>`};
-  /* geweest: per week, nieuwste eerst, ook de voorbije dagen van deze week; alleen weken waarin iets gebeurde */
-  const weeks=new Map(),put=(k,x)=>{if(k>tk)return;const w=iso(mondayOf(parseISO(k)));if(!weeks.has(w))weeks.set(w,[]);weeks.get(w).push(x)};
-  for(const r of real)put(r.date,{k:r.date,ts:r.ts,r});
-  for(const [k,v] of Object.entries(rep))if(!real.some(r=>r.date===k))put(k,{k,ts:parseISO(k).getTime(),why:v.why});
-  /* geplande trainingen van de afgelopen dagen zonder rit en zonder antwoord: nog in te vullen, verplaatst of ziek */
-  {const seen=new Set();for(const off of[-7,0])for(const d of planWeek(state,addDays(mon,off),today).days)
-    if(d.wo&&!d.event&&d.iso<tk&&d.iso>=iso(addDays(today,-7))&&(!state.started||d.iso>=state.started)&&!rep[d.iso]&&!real.some(r=>r.date===d.iso)&&!seen.has(d.iso)){seen.add(d.iso);put(d.iso,{k:d.iso,ts:d.date.getTime(),plan:d})}}
-  let month='',log='';
+  /* geweest: alleen wat je echt deed, per week ingeklapt; een tik op de week klapt hem open */
+  const weeks=new Map();
+  for(const r of real){if(r.date>tk)continue;const w=iso(mondayOf(parseISO(r.date)));if(!weeks.has(w))weeks.set(w,[]);weeks.get(w).push(r)}
+  const open=ui.calOpen||{};let month='',log='';
   for(const w of [...weeks.keys()].sort().reverse()){
-    const m=parseISO(w),l=weeks.get(w).sort((a,b)=>b.ts-a.ts),rs=l.filter(x=>x.r).map(x=>x.r),sec=rs.reduce((a,r)=>a+r.dur,0),tss=rs.reduce((a,r)=>a+r.tss,0);
+    const m=parseISO(w),rs=weeks.get(w).sort((a,b)=>b.ts-a.ts),sec=rs.reduce((a,r)=>a+r.dur,0),tss=rs.reduce((a,r)=>a+r.tss,0);
     const mt=MONTHS[m.getMonth()].replace(/^./,c=>c.toUpperCase())+(m.getFullYear()!==today.getFullYear()?' '+m.getFullYear():'');
     if(mt!==month){month=mt;log+=`<div class="month">${mt}</div>`}
-    const rows=l.map(x=>{if(x.r)return calRide(x.r);
-      if(x.plan){const d=x.plan,info=d.movedTo!=null?`Verplaatst naar ${DAYS_L[d.movedTo]}`:d.health&&d.health.during?'Ziek of geblesseerd':'Nog invullen';
-        return `<button data-act="openDay" data-iso="${d.iso}" class="miss">${calWhen(d.date)}<span class="dot miss">${I.x}</span><span class="w"><b>${esc(d.wo.name)}</b><span>${info}</span></span></button>`}
-      const pl=(state.plog||{})[x.k],n=pl&&TYPES[pl.t]?TYPES[pl.t].name:'Training';
-      return `<div class="li miss">${calWhen(parseISO(x.k))}<span class="dot miss">${I.x}</span><span class="w"><b>${esc(n)}</b><span>Niet gedaan · ${MISS_WHY[x.why]||x.why}</span></span></div>`}).join('');
-    log+=`<div class="wkl"><span>Week ${weekNo(m)}</span><span>${rs.length?`${rs.length} ${rs.length===1?'rit':'ritten'} · ${durTxt(Math.round(sec/60))} · ${tss} TSS`:'Niet gereden'}</span></div><div class="card tl"><div class="list">${rows}</div></div>`;
+    log+=`<details class="wkf" data-wk="${w}"${open[w]?' open':''}><summary class="wkl"><span>Week ${weekNo(m)}</span><span>${rs.length} ${rs.length===1?'training':'trainingen'} · ${durTxt(Math.round(sec/60))} · ${tss} TSS</span></summary><div class="card tl"><div class="list">${rs.map(r=>calRide(r)).join('')}</div></div></details>`;
   }
   const tools=`<div class="row">${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Buitenrit toevoegen</button><button class="btn" data-act="openCheck" data-iso="${tk}" data-m="other" data-p="1">Iets anders</button></div>`;
   const strip=phaseStrip(today);
