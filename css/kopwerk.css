@@ -154,7 +154,7 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .phase i.peak{background:var(--z5)}.phase i.taper{background:var(--z4)}.phase i.event{background:var(--z6)}
 .phase i.now{outline:2px solid var(--ink);outline-offset:2px}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:10px}
-.legend i{display:inline-block;width:12px;height:8px;border-radius:2px;vertical-align:middle;margin-right:6px}.legend i.dash{height:0;width:16px;border-top:2px dashed var(--muted);border-radius:0}.legend i.box{border:1.5px dashed var(--muted);height:9px}
+.legend i{display:inline-block;width:12px;height:8px;border-radius:2px;vertical-align:middle;margin-right:6px}.legend i.dash{height:0;width:16px;border-top:2px dashed var(--muted);background:none;border-radius:0}.legend i.box{border:1.5px dashed var(--muted);height:9px}
 .wnav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .wnav h2{margin:0 4px}
 .drow{display:grid;grid-template-columns:58px 14px minmax(0,1fr) 120px 84px;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:12px 4px}

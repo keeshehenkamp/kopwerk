@@ -101,7 +101,8 @@ function settingsForm(first){
         <div class="wide"><label class="f" for="s-niv">Niveau</label>${sel('id="s-niv"',(niv||first?[]:[['','Nog niet gekozen']]).concat(NIV_KEYS.map(k=>[k,NIVEAU[k].name])),niv||(first?'recreant':''))}${nivNow?`<p class="small muted" style="margin-top:6px">${nivNow.desc}</p>`:''}</div>
         <div><label class="f" for="s-ftp">FTP in watt</label><input type="number" id="s-ftp" min="60" max="600" value="${first&&!state.setup?'':p.ftp}" placeholder="weet ik niet"></div>
         <div><label class="f" for="s-w">Gewicht in kg</label><input type="number" id="s-w" min="35" max="200" value="${p.weight}"></div>
-        ${first?'':`<div><label class="f" for="s-mhr">Maximale hartslag</label><input type="number" id="s-mhr" min="120" max="230" value="${p.maxHr||''}" placeholder="optioneel"></div>
+        ${first?'':`<div><label class="f" for="s-ftpgoal">Doel-FTP in watt</label><input type="number" id="s-ftpgoal" min="60" max="600" value="${p.ftpGoal||''}" placeholder="optioneel"></div>
+        <div><label class="f" for="s-mhr">Maximale hartslag</label><input type="number" id="s-mhr" min="120" max="230" value="${p.maxHr||''}" placeholder="optioneel"></div>
         <div><label class="f" for="s-snd">Geluid bij blokwissel</label>${sel('id="s-snd"',[[1,'Aan'],[0,'Uit']],p.sound?1:0)}</div>`}
       </div>${first?evNotice(cur):''}
 </div>
@@ -394,11 +395,11 @@ function libView(){
 }
 
 /* ---------- ritten ---------- */
-/* Vooruitgang: je FTP door de weken en wat je ritten erover zeggen. */
+/* Vooruitgang: je FTP door de weken, wat je ritten erover zeggen en waar het schema je naartoe brengt. */
 function progressCard(){
   const real=state.rides.filter(r=>!r.sim);if(!real.length)return '';
   const today=new Date(),mon=mondayOf(today),first=mondayOf(parseISO(real.reduce((a,r)=>r.date<a?r.date:a,real[0].date)));
-  const NW=Math.min(26,Math.max(6,Math.round(dayDiff(first,mon)/7)+1)),log=(state.ftpLog||[]).slice().sort((a,b)=>a.d<b.d?-1:1),pts=[];
+  const NW=Math.min(26,Math.max(6,Math.round(dayDiff(first,mon)/7)+1)),N0=NW,log=(state.ftpLog||[]).slice().sort((a,b)=>a.d<b.d?-1:1),pts=[];
   for(let w=NW-1;w>=0;w--){const m=addDays(mon,-7*w),e=iso(addDays(m,6));
     /* ingestelde FTP aan het eind van die week; schatting uit je beste 20 minuten of een FTP-test in de zes weken ervoor */
     let f=null,fd='';for(const r of real)if(r.date<=e&&r.date>=fd&&r.ftp){f=r.ftp;fd=r.date}for(const x of log)if(x.d<=e&&x.d>=fd){f=x.w;fd=x.d}
@@ -409,25 +410,36 @@ function progressCard(){
     const est=Math.round(Math.max(hard,mid));
     /* een schatting ver onder je FTP zegt alleen dat je niet voluit reed; die laten we weg */
     pts.push({m,f,est:est&&(!f||est>=f*.85)?est:null})}
-  const vals=pts.flatMap(p=>[p.f,p.est]).filter(v=>v),lo=Math.min(...vals)*.85,hi=Math.max(...vals)*1.06,y=v=>200-(v-lo)/(hi-lo)*200,N=pts.length;
-  const line=k=>{let d='',pen=false;pts.forEach((p,i)=>{const v=p[k];if(!v){pen=false;return}const X=(i/(N-1)*1000).toFixed(1);d+=k==='f'&&pen?`H${X}V${y(v).toFixed(1)}`:`${pen?'L':'M'}${X},${y(v).toFixed(1)}`;pen=true});return d};
-  const tk=[0,.5,1].map(q=>{const m=pts[Math.round(q*(N-1))].m;return `<span class="xl${q===0?' first':q===1?' last':''}" style="left:${q*100}%">${m.getDate()} ${MONTHS[m.getMonth()].slice(0,3)}</span>`}).join('');
-  const kg=state.profile.weight||75,now=state.profile.ftp,back=pts[Math.max(0,N-7)].f,est=pts[N-1].est;
-  const diff=back&&N>=7?now-back:null,wkg=now/kg;
+  const kg=state.profile.weight||75,now=state.profile.ftp,est=pts[N0-1].est,goal=state.profile.ftpGoal||0;
+  const e0=pts.slice(0,Math.max(1,N0-6)).reverse().map(p=>p.est).find(v=>v),grow=est&&e0&&N0>=7?est-e0:null,head=est||now,hk=head/kg;
+  /* verwacht: als je het schema volgt. Groei per week hangt af van je niveau (hoe sterker, hoe trager) en van of je fitheid
+     volgens het schema stijgt of daalt; samen nooit meer dan 12% erbij. Een schatting, geen belofte. */
+  const FW=clamp(Math.round(horizonDays(today)/7),goal?12:6,16),path=fitnessPath(today,FW*7),c0=Math.max(path.now.ctl,15);
+  const g0=hk<2.5?.008:hk<3.2?.006:hk<4?.004:.0025;let fv=head;
+  for(let k=1;k<=FW;k++){const p=path.fut[Math.min(path.fut.length-1,k*7-1)],ratio=p?p.ctl/c0:1;fv=Math.min(head*1.12,fv*(1+g0*clamp((ratio-.8)/.2,-.5,1.5)));pts.push({m:addDays(mon,7*k),fut:Math.round(fv)})}
+  const N=pts.length,vals=pts.flatMap(p=>[p.f,p.est,p.fut]).concat(goal?[goal]:[]).filter(v=>v),lo=Math.min(...vals)*.9,hi=Math.max(...vals)*1.05,y=v=>200-(v-lo)/(hi-lo)*200,X=i=>(i/(N-1)*1000).toFixed(1);
+  const line=k=>{let d='',pen=false;pts.forEach((p,i)=>{const v=p[k];if(!v){pen=false;return}d+=k==='f'&&pen?`H${X(i)}V${y(v).toFixed(1)}`:`${pen?'L':'M'}${X(i)},${y(v).toFixed(1)}`;pen=true});return d};
+  const futLine=`M${X(N0-1)},${y(head).toFixed(1)}`+pts.slice(N0).map((p,j)=>`L${X(N0+j)},${y(p.fut).toFixed(1)}`).join('');
+  const dt=m=>`${m.getDate()} ${MONTHS[m.getMonth()].slice(0,3)}`,q=(N0-1)/(N-1);
+  const tk=`<span class="xl first" style="left:0">${dt(pts[0].m)}</span><span class="xl" style="left:${q*100}%">vandaag</span><span class="xl last" style="left:100%">${dt(pts[N-1].m)}</span>`;
   /* een los punt (nog geen lijn): als stip */
-  const dots=pts.map((p,i)=>p.est&&!(pts[i-1]&&pts[i-1].est)&&!(pts[i+1]&&pts[i+1].est)?`<path d="M${(i/(N-1)*1000).toFixed(1)},${y(p.est).toFixed(1)}h.01" stroke="var(--acc)" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`:'').join('');
-  /* geschatte FTP voorop: de lijn laat zien hoe die groeit; de ingestelde FTP eronder ter vergelijking */
-  const estAt=i=>pts[i]&&pts[i].est,e0=pts.slice(0,Math.max(1,N-6)).reverse().map(p=>p.est).find(v=>v),grow=est&&e0&&N>=7?est-e0:null,head=est||now,hk=head/kg;
+  const dots=pts.map((p,i)=>p.est&&!(pts[i-1]&&pts[i-1].est)&&!(pts[i+1]&&pts[i+1].est)?`<path d="M${X(i)},${y(p.est).toFixed(1)}h.01" stroke="var(--acc)" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`:'').join('');
+  const hit=goal>head?pts.slice(N0).find(p=>p.fut>=goal):null,end=pts[N-1].fut;
+  const goalTxt=!goal?'':goal<=head?` · doel ${goal} W gehaald`:hit?` · doel ${goal} W rond ${dt(hit.m)}`:` · doel ${goal} W · over ${FW} weken ${end} W`;
   SCRUB.ftp=f=>{
-    const i=Math.round(f*(N-1)),p=pts[i];
-    return {x:i/(N-1),html:`<span>Week ${weekNo(p.m)} · ${p.m.getDate()} ${MONTHS[p.m.getMonth()].slice(0,3)}</span><span><b>${p.est||p.f||'–'} W</b> ${p.est?'geschat':'ingesteld'}</span>${p.est&&p.f?`<span>Ingesteld ${p.f} W</span>`:''}`};
+    const i=Math.round(f*(N-1)),p=pts[i],v=p.fut||p.est||p.f;
+    return {x:i/(N-1),html:`<span>Week ${weekNo(p.m)} · ${dt(p.m)}${i===N0-1?' · nu':''}</span><span><b>${v||'–'} W</b> ${p.fut?'verwacht':p.est?'geschat':'ingesteld'}</span>${goal&&v&&goal>v?`<span>Nog ${goal-v} W tot je doel</span>`:p.est&&p.f?`<span>Ingesteld ${p.f} W</span>`:''}`};
   };
-  const ftpCard=`<div class="card"><div class="bignum"><span>${est?'Geschatte FTP':'FTP'}</span><b>${head}<i>W</i></b><small>${nl(hk.toFixed(1))} W/kg · ${levelOf(hk)}${grow?` · <em class="${grow>0?'up':'down'}">${grow>0?'+':''}${grow} W</em> in zes weken`:''}${est&&est!==now?` · ingesteld ${now} W`:''}</small></div>
-    <div class="chart" data-scrub="ftp" style="height:150px;margin-top:14px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je geschatte FTP door de weken">
+  const ftpCard=`<div class="card"><div class="bignum"><span>${est?'Geschatte FTP':'FTP'}</span><b>${head}<i>W</i></b><small>${nl(hk.toFixed(1))} W/kg · ${levelOf(hk)}${grow?` · <em class="${grow>0?'up':'down'}">${grow>0?'+':''}${grow} W</em> in zes weken`:''}${goalTxt}</small></div>
+    <div class="chart" data-scrub="ftp" style="height:170px;margin-top:14px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je FTP: was, nu en verwacht">
+      <line x1="${X(N0-1)}" x2="${X(N0-1)}" y1="0" y2="200" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      ${goal?`<line x1="0" x2="1000" y1="${y(goal).toFixed(1)}" y2="${y(goal).toFixed(1)}" stroke="var(--ink)" stroke-opacity=".45" stroke-dasharray="2 4" vector-effect="non-scaling-stroke"/>`:''}
       <path d="${line('f')}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
-      <path d="${line('est')}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>${dots}</svg>${tk}${scrubMarks}</div>
-    <div class="legend">${pts.some(p=>p.est)?'<span><i style="background:var(--acc)"></i>Geschat uit je ritten en gevoel</span>':''}<span><i class="dash"></i>Ingesteld</span></div>
-    ${est?'':'<p class="small muted" style="margin-top:10px">Nog geen schatting. Die komt uit een FTP-test, een stevig blok of je gevoel na een rit.</p>'}</div>`;
+      <path d="${line('est')}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>${dots}
+      <path d="${futLine}" fill="none" stroke="var(--acc)" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/></svg>
+      ${goal?`<span class="yl" style="top:${y(goal)/2}%">Doel ${goal} W</span>`:''}${tk}${scrubMarks}</div>
+    <div class="legend">${pts.some(p=>p.est)?'<span><i style="background:var(--acc)"></i>Geschat</span>':''}<span><i class="dash"></i>Ingesteld</span><span><i class="dash" style="border-color:var(--acc)"></i>Verwacht</span></div>
+    ${est?'':'<p class="small muted" style="margin-top:10px">Nog geen schatting. Die komt uit een FTP-test, een stevig blok of je gevoel na een rit.</p>'}${goal?'':'<p class="small muted" style="margin-top:6px">Een doel-FTP stel je in bij Profiel.</p>'}</div>`;
   return {ftpCard};
 }
 function addModal(){
