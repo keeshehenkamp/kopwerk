@@ -62,7 +62,7 @@ function blockVal(b,v){const kg=state.profile.weight||75;return blockKind(b.goal
 function blockLine(){
   const b=state.block;if(!b||(state.event&&state.event.date&&state.event.date>=iso(new Date())))return '';
   const what=blockKind(b.goal)==='sprint'?'Sprint':blockKind(b.goal)==='wkg'?'Klimmen':'FTP';
-  return `<p class="small muted">${b.from?`${what} van ${blockVal(b,b.from)} naar ${blockVal(b,b.target)}`:'Je doel volgt uit je eerste sprints'}, in twaalf weken tot ${dtShort(parseISO(b.end))}. In de laatste week test je.</p>`;
+  return `<p class="small muted">${b.from?`${what} van ${blockVal(b,b.from)} naar ${blockVal(b,b.target)}`:'Je doel volgt uit je eerste sprints'}, in twaalf weken tot ${dtShort(parseISO(b.end))}. Halverwege en in de laatste week test je${blockKind(b.goal)==='sprint'?'':'; loop je voor, dan gaat het doel omhoog'}.</p>`;
 }
 function evNotice(cur){
   if(!cur.id||!/^\d{4}-\d{2}-\d{2}$/.test(cur.date))return '';
@@ -177,6 +177,7 @@ function coachLine(plan,today,rd){
   const test=plan.days.some(d=>d.test&&d.iso>=tk);
   if(plan.ctx.kind==='test')return {t:'Laatste week van je blok: rustiger, met een test om te zien wat het opleverde.'};
   const last=(state.blockLog||[]).slice(-1)[0],b=state.block;
+  if(b&&b.raised&&dayDiff(parseISO(b.raised.date),today)<7)return {t:`Je loopt voor op schema: nieuw doel ${blockVal(b,b.target)}.`};
   if(last&&b&&last.result&&dayDiff(parseISO(b.start),today)<7)return {t:`Blok klaar: ${blockVal(last,last.from)} naar ${blockVal(last,last.result)}${last.result>=last.target?', doel gehaald':''}. Nieuw doel: ${blockVal(b,b.target)}.`};
   if(fat.back!=null)return {t:fat.back>=14?`${fat.back} dagen niet gereden: je bouwt rustig weer op.`:'Weinig gereden de laatste weken: je bouwt rustig weer op.'};
   if(R&&R.k==='diep')return {t:'Het voelt zwaar en je hartslag blijft laag: je bent waarschijnlijk diep vermoeid. Deze week rustiger.'};

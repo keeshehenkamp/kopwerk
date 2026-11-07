@@ -36,7 +36,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 - `profile.niveau`: beginner, recreant, gevorderd of ervaren. Bepaalt het startvolume en de eerste trede; zodra je FTP bekend is, weegt je watt per kilo mee. De planlog bewaart per dag ook `b`, de blokduur van een lange rit met klimmen.
 
 - Ritten krijgen `prog0`: de trede-stand vóór die rit, zodat een tijdelijke verlaging of verhoging niet als blijvend telt. `coachNo`: weken waarin je een voorstel van de coach afsloeg.
-- `block`: het doelblok van twaalf weken zonder evenement (`goal`, `start`, `end`, `from`, `target`), door de coach gekozen in `ensureBlock`; afgeronde blokken staan in `blockLog` met `result`. De laatste week heet Testweek (`kind: 'test'`).
+- `block`: het doelblok van twaalf weken zonder evenement (`goal`, `start`, `end`, `from`, `target`), door de coach gekozen in `ensureBlock`; afgeronde blokken staan in `blockLog` met `result`. De laatste week heet Testweek (`kind: 'test'`). Rond week 6 komt een tussentest; ligt die boven het schema, dan gaat `target` omhoog (`raised`, `tested`). `v: 2` = doel volgens de huidige regels.
 - Hardlopen is een rit met `type: 'hardlopen'`, `manual: true` en `dist` in meters.
 - `tools/planner-test/`: scenario's die de planner doorrekenen (volgen, overslaan, gevoel, hartslag). Open `index.html` via een lokale webserver.
 

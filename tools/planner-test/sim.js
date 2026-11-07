@@ -59,6 +59,7 @@ const SC={
  T_noEvent_30wk:{noEvent:true,weeks:30,goal:'ftp'},
  Z_blok_ftp:{noEvent:true,weeks:26,goal:'ftp',block:true},
  Z_blok_sprint:{noEvent:true,weeks:14,goal:'sprint',block:true},
+ Z_blok_snel:{noEvent:true,weeks:26,goal:'ftp',block:true,ftp:f=>Math.round(f*1.07)},
  M_noEvent_volgt:{noEvent:true,weeks:16,goal:'ftp'},
  N_noEvent_helft:{noEvent:true,weeks:16,goal:'ftp',skip:(w,R)=>R()<.5},
  O_noEvent_weinig:{noEvent:true,weeks:16,goal:'ftp',skip:(w,R)=>R()<.7},

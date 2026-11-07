@@ -172,7 +172,8 @@ function buildState(st,monday){
    met een test: zo zie je wat het blok opleverde, en daarna begint het volgende blok vanaf waar je dan staat.
    Wat haalbaar is in twaalf weken (richtwaarden van coaches, geen harde wetenschap): wie begint of terugkomt 8-15%,
    gevorderd 3-8%, wie al jaren gestructureerd traint 1-5%. Sprintvermogen 4-7% in studies van 4-12 weken.
-   Minder tijd dan bij je niveau past: een kleiner doel. */
+   Het doel zit aan de ambitieuze kant van die marges; minder tijd dan bij je niveau past haalt er hooguit een vijfde af.
+   Laat een test halverwege zien dat je voor ligt, dan schuift het doel mee omhoog (nooit omlaag). */
 const BLOCK_WEEKS=12;
 const blockKind=g=>g==='sprint'?'sprint':g==='klimmen'?'wkg':'ftp';
 function blockMetric(st,goal,today){
@@ -181,8 +182,8 @@ function blockMetric(st,goal,today){
 }
 function blockTarget(st,goal,from){
   if(!from)return 0;
-  const wkg=st.profile.ftp/clamp(st.profile.weight||75,35,200),g=blockKind(goal)==='sprint'?.06:wkg<2.5?.1:wkg<3.2?.07:wkg<4?.05:.03;
-  const nv=NIVEAU[st.profile.niveau],avail=(st.avail||[]).reduce((a,m)=>a+m,0)/60,tf=nv?clamp(avail/nv.base,.6,1):1;
+  const wkg=st.profile.ftp/clamp(st.profile.weight||75,35,200),g=blockKind(goal)==='sprint'?.06:wkg<2.5?.12:wkg<3.2?.08:wkg<4?.05:.03;
+  const nv=NIVEAU[st.profile.niveau],avail=(st.avail||[]).reduce((a,m)=>a+m,0)/60,tf=nv?clamp(avail/nv.base,.8,1):1;
   return r5(from*(1+g*tf));
 }
 /* zorgt dat er een blok loopt; true als er iets veranderde (dan opslaan) */
@@ -191,12 +192,19 @@ function ensureBlock(st,today){
   const b=st.block,tk=iso(today),goal=st.profile.goal||'fit';
   if(b&&b.goal===goal&&tk<=b.end){
     /* sprint zonder meting bij de start: het doel volgt uit je eerste sprints */
-    if(!b.from){const m=blockMetric(st,goal,today);if(m){b.from=m;b.target=blockTarget(st,goal,m);return true}}
+    if(!b.from){const m=blockMetric(st,goal,today);if(m){b.from=m;b.target=blockTarget(st,goal,m);b.v=2;return true}}
+    /* een blok van voor de nieuwe doelen: opnieuw uitrekenen vanaf hetzelfde begin */
+    if(!b.v){b.target=Math.max(b.target,blockTarget(st,goal,b.from));b.v=2;return true}
+    /* een FTP-test in dit blok boven het schema: het verschil komt bij het doel */
+    if(blockKind(goal)!=='sprint'){
+      const t=(st.rides||[]).filter(r=>!r.sim&&r.type==='ramptest'&&r.date>=b.start&&r.date<=tk&&r.date!==b.tested&&ftpEstimate(r)).sort((x,y)=>x.date<y.date?1:-1)[0];
+      if(t){b.tested=t.date;const lead=ftpEstimate(t)-blockPath(b,parseISO(t.date));if(lead>=3&&t.date<iso(addDays(parseISO(b.end),-6))){b.raised={date:t.date,old:b.target};b.target=r5(b.target+lead)}return true}
+    }
     return false;
   }
   if(b&&b.goal===goal&&tk>b.end)(st.blockLog=st.blockLog||[]).push(Object.assign({},b,{result:blockMetric(st,goal,parseISO(b.end))}));
   const start=iso(mondayOf(today)),from=blockMetric(st,goal,today);
-  st.block={goal,start,end:iso(addDays(parseISO(start),BLOCK_WEEKS*7-1)),from,target:blockTarget(st,goal,from)};
+  st.block={goal,start,end:iso(addDays(parseISO(start),BLOCK_WEEKS*7-1)),from,target:blockTarget(st,goal,from),v:2};
   return true;
 }
 /* het pad van het blok: vooraan gaat het snelst, naar het eind toe vlakt het af */
@@ -508,9 +516,11 @@ function planWeek(st,monday,today){
       const calm=rec||ctx.kind==='base',onTime=last?(since>=42&&calm)||since>=56:calm||iso(monday)===st.planStart||since>=42;
       /* testweek aan het eind van het doelblok: altijd een test, tenzij je net getest hebt */
       const blockTest=ctx.kind==='test'&&since>=14;
+      /* halverwege het blok een tussentest, in een rustige week tussen week 5 en 7 (anders in week 7): zo schuift het doel op tijd mee */
+      const bw=ctx.toGo==null&&st.block?Math.floor(dayDiff(parseISO(st.block.start),monday)/7):-1,midTest=bw>=4&&bw<=6&&(rec||bw===6)&&!rides.some(r=>!r.sim&&r.type==='ramptest'&&r.date>=st.block.start);
       /* binnen vijf weken komt de testweek van het blok: dan geen extra test ertussen */
       const soon=ctx.toGo==null&&st.block&&ctx.kind!=='test'&&dayDiff(monday,parseISO(st.block.end))<=35&&dayDiff(monday,parseISO(st.block.end))>=0;
-      const due=brk||(fat.back==null&&fat.level<2&&(blockTest||(!soon&&(fitter||tooHigh||onTime))));
+      const due=brk||(fat.back==null&&fat.level<2&&(blockTest||midTest||(!soon&&(fitter||tooHigh||onTime))));
       const td=due&&H.filter(d=>d.iso>=tk).sort((a,b)=>a.i-b.i)[0];
       if(td){td.wo=buildWorkout('ramptest',45,0);td.key=true;td.test=true}
     }
