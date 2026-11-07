@@ -56,6 +56,9 @@ Een route in `ROUTES` (js/wereld.js) is een ronde van een heel aantal kilometers
 
 ## Als app op je telefoon
 
+Bij openen en bij terugkomen in de app kijkt Kopwerk of `index.html` een nieuwer versienummer heeft (`checkVersion` in `js/acties.js`). Zo ja, dan laadt hij de nieuwe versie, behalve tijdens een rit. Daarom altijd `?v=` ophogen bij een wijziging.
+
+
 `manifest.webmanifest` en de iconen in `icons/` maken dat je Kopwerk via "Zet op beginscherm" als losse app kunt openen, zonder browserbalken. Let op: op een iPhone heeft die app een eigen opslag, los van Safari. Neem je gegevens mee met een back-up (Profiel, Je gegevens: downloaden in Safari, terugzetten in de app) of door in te loggen met Google (Profiel, Koppelingen).
 
 ## Lokaal testen

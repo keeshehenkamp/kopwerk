@@ -391,9 +391,29 @@ window.addEventListener('beforeunload',e=>{if(P&&(P.mode==='run'||P.mode==='paus
     if(ch){save(false);if(!P)render()}
   }catch(e){}
   try{const a=await idb.get('active');if(a&&a.rec&&a.rec.p&&a.rec.p.length>=60&&a.wo){ui.pending=a;if(!P)render()}}catch(e){}
+  checkVersion();
   /* koppelingen: inloggen (synchroniseert vanzelf), terugkomst van Strava, en elk uur nieuwe Strava-ritten */
   fbInit().catch(()=>{});
+  /* net bijgewerkt (zie checkVersion): het versienummer weer uit de adresbalk */
+  if(new URLSearchParams(location.search).has('u'))history.replaceState(history.state,'',location.pathname+location.hash);
   /* uitnodiging voor een groepsrit: ?samen=CODE */
   {const sc=new URLSearchParams(location.search).get('samen');if(sc){history.replaceState(history.state,'',location.pathname+location.hash);if(state.setup)startVrij(sc)}}
   if(stravaReady()&&!(await stravaCallback())&&state.strava&&Date.now()-(state.strava.checked||0)>36e5)stravaFetch(false);
 })();
+/* ---------- nieuwe versie ----------
+   Een app op je beginscherm of in een eigen venster houdt de pagina vast. Bij openen en bij terugkomen kijkt Kopwerk
+   of er een nieuwere versie online staat; zo ja, dan laadt hij die meteen. Niet tijdens een rit. */
+const APP_V=((document.querySelector('script[src*="acties.js"]')||{}).src||'').split('v=')[1]||'';
+let verLast=0;
+async function checkVersion(){
+  if(!APP_V||P||Date.now()-verLast<6e4||!/^https?:$/.test(location.protocol))return;verLast=Date.now();
+  try{
+    const t=await(await fetch('./',{cache:'reload'})).text(),nv=(t.match(/acties\.js\?v=([\w.]+)/)||[])[1];
+    if(!nv||nv===APP_V)return;
+    /* één poging per versie, zodat een trage server geen lus geeft */
+    let tried='';try{tried=sessionStorage.getItem('kopwerk.nv')||''}catch(e){}
+    if(tried===nv)return;try{sessionStorage.setItem('kopwerk.nv',nv)}catch(e){}
+    location.replace(location.pathname+'?u='+nv+location.hash);
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkVersion()});
