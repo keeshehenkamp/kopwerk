@@ -68,18 +68,17 @@ function kalenderView(){
   if(!state.setup)return setupView();
   const today=new Date(),tk=iso(today),mon=mondayOf(today),real=state.rides.filter(r=>!r.sim),rep=state.missed||{};
   const planned=(m,title,edit)=>{
-    const k=iso(m),rows=planWeek(state,m,today).days.filter(d=>d.iso>=tk).flatMap(d=>{
-      const rs=real.filter(r=>r.date===d.iso),td=d.iso===tk?'today':'';
-      if(rs.length)return rs.map(r=>calRide(r,td));
-      if(d.event)return [`<div class="li ${td}">${calWhen(d.date)}<span class="dot ev"></span><span class="w"><b>${esc(d.event)}</b><span>Evenement</span></span></div>`];
+    /* vandaag staat op Home; hier wat daarna komt */
+    const k=iso(m),rows=planWeek(state,m,today).days.filter(d=>d.iso>tk).flatMap(d=>{
+      if(d.event)return [`<div class="li">${calWhen(d.date)}<span class="dot ev"></span><span class="w"><b>${esc(d.event)}</b><span>Evenement</span></span></div>`];
       if(!d.wo)return [];
-      return [`<button data-act="openDay" data-iso="${d.iso}" class="${td}">${calWhen(d.date)}<span class="dot" style="background:var(--z${woZone(d.wo)})"></span><span class="w"><b>${esc(d.wo.name)}</b><span>${durTxt(d.wo.minutes)}</span></span><span class="r">${d.wo.tss} TSS</span></button>`]});
+      return [`<button data-act="openDay" data-iso="${d.iso}">${calWhen(d.date)}<span class="dot" style="background:var(--z${woZone(d.wo)})"></span><span class="w"><b>${esc(d.wo.name)}</b><span>${durTxt(d.wo.minutes)}</span></span><span class="r">${d.wo.tss} TSS</span></button>`]});
     const open=ui.calEdit===k;
     return `<div class="wkh"><h2>${title}</h2>${edit?`<button class="ibtn${open?' on':''}" data-act="calEdit" data-k="${k}" aria-pressed="${open}" aria-label="Tijd per dag, ${title.toLowerCase()}" title="Tijd per dag">${ICO.tijd}</button>`:''}</div>
       ${open?`<div class="card" style="margin-bottom:8px">${availEditor(k)}</div>`:''}
       <div class="card tl">${rows.length?`<div class="list">${rows.join('')}</div>`:'<p class="muted" style="padding:10px 0">Geen trainingen meer.</p>'}</div>`};
   /* geweest: per week, nieuwste eerst, ook de voorbije dagen van deze week; alleen weken waarin iets gebeurde */
-  const weeks=new Map(),put=(k,x)=>{if(k>=tk)return;const w=iso(mondayOf(parseISO(k)));if(!weeks.has(w))weeks.set(w,[]);weeks.get(w).push(x)};
+  const weeks=new Map(),put=(k,x)=>{if(k>tk)return;const w=iso(mondayOf(parseISO(k)));if(!weeks.has(w))weeks.set(w,[]);weeks.get(w).push(x)};
   for(const r of real)put(r.date,{k:r.date,ts:r.ts,r});
   for(const [k,v] of Object.entries(rep))if(!real.some(r=>r.date===k))put(k,{k,ts:parseISO(k).getTime(),why:v.why});
   /* geplande trainingen van de afgelopen dagen zonder rit en zonder antwoord: nog in te vullen, verplaatst of ziek */

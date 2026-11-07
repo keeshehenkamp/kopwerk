@@ -42,7 +42,7 @@ function shift(d){
   for(const e of document.querySelectorAll('.pgear'))e.textContent=g;
 }
 /* cadansadvies per blok: wat de training vraagt, anders passend bij het soort blok; 5 rpm eromheen is goed */
-const CLIMB_TYPES=['klim','heuvels','colsim','staand','muurtjes','duurklim','kracht','kasseien','duurkracht'];
+const CLIMB_TYPES=['klim','heuvels','colsim','staand','muurtjes','duurklim','kracht','kasseien','duurkracht','heuveltrein','klimtrappen','tweecols','heuvelstart','kasseitempo'];
 function cadAdvice(s){
   if(s.cad)return s.cad;
   if(s.kind==='work')return CLIMB_TYPES.includes(P.wo.type)?75:Math.max(s.a,s.b)>=1.05?95:90;

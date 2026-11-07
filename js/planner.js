@@ -46,9 +46,22 @@ Object.assign(WHY,{
   kasseien:'Minutenlang vermogen rond je drempel op lage cadans, zoals op een kasseistrook.',
   krachtsprint:'Kracht en explosiviteit uit een lage cadans, met weinig vermoeidheid.',
   duurkracht:'Rustig rijden op lage cadans laat je spieren wennen aan veel kracht per trap, zoals op een lange klim.',
-  cadansladder:'Een hogere cadans maakt je trapbeweging soepeler en ronder.'
+  cadansladder:'Een hogere cadans maakt je trapbeweging soepeler en ronder.',
+  herstelcad:'Doorbloeding zonder belasting: daar herstel je van.',herstelgolf:'Doorbloeding zonder belasting: daar herstel je van.',herstelspin:'Doorbloeding zonder belasting, met wat aandacht voor je trapbeweging.',
+  duurgolf:'Rustige uren vormen de basis waarop de zware trainingen hun effect hebben.',duuropbouw:'Rustige uren vormen de basis; het einde went je aan doortrappen als je al even onderweg bent.',
+  duursprint:'Sprints in een lange rit houden je benen wakker op rustige uren.',duurss:'Veel uren met stevige blokken: zo blijf je vermogen leveren als je al even onderweg bent.',
+  spinups:'Een hogere cadans maakt je trapbeweging soepeler.',cadansgolf:'Wisselen van cadans maakt je trapbeweging breder inzetbaar.',
+  openers30:'Korte prikkels houden de benen scherp zonder nieuwe vermoeidheid.',scherp:'Korte blokken op je drempel houden het gevoel vast zonder nieuwe vermoeidheid.',prikkels:'Korte prikkels houden de benen scherp zonder nieuwe vermoeidheid.',
+  sslang:'Veel minuten onder je drempel in één stuk: het lijkt op lang klimmen of hard doorrijden.',ssgolf:'Wisselen rond sweet spot houdt je lang bezig zonder dat het voelt als één lang blok.',
+  drempelkort:'Veel tijd op je FTP, verdeeld over korte blokken.',tijdrit:'Eén gelijkmatig blok traint precies het vermogen dat je lang volhoudt.',
+  tempolang:'Lang hetzelfde vermogen vasthouden: dat wil je in elke lange rit kunnen.',tempogolf:'Tempo met korte versnellingen, zoals in een groep of op golvende wegen.',
+  vo2oplopend:'Eindigen boven het punt waar het zwaar wordt, vergroot je maximale zuurstofopname.',minuut:'Veel korte harde stukken: dicht bij je maximale zuurstofopname met telkens wat rust.',tabata:'Zeer kort en voluit: traint herhaald aanzetten met bijna geen herstel.',
+  heuveltrein:'Klimmetjes die snel op elkaar volgen: je leert herstellen terwijl je doorrijdt.',klimtrappen:'Rustig beginnen en sterk eindigen: zo rijd je een klim die steeds steiler wordt.',tweecols:'Na een lange klim nog een lange klim: dat vraagt goed indelen.',
+  heuvelstart:'Kracht vanuit een lage cadans, zoals op een steile helling.',zwaarlicht:'Afwisselend kracht en souplesse op hetzelfde vermogen.',langesprint:'Een sprint volhouden tot de streep vraagt meer dan een korte explosie.',sprintblok:'Sprinten op vermoeide benen, zoals in een finale.',
+  kasseitempo:'Kracht blijven zetten op lage cadans, ook als het zwaar wordt.',koersdag:'Wisselend tempo met korte versnellingen, zoals in een wedstrijd.',demarrage:'Na een aanval moet je kunnen doorrijden: daar traint dit op.'
 });
 const NEED={tempo:3,klim:3,kracht:3,sweetspot:3,drempel:2,heuvels:2,vo2:1,anaeroob:1,sprint:1,
+  sslang:3,ssgolf:3,drempelkort:2,tijdrit:2,tempolang:3,tempogolf:3,vo2oplopend:1,minuut:1,tabata:1,heuveltrein:2,klimtrappen:3,tweecols:3,heuvelstart:1,zwaarlicht:3,langesprint:1,sprintblok:2,kasseitempo:2,koersdag:2,demarrage:2,
   overunder:2,drempelramp:2,ssaanzet:3,oplopend:3,tempocad:3,i3015:1,i4020:1,piramide:1,microbursts:1,groepsrit:2,fartlek:2,colsim:3,staand:2,topsprint:2,muurtjes:2,kasseien:2,krachtsprint:1};
 /* Je niveau bij de start: hoeveel uur per week past en hoe lang je langste rit nu is. Na de eerste FTP-test
    en een paar weken ritten weegt wat je echt doet mee. */
@@ -62,9 +75,11 @@ const NIV_KEYS=Object.keys(NIVEAU);
 const nivIdx=st=>{const i=NIV_KEYS.indexOf(st.profile.niveau);return i<0?2:i};
 /* Varianten per soort prikkel: zo krijg je niet elke week dezelfde training. De eerste is de meest specifieke;
    in de piekweken voor je evenement kiest de coach die. */
-const FAM={sweetspot:['sweetspot','ssaanzet','oplopend'],drempel:['drempel','overunder','drempelramp'],tempo:['tempo','tempocad','oplopend'],
-  vo2:['vo2','i3015','piramide','i4020'],anaeroob:['anaeroob','microbursts','i4020'],heuvels:['heuvels','topsprint','muurtjes'],
-  klim:['klim','staand','colsim'],kracht:['kracht','krachtsprint'],sprint:['sprint','krachtsprint'],kasseien:['kasseien','muurtjes']};
+const FAM={sweetspot:['sweetspot','ssaanzet','oplopend','sslang','ssgolf'],drempel:['drempel','overunder','drempelramp','drempelkort','tijdrit'],tempo:['tempo','tempocad','oplopend','tempolang','tempogolf'],
+  vo2:['vo2','i3015','piramide','i4020','vo2oplopend'],anaeroob:['anaeroob','microbursts','i4020','minuut','tabata'],heuvels:['heuvels','topsprint','muurtjes','heuveltrein'],
+  klim:['klim','staand','colsim','klimtrappen','tweecols'],kracht:['kracht','krachtsprint','heuvelstart','zwaarlicht'],sprint:['sprint','krachtsprint','langesprint','sprintblok'],kasseien:['kasseien','muurtjes','kasseitempo']};
+/* het pakket van een training: waar je met één knop tussen wisselt, alleen wat bij je niveau past */
+const packOf=(t,st)=>{const p=PACKS.find(x=>x.includes(t))||[t],nv=nivIdx(st);return p.filter(k=>TYPES[k]&&(TYPES[k].min||0)<=nv)};
 function pickType(st,prof,base,monday,k,used,peak){
   const rough=prof===EVENTS.heuvels&&st.event&&evRough(st.event);
   const fam=(rough&&base==='heuvels'?['muurtjes','kasseien','heuvels']:null)||(prof.fam&&prof.fam[base])||FAM[base]||[base];
@@ -197,7 +212,7 @@ function rideLoad(r,C){
 }
 /* ================= coach ================= */
 const r5=x=>Math.round(x/5)*5;
-const LONG_TYPES=['duurklim','duurtempo','duurheuvels'];
+const LONG_TYPES=['duurklim','duurtempo','duurheuvels','duursprint','duurss'];
 const INTENSE=['vo2','anaeroob','sprint','heuvels'];
 function combos(arr,k){
   const out=[];if(k<=0)return [[]];
@@ -482,6 +497,8 @@ function planWeek(st,monday,today){
       d.T=T;d.wo=buildWorkout(t,T,L,lv(t));left-=d.wo.minutes;
     });
   }
+  /* gewisseld met de knop: de dag blijft wat hij was, even lang en even zwaar bedoeld; alleen de training zelf is een andere uit hetzelfde pakket */
+  for(const d of days)if(d.wo&&!d.event&&!d.logged){d.planType=d.wo.type;if(d.o.swap&&TYPES[d.o.swap]&&d.o.swap!==d.wo.type&&packOf(d.wo.type,st).includes(d.o.swap)){const w=d.wo;d.wo=buildWorkout(d.o.swap,w.minutes,w.L,lv(d.o.swap),{b:blkFor(d.o.swap)})}}
   /* op een dag waarop alleen rustig mag: een herstelrit, of niets */
   for(const d of days)if(d.easyOnly&&d.wo&&!d.event){if(d.minutes<20)d.wo=null;else if(d.key||d.long||!['herstel','duur'].includes(d.wo.type))d.wo=buildWorkout('herstel',Math.min(d.minutes,Math.max(30,d.wo.minutes)),0);if(d.wo)d.T=d.wo.minutes;d.key=false;d.long=false;d.test=false}
   /* gemiste of afgemelde trainingen in de lopende week: een zware training schuift door naar een latere dag,

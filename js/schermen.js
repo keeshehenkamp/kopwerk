@@ -210,8 +210,8 @@ function dayCard(d,tk){
     const note=d.adj?`<div class="note moved">${esc(d.adj)}</div>`:d.missed?`<div class="note late">${d.movedTo!=null?miss+', verplaatst naar '+DAYS_L[d.movedTo]:d.why==='moe'?miss+'. De dagen erna zijn lichter.':miss}</div>`:d.movedFrom!=null?`<div class="note moved">Verplaatst van ${DAYS_L[d.movedFrom]}</div>`:'';
     const already=otherLine(d);
     const act=d.iso>tk?'':d.missed&&d.why?`<div class="row" style="margin-top:8px"><button class="link small" data-act="undoMissed" data-iso="${d.iso}">Toch niet: melding intrekken</button></div>`
-      :d.iso===tk&&!d.missed?(canRide()?`<div class="row" style="margin-top:10px"><button class="btn pri big" data-act="startDay" data-iso="${d.iso}" style="flex:1">Start training</button><button class="btn big" data-act="openMissed" data-iso="${d.iso}">Lukt niet</button></div>${already}`
-        :`<div class="noride"><span class="small muted">Rijden met je trainer doe je op je laptop, in Chrome of Edge.</span><button class="btn" data-act="openMissed" data-iso="${d.iso}">Lukt niet</button></div>${already}`)
+      :d.iso===tk&&!d.missed?(canRide()?`<div class="row" style="margin-top:10px"><button class="btn pri big" data-act="startDay" data-iso="${d.iso}" style="flex:1">Start training</button>${swapBtn(d,'btn big')}<button class="btn big" data-act="openMissed" data-iso="${d.iso}">Lukt niet</button></div>${already}`
+        :`<div class="noride"><span class="small muted">Rijden met je trainer doe je op je laptop, in Chrome of Edge.</span><span class="row">${swapBtn(d)}<button class="btn" data-act="openMissed" data-iso="${d.iso}">Lukt niet</button></span></div>${already}`)
       :`<div class="row" style="margin-top:8px"><button class="btn small" data-act="openMissed" data-iso="${d.iso}">Niet gedaan melden</button></div>`;
     return `<button class="wcard" data-act="openDay" data-iso="${d.iso}"><div class="t"><div><h3>${esc(d.wo.name)}</h3><div class="m">${metaOf(d.wo)}</div>${note}</div><span class="chev">${I.r}</span></div>${profileSVG(d.wo.segs)}</button>
       ${act}`;
@@ -337,20 +337,10 @@ function modalWo(){
   const day=plan.days.find(x=>x.iso===m.iso);
   return {wo:day.wo,day};
 }
-/* andere training met hetzelfde idee: uit dezelfde soort (CAT_OF), even lang, de zwaarte die het dichtst bij ligt voorop */
-function altsHTML(w,day){
-  const cat=CAT_OF[w.type];
-  if(!cat||cat==='test'||day.iso<iso(new Date())||rideOn(day.iso))return '';
-  /* elk voorbeeld zoals het schema hem echt zou maken (eigen trede en lengte), dus door dezelfde planner */
-  const asPlan=k=>{const ov=Object.assign({},state.overrides,{[day.iso]:Object.assign({},day.o,{type:k})});
-    const d=planWeek(Object.assign({},state,{overrides:ov}),mondayOf(day.date),new Date()).days.find(x=>x.iso===day.iso);return d&&d.wo};
-  const alts=Object.keys(TYPES).filter(k=>CAT_OF[k]===cat&&k!==w.type&&k!=='ramptest').map(asPlan)
-    .filter(x=>x&&x.type!==w.type).sort((a,b)=>Math.abs(a.tss-w.tss)-Math.abs(b.tss-w.tss)).slice(0,4);
-  if(!alts.length)return '';
-  const cn=(CATS.find(c=>c[0]===cat)||[,''])[1].toLowerCase();
-  return `<div class="card"><h3>Wisselen</h3><p class="small muted" style="margin-top:3px">Ook ${esc(cn)}, ongeveer even lang.</p>
-    <div class="alts">${alts.map(a=>`<button data-act="pickAlt" data-t="${a.type}"><span class="w"><b>${esc(a.name)}</b><span>${durTxt(a.minutes)} · ${a.tss} TSS</span></span>${profileSVG(a.segs)}<span class="btn small">Kies</span></button>`).join('')}</div>
-    ${day.o.type?'<button class="link small" data-act="pickAlt" data-t="" style="margin-top:10px">Terug naar de training van het schema</button>':''}</div>`;
+/* één knop: een andere training uit hetzelfde pakket, op dezelfde plek */
+function swapBtn(d,cls='btn'){
+  if(!d||!d.wo||!d.planType||d.logged||d.iso<iso(new Date())||packOf(d.planType,state).length<2)return '';
+  return `<button class="${cls}" data-act="swapWo" data-iso="${d.iso}">Wissel</button>`;
 }
 function trainingView(){
   const x=modalWo();if(!x){ui.view='vandaag';return vandaagView()}
@@ -360,9 +350,8 @@ function trainingView(){
   let adjust='';
   if(day){
     const types=[['','Automatisch']].concat(Object.entries(TYPES).filter(([k])=>k!=='ramptest').map(([k,t])=>[k,t.name]));
-    /* op een trainingsdag staat Wisselen al bovenaan; elke andere soort kiezen zit ingeklapt */
     const ty=`<div class="form"><div><label class="f" for="m-type">Soort training</label>${sel('id="m-type" data-chg="ovType"',w?types:[['','Rust']].concat(types.slice(1)),day.o.type||'')}</div></div>`;
-    adjust=w?`<details class="card fold"><summary>Een andere soort kiezen</summary><div style="margin-top:12px">${ty}</div></details>`:`<div class="card stack"><h3>Toch trainen</h3>${ty}</div>`;
+    adjust=w?(day.o.type?'<button class="link small" data-act="pickAlt" data-t="">Terug naar de training van het schema</button>':''):`<div class="card stack"><h3>Toch trainen</h3>${ty}</div>`;
   }
   if(!w)return `${back}<div class="head"><div><h1>Rustdag</h1><p>${title}</p></div></div>
     <div class="detail">${adjust}</div>`;
@@ -374,8 +363,7 @@ function trainingView(){
       <div><div class="nrow"><div><b>${durTxt(w.minutes)}</b><span>duur</span></div><div><b>${w.tss}</b><span>TSS</span></div></div>
         </div>
       ${day&&day.iso<iso(new Date())&&!rideOn(day.iso)?`<div class="card"><h3>Hoe ging deze training?</h3>${state.missed&&state.missed[day.iso]?'<p class="small muted" style="margin-top:3px">Je meldde hem als niet gedaan. Toch gereden? Vul het hieronder in.</p>':''}${checkBtns(day.iso)}</div>`
-      :canRide()?`<div class="cta"><button class="btn pri big" data-act="startModal">Start training</button><button class="btn" data-act="zwoModal">Zwift</button></div>`:'<p class="notice small">Rijden met je trainer doe je op je laptop, in Chrome of Edge. Hier bekijk je de training.</p>'}
-      ${day?altsHTML(w,day):''}
+      :canRide()?`<div class="cta"><button class="btn pri big" data-act="startModal">Start training</button>${swapBtn(day)}<button class="btn" data-act="zwoModal">Zwift</button></div>`:`<div class="noride"><span class="small muted">Rijden met je trainer doe je op je laptop, in Chrome of Edge.</span>${swapBtn(day)}</div>`}
       <div class="card stack"><p>${esc(w.desc)}</p>${why?`<details class="why"><summary>Waarom deze training?</summary><p class="small muted" style="margin-top:8px">${esc(why)}</p></details>`:''}</div>
       <details class="card fold"><summary>Specificatie</summary><div style="margin-top:8px">${segList(w)}</div></details>
       ${adjust}</div>`;
@@ -388,12 +376,13 @@ function libWo(t,min){
   return buildWorkout(t,min,1,lvlFor(state,t,C,ctx,fat));
 }
 function libView(){
-  const l=ui.lib,cat=l.cat||'';
-  const cards=Object.keys(TYPES).filter(k=>!cat||CAT_OF[k]===cat).map(k=>{const w=libWo(k,l.min);
+  const l=ui.lib,on=l.cats||[],keys=Object.keys(TYPES).filter(k=>!on.length||on.includes(CAT_OF[k]));
+  const cards=keys.map(k=>{const w=libWo(k,l.min);
     return `<button class="wcard" data-act="openWo" data-type="${k}"><h3>${esc(w.name)}</h3><div class="m">${durTxt(w.minutes)} · ${w.tss} TSS</div>${profileSVG(w.segs)}</button>`}).join('');
   return `<div class="head"><div><h1>Trainingen</h1></div>
     <div class="row">${canRide()?'<button class="btn pri" data-act="vrij">Vrij rijden</button>':''}<label class="small muted">Duur ${sel('data-chg="libMin"',[30,45,60,75,90,120].map(m=>[m,durTxt(m)]),l.min)}</label></div></div>
-    <div class="cats" role="group" aria-label="Soort training">${CATS.map(([k,t])=>`<button data-act="libCat" data-c="${k}" aria-pressed="${cat===k}">${t}</button>`).join('')}</div>
+    <div class="libbar"><button class="btn small" data-act="libFilter" aria-expanded="${!!l.open}">Filter${on.length?` · ${on.length}`:''}</button><span class="small muted">${keys.length} trainingen</span></div>
+    ${l.open?`<div class="libfil" role="group" aria-label="Soort training">${CATS.filter(([k])=>k).map(([k,t])=>`<button class="btn small" data-act="libCat" data-c="${k}" aria-pressed="${on.includes(k)}">${t}</button>`).join('')}${on.length?'<button class="link small" data-act="libClear">Wissen</button>':''}</div>`:''}
     <div class="grid">${cards}</div>${canRide()?'<p style="margin-top:18px"><button class="link small" data-act="demo">Bekijk de demo</button></p>':''}`;
 }
 

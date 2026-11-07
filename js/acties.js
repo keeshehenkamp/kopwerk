@@ -227,7 +227,15 @@ const actions={
     if(state.setup&&ui.view==='profiel'){if(state.event)state.event.v=+d.v;save();toast('Afstand aangepast. Je schema is erop afgestemd.')}
     render();
   },
-  libCat(d){ui.lib.cat=d.c||'';render()},
+  libFilter(){ui.lib.open=!ui.lib.open;render()},
+  libCat(d){const c=ui.lib.cats=ui.lib.cats||[],i=c.indexOf(d.c);if(i<0)c.push(d.c);else c.splice(i,1);render()},
+  libClear(){ui.lib.cats=[];render()},
+  /* wisselen: de volgende uit het pakket; na de laatste weer de training van het schema */
+  swapWo(d){
+    const day=planWeek(state,mondayOf(parseISO(d.iso)),new Date()).days.find(x=>x.iso===d.iso);if(!day||!day.wo||!day.planType)return;
+    const p=packOf(day.planType,state),n=p[(p.indexOf(day.wo.type)+1)%p.length];
+    setOverride(d.iso,{swap:n===day.planType?null:n});
+  },
   syncLogin(){syncLogin()},
   syncHide(){try{localStorage.setItem('kopwerk.synchint','0')}catch(e){}render()},
   syncLogout(){syncLogout()},

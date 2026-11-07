@@ -183,14 +183,6 @@ label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .fold[open]>summary::after{transform:translateY(2px) rotate(-135deg)}
 @media (pointer:coarse){.fold summary{padding:4px 0}}
 
-/* andere training met hetzelfde idee */
-.alts{display:flex;flex-direction:column;margin-top:8px}
-.alts button{display:grid;grid-template-columns:minmax(0,1fr) 110px auto;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:11px 2px}
-.alts button:last-child{border-bottom:0}.alts button:hover{background:var(--sunk)}
-.alts .w b{display:block;font-weight:600}.alts .w span{font-size:13px;color:var(--muted)}
-.alts svg.profile{height:30px}
-@media (max-width:420px){.alts button{grid-template-columns:minmax(0,1fr) 70px auto}}
-/* trainingen */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
 .grid .wcard p{font-size:13.5px;color:var(--muted);margin-top:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .grid .wcard .profile{height:56px}
@@ -513,10 +505,9 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .vtabs button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
 @media (pointer:coarse){.vtabs button{padding:10px 16px}}
 /* filter in de trainingenbibliotheek */
-.cats{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 16px}
-.cats button{border:1px solid var(--edge);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:14px;color:var(--muted)}
-.cats button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
-@media (pointer:coarse){.cats button{padding:9px 14px}}
+.libbar{display:flex;align-items:center;gap:12px;margin:0 0 12px}
+.libfil{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 16px}
+.libfil .btn[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 
 /* kalender: één lijst om door te scrollen */
 .timeline{max-width:760px}
@@ -662,7 +653,6 @@ h1{font-size:36px;line-height:1.05}h2{font-size:24px}.wcard h3{font-size:23px;li
 .herotxt{padding-top:0}
 .deepbtn{background:none;border:0;border-top:1px solid var(--line);border-radius:0;padding:16px 0 0}
 .main .stack>div>.profile{height:150px}
-.alts button{padding-left:0;padding-right:0}
 @media (min-width:960px){.main{margin-left:var(--side);max-width:none;padding-left:max(40px,calc((100vw - var(--side) - 820px)/2));padding-right:max(40px,calc((100vw - var(--side) - 820px)/2))}.side.off+.main{margin-left:0;padding-left:max(40px,calc((100vw - 820px)/2));padding-right:max(40px,calc((100vw - 820px)/2))}.home{grid-template-columns:minmax(0,1fr)}.timeline{max-width:none}}
 .prow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .prow b i{font-family:var(--body);font-style:normal;font-size:14px;font-weight:500;color:var(--muted);margin-left:3px}
