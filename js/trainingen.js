@@ -2,10 +2,10 @@
 /* ================= workouts ================= */
 const TYPES={
   herstel:{name:'Herstelrit',hard:false,desc:'Losrijden op lage weerstand. Het doel is doorbloeding, geen trainingsprikkel. Houd het echt rustig.'},
-  duur:{name:'Duurrit',hard:false,desc:'Rustig aeroob tempo waarbij je nog kunt praten. Dit bouwt de basis waar al het zwaardere werk op rust.'},
+  duur:{name:'Duurrit',hard:false,desc:'Rustig tempo, onder in zone 2, waarbij je makkelijk kunt praten. Buiten of zonder vermogen rijd je op hartslag. Dit bouwt de basis waar al het zwaardere werk op rust.'},
   souplesse:{name:'Souplesse',hard:false,desc:'Rustige rit met korte blokken op hoge cadans. Je benen leren sneller en soepeler ronddraaien, zodat je op hetzelfde vermogen minder kracht per trap zet.'},
   tempo:{name:'Tempoblokken',hard:true,desc:'Lange blokken net onder het punt waar het zwaar wordt. Goed voor uithoudingsvermogen en langer hard kunnen rijden.'},
-  sweetspot:{name:'Sweet spot',hard:true,desc:'Blokken op 88 tot 92% van je FTP: veel trainingseffect voor relatief weinig vermoeidheid. De efficiëntste manier om je FTP te verhogen.'},
+  sweetspot:{name:'Sweet spot',hard:true,desc:'Blokken net onder je drempel, op gevoel: stevig, maar je kunt nog korte zinnen zeggen. De watts zijn een richtlijn.'},
   drempel:{name:'Drempelblokken',hard:true,desc:'Blokken rond je FTP. Zwaar maar beheersbaar: je traint het vermogen dat je een uur kunt volhouden.'},
   vo2:{name:'VO2max-intervallen',hard:true,desc:'Korte, harde intervallen ruim boven je FTP met evenveel rust. Vergroot je maximale zuurstofopname.'},
   heuvels:{name:'Korte klimmen',hard:true,desc:'Herhaalde korte, steile klimmen van ongeveer twee minuten ruim boven je FTP, met rustig herstel ertussen. Zo train je het aanzetten op hellingen zoals in een heuveltocht.'},
@@ -17,7 +17,7 @@ const TYPES={
   duurtempo:{name:'Duurrit met tempofinale',hard:false,desc:'Lange duurrit die eindigt met een blok op tempo. Je leert doortrappen als de benen al moe zijn.'},
   duurheuvels:{name:'Duurrit met korte klimmen',hard:false,desc:'Lange duurrit met elk kwartier een korte, stevige klim. Je leert hellingen aanzetten als de benen al moe zijn, zoals laat in een heuveltocht.'},
   openers:{name:'Activatie',hard:false,desc:'Korte prikkels om de benen wakker te houden zonder vermoeidheid op te bouwen. Past in een herstelweek of de dag voor een zware rit.'},
-  ramptest:{name:'FTP-test (ramptest)',hard:true,desc:'Elke minuut gaat het vermogen omhoog tot je niet meer kunt. Houd je een stap niet meer vast, dan stopt de test vanzelf en rij je vijf minuten uit. Je FTP is 75% van je beste minuut.'}
+  ramptest:{name:'FTP-test (ramptest)',hard:true,desc:'Elke minuut gaat het vermogen omhoog tot je niet meer kunt. Houd je een stap niet meer vast, dan stopt de test vanzelf en rij je vijf minuten uit. Je FTP is ongeveer 75% van je beste minuut, tot je een eigen verhouding hebt.'}
 };
 /* nieuwe set (oktober 2026): meer afwisseling binnen elke soort prikkel; min = vanaf welk niveau de coach hem inplant */
 Object.assign(TYPES,{
@@ -46,7 +46,7 @@ Object.assign(TYPES,{
   herstelgolf:{name:'Golvend herstel',hard:false,desc:'Losrijden met om de vijf minuten een klein beetje meer of minder vermogen. Blijft de hele rit licht.'},
   herstelspin:{name:'Herstel met spin-ups',hard:false,desc:'Losrijden met af en toe een minuut op hoge cadans, zonder meer kracht te zetten.'},
   duurgolf:{name:'Golvende duurrit',hard:false,desc:'Zone 2 met om de vijf minuten iets meer of minder vermogen, zoals op een licht golvende weg.'},
-  duuropbouw:{name:'Oplopende duurrit',hard:false,desc:'Zone 2 in drie delen, elk iets steviger. Je begint rustig en eindigt op het hoogste duurtempo.'},
+  duuropbouw:{name:'Oplopende duurrit',hard:false,desc:'Zone 2 in drie delen, elk iets steviger. Je begint rustig en eindigt iets steviger, nog steeds met makkelijk praten.'},
   duursprint:{name:'Duurrit met sprints',hard:false,desc:'Lange duurrit met elke twintig minuten een sprint van vijftien seconden. Zo blijven je benen wakker.'},
   duurss:{name:'Duurrit met sweet spot',hard:false,desc:'Lange duurrit met blokken net onder je drempel. Veel uren met daarin een stevige prikkel.'},
   spinups:{name:'Spin-ups',hard:false,desc:'Rustige rit met korte stukken waarin je de cadans opvoert tot zo hoog als je soepel haalt.'},
@@ -72,10 +72,14 @@ Object.assign(TYPES,{
   sprintblok:{name:'Sprint na een blok',hard:true,desc:'Vier minuten stevig tempo met een sprint aan het eind, zoals een finale.'},
   kasseitempo:{name:'Tempo op lage cadans',hard:true,desc:'Blokken net onder je drempel op lage cadans, met korte stukken rust. Je blijft kracht zetten als het zwaar wordt.'},
   koersdag:{name:'Koersritme',hard:true,min:1,desc:'Series met wisselend tempo en korte versnellingen, zoals in een wedstrijd of snelle groep.'},
-  demarrage:{name:'Demarrages',hard:true,min:1,desc:'Een harde aanval van dertig seconden en daarna drie minuten doorrijden om de voorsprong vast te houden.'}
+  demarrage:{name:'Demarrages',hard:true,min:1,desc:'Een harde aanval van dertig seconden en daarna drie minuten doorrijden om de voorsprong vast te houden.'},
+  vier8:{name:'Blokken van 8 minuten',hard:true,min:1,desc:'Blokken van acht minuten met twee minuten rust. Zwaar maar vol te houden: zo hard dat je het laatste blok even goed rijdt als het eerste.'},
+  test20:{name:'FTP-test (20 minuten)',hard:true,min:1,desc:'Na een opwarming twintig minuten zo hard als je gelijkmatig volhoudt. Het doel is een richtlijn, de trainer houdt het vermogen niet vast. Eén keer naast de ramptest: daaruit volgt je eigen verhouding.'}
 });
-/* ramptest als laatste in de bibliotheek */
+/* de tests als laatste in de bibliotheek */
+{const t=TYPES.test20;delete TYPES.test20;TYPES.test20=t}
 {const t=TYPES.ramptest;delete TYPES.ramptest;TYPES.ramptest=t}
+const isFtpTest=t=>t==='ramptest'||t==='test20';
 /* soort per training, voor de filter in de bibliotheek */
 const CATS=[['','Alle'],['rustig','Rustig en lang'],['drempel','Tempo en drempel'],['vo2','Kort en hard'],['klim','Klimmen'],['kracht','Kracht en sprint'],['techniek','Cadans'],['test','Test']];
 const CAT_OF={herstel:'rustig',duur:'rustig',openers:'rustig',duurklim:'rustig',duurtempo:'rustig',duurheuvels:'rustig',duurkracht:'rustig',
@@ -84,11 +88,11 @@ const CAT_OF={herstel:'rustig',duur:'rustig',openers:'rustig',duurklim:'rustig',
   tempo:'drempel',sweetspot:'drempel',drempel:'drempel',overunder:'drempel',drempelramp:'drempel',ssaanzet:'drempel',oplopend:'drempel',
   vo2:'vo2',anaeroob:'vo2',i3015:'vo2',i4020:'vo2',piramide:'vo2',microbursts:'vo2',groepsrit:'vo2',fartlek:'vo2',
   klim:'klim',heuvels:'klim',colsim:'klim',staand:'klim',topsprint:'klim',muurtjes:'klim',
-  kracht:'kracht',sprint:'kracht',kasseien:'kracht',krachtsprint:'kracht',ramptest:'test'};
+  kracht:'kracht',sprint:'kracht',kasseien:'kracht',krachtsprint:'kracht',vier8:'vo2',ramptest:'test',test20:'test'};
 /* Pakketten: trainingen met hetzelfde doel, waartussen je wisselt met één knop. De eerste die in een pakket staat, bepaalt bij welk pakket een training hoort. */
 const PACKS=[['herstel','herstelcad','herstelgolf','herstelspin'],['duur','duurgolf','duuropbouw','duurkracht'],['duurtempo','duurklim','duurheuvels','duursprint','duurss'],
   ['souplesse','cadansladder','spinups','cadansgolf'],['openers','openers30','scherp','prikkels'],['tempo','tempocad','tempolang','tempogolf'],['sweetspot','ssaanzet','oplopend','sslang','ssgolf'],
-  ['drempel','overunder','drempelramp','drempelkort','tijdrit'],['vo2','i3015','piramide','vo2oplopend'],['anaeroob','i4020','microbursts','minuut','tabata'],['heuvels','topsprint','muurtjes','heuveltrein'],
+  ['drempel','overunder','drempelramp','drempelkort','tijdrit'],['vo2','i3015','piramide','vo2oplopend','vier8'],['anaeroob','i4020','microbursts','minuut','tabata'],['heuvels','topsprint','muurtjes','heuveltrein'],
   ['klim','staand','colsim','klimtrappen','tweecols'],['kracht','krachtsprint','heuvelstart','zwaarlicht'],['sprint','langesprint','sprintblok','krachtsprint'],['kasseien','kasseitempo','muurtjes','overunder'],['fartlek','groepsrit','koersdag','demarrage']];
 const S=(d,a,b,label,kind,cad)=>({d:Math.max(1,Math.round(d)),a,b:b==null?a:b,label,kind,cad:cad||0});
 const pick=(arr,L)=>arr[clamp(L,0,2)];
@@ -103,7 +107,9 @@ const LADDER={
   kracht:{label:'Kracht',steps:[[4,5,3,.8,55],[5,5,3,.82,55],[4,8,4,.82,55],[5,8,4,.84,55],[4,10,4,.85,52],[5,10,4,.86,52],[4,12,4,.88,50],[3,15,5,.88,50]]},
   souplesse:{label:'Souplesse',steps:[[6,1,2,.65,105],[8,1,2,.65,110],[6,2,2,.66,110],[8,2,2,.67,110],[6,3,3,.68,115],[8,3,2,.68,115]],pOff:.6},
   anaeroob:{steps:[[1,8],[1,10],[2,8],[2,10],[3,8],[2,12],[3,10],[3,12]]},
-  sprint:{steps:[[4],[5],[6],[7],[8],[9],[10]]}
+  sprint:{steps:[[4],[5],[6],[7],[8],[9],[10]]},
+  /* vier keer acht minuten, de vorm met de meeste winst bij recreatieve wielrenners (Seiler 2013). De percentages zijn een eigen keuze, de ladder bouwt daar naartoe op */
+  vier8:{label:'Blok',steps:[[3,8,2,1],[3,8,2,1.02],[4,8,2,1],[4,8,2,1.02],[4,8,2,1.04],[4,8,2,1.06],[4,8,2,1.08]]}
 };
 /* nieuwe soorten: elke trede is een lijst getallen; work = minuten werk inclusief rust, make = de blokken */
 const RP=(n,f)=>{const o=[];for(let k=0;k<n;k++)o.push(...f(k));return o};
@@ -193,7 +199,7 @@ Object.assign(LADDER,{
     make:([n,m])=>RP(n,i=>[...[.82,.88,.94].map((p,j)=>S(m*20,p,null,`Klim ${i+1}: trap ${j+1} van 3`,'work',70)),...restB(i,n,300)])},
   tweecols:{label:'Klim',steps:[[12],[15],[18],[20],[25],[30]],
     work:s=>s[0]*2+8,tag:s=>`2×${s[0]}`,shrink:s=>[s[0]-3],
-    make:([m])=>[S(m*60,.86,null,'Eerste col','work',70),S(480,.6,null,'Tussen de cols','rest'),S(m*60,.88,null,'Tweede col','work',70)]},
+    make:([m])=>[S(m*60,.86,null,'Eerste col','work',70),S(480,.56,null,'Tussen de cols','rest'),S(m*60,.88,null,'Tweede col','work',70)]},
   heuvelstart:{label:'Kracht',steps:[[5],[6],[8],[10],[12]],
     work:s=>s[0]*4-3.5,tag:s=>`${s[0]}×30 s`,
     make:([n])=>RP(n,i=>[S(30,1.25,null,`Aanzetten ${i+1} van ${n}`,'work',50),...restB(i,n,210)])},
@@ -218,7 +224,7 @@ Object.assign(LADDER,{
 });
 /* een rustig stuk dat niet vlak is: om de paar minuten iets anders, zodat er geen lang eentonig stuk ontstaat */
 function easyRun(min,label){
-  const P=[[.62,0,6],[.68,0,5],[.64,95,4],[.7,0,5]],o=[];
+  const P=[[.6,0,6],[.65,0,5],[.62,95,4],[.66,0,5]],o=[];
   for(let i=0,l=min;l>.05;i++){const [q,c,d]=P[i%P.length],m=l-d<2?l:d;o.push(S(m*60,q,null,c?'Hoge cadans':(label||'Duurtempo'),'steady',c));l-=m}
   return o;
 }
@@ -231,7 +237,7 @@ const EXTRA_OF={tempo:'ss',tempocad:'klim',tempolang:'kracht',tempogolf:'ss',swe
   drempel:'ss',overunder:'tempo',drempelramp:'klim',drempelkort:'ss',tijdrit:'cad',vo2:'ss',i3015:'tempo',piramide:'ss',vo2oplopend:'klim',
   anaeroob:'tempo',i4020:'ss',microbursts:'cad',minuut:'klim',tabata:'tempo',heuvels:'klim',topsprint:'tempo',muurtjes:'kracht',heuveltrein:'ss',
   klim:'tempo',staand:'klim',colsim:'ss',klimtrappen:'cad',tweecols:'tempo',kracht:'tempo',krachtsprint:'kracht',heuvelstart:'klim',zwaarlicht:'ss',
-  sprint:'kracht',langesprint:'tempo',sprintblok:'ss',kasseien:'tempo',kasseitempo:'ss',groepsrit:'tempo',koersdag:'ss',demarrage:'cad'};
+  sprint:'kracht',langesprint:'tempo',sprintblok:'ss',kasseien:'tempo',kasseitempo:'ss',groepsrit:'tempo',koersdag:'ss',demarrage:'cad',vier8:'tempo'};
 /* bij deze trainingen komt het extra werk eerst: het hoofdblok rij je dan op vermoeide benen */
 const EXTRA_FIRST=new Set(['tempolang','sslang','oplopend','tijdrit','drempelramp','klimtrappen','colsim','tempogolf','ssgolf','zwaarlicht','kasseitempo']);
 function shapeLong(type,main,left){
@@ -255,8 +261,8 @@ function shapeLong(type,main,left){
 }
 /* rustige trainingen die de hele tijd vullen: niet zwaarder per trede. Krijgen de duur tussen warming-up en cooling-down (min) */
 const FILL={
-  duurgolf:min=>{const o=[];for(let i=0,l=min;l>0;i++){const d=Math.min(5,l);o.push(S(d*60,i%2?.72:.6,null,'Duurtempo','steady'));l-=d}return o},
-  duuropbouw:min=>[.6,.66,.72].flatMap((p,i)=>{const o=[];for(let j=0,l=min/3;l>.05;j++){const d=l-8<2?l:8;o.push(S(d*60,j%2?p+.03:p,null,`Deel ${i+1} van 3`,'steady'));l-=d}return o}),
+  duurgolf:min=>{const o=[];for(let i=0,l=min;l>0;i++){const d=Math.min(5,l);o.push(S(d*60,i%2?.66:.58,null,'Duurtempo','steady'));l-=d}return o},
+  duuropbouw:min=>[.56,.6,.64].flatMap((p,i)=>{const o=[];for(let j=0,l=min/3;l>.05;j++){const d=l-8<2?l:8;o.push(S(d*60,j%2?p:p+.025,null,`Deel ${i+1} van 3`,'steady'));l-=d}return o}),
   herstelcad:min=>[S(min*60,.5,null,'Losrijden op hoge cadans','steady',95)],
   herstelgolf:min=>{const o=[];for(let i=0,l=min;l>0;i++){const d=Math.min(5,l);o.push(S(d*60,i%2?.55:.45,null,'Losrijden','steady'));l-=d}return o},
   herstelspin:min=>{const o=[];for(let l=min;l>0;){const d=Math.min(7,l);o.push(S(d*60,.5,null,'Losrijden','steady'));l-=d;if(l>=1){o.push(S(60,.5,null,'Hoge cadans','steady',110));l--}}return o},
@@ -330,7 +336,7 @@ function buildWorkout(type,T,L,lvl,opt){
   }else if(type==='herstel'){
     segs=[S(180,.4,.52,'Inrijden','warmup'),S((T-5)*60,.52,.52,'Losrijden','steady'),S(120,.52,.4,'Uitrijden','cooldown')];
   }else if(type==='duur'){
-    const hi=pick([.68,.70,.72],L),lo=.64;
+    const hi=pick([.62,.64,.66],L),lo=.58;
     segs.push(S(300,.45,.65,'Warming-up','warmup'));
     let left=T-5-cd,i=0;
     while(left>0){let d=Math.min(10,left);if(left-d<5)d=left;segs.push(S(d*60,i%2?hi:lo,null,'Duurtempo','steady'));left-=d;i++}
@@ -397,6 +403,12 @@ function buildWorkout(type,T,L,lvl,opt){
     segs.push(S(300,.45,.5,'Warming-up','warmup'));
     for(let i=0;i<21;i++)segs.push(S(60,.5+.06*i,null,`Stap ${i+1}`,'work'));
     segs.push(S(300,.5,.4,'Cooling-down','cooldown'));
+  }else if(type==='test20'){
+    segs.push(S(600,.45,.7,'Warming-up','warmup'));
+    for(let i=0;i<3;i++){segs.push(S(60,1.05,null,`Prikkel ${i+1} van 3`,'work'));segs.push(S(120,.55,null,'Herstel','rest'))}
+    segs.push(S(300,.55,null,'Rustig','rest'));
+    segs.push(S(1200,1,null,'Twintig minuten voluit','work'));
+    segs.push(S(600,.5,.4,'Cooling-down','cooldown'));
   }
   const sec=segs.reduce((x,s)=>x+s.d,0);
   let p4=0;for(const s of segs){const m=(s.a+s.b)/2;p4+=s.d*m**4}

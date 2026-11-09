@@ -41,6 +41,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 - Hardlopen is een rit met `type: 'hardlopen'`, `manual: true` en `dist` in meters.
 - `tools/planner-test/`: scenario's die de planner doorrekenen (`sim.js`) en controles op de inhoud van de trainingen (`checks.js`: lengte, geen staart, geen vlakke stukken, langer is meer werk, variatie binnen een pakket, vrije tijd blijft niet leeg). Open `index.html` via een lokale webserver; bovenaan staat ALLES GOED of wat er fout is.
 
+- `ftpCal`: je eigen verhouding tussen FTP en beste rampminuut (`r`), uit één 20-minutentest (`test20`, `calibrate`). `zin`: de ochtendvraag na 'Moe', per dag. Ritten krijgen `cal` als ze die verhouding gaven en `ownLine` als hun belasting uit je eigen lijn komt (`feelLine`).
 - `ftpGiven`: de dag waarop je bij de start zelf een FTP invulde. De coach telt dat als test, dus de eerste FTP-test komt pas na zes weken. Ritten krijgen `rpeAdj` als hun trede uit je gevoel komt; pas je je gevoel later aan, dan rekent de coach die trede opnieuw uit (zolang er geen nieuwere rit van die soort is beoordeeld).
 - Van demo-ritten (`sim`) bewaart de app alleen de laatste. Ze tellen niet mee in het schema, de kalender of je beste ritten.
 

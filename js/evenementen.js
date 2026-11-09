@@ -195,12 +195,14 @@ function longNow(st,today){
   const best=real.reduce((a,r)=>Math.max(a,r.dur||0),0)/3600;
   return Math.max(nv?nv.long/60:1.5,best);
 }
+/* De lange rit naar een tocht toe: de helft van de tochtduur, 1,5 tot 3,5 uur. Eén getal voor de check en de training; vuistregel, er is geen fietsbewijs voor welk getal */
+const evLongH=h=>clamp(h*.5,1.5,3.5);
 function evCheck(st,ev,today){
   if(!ev||!ev.date)return null;
   const wkg=st.profile.ftp/clamp(st.profile.weight||75,35,200),weeks=dayDiff(today,parseISO(ev.date))/7;
   if(!(weeks>0))return null;
   const now=longNow(st,today),reach=Math.min(now*1.25**(Math.max(0,weeks-1)/4),now*3,8);
-  const one=(km,hm)=>{const h=evHours(km,hm,wkg,ev.kind),need=clamp(h*.45,1.5,3.5);return {h,need,st:reach>=need?'ok':reach>=need*.8?'krap':'zwaar'}};
+  const one=(km,hm)=>{const h=evHours(km,hm,wkg,ev.kind),need=evLongH(h);return {h,need,st:reach>=need?'ok':reach>=need*.8?'krap':'zwaar'}};
   const e=EVBY[ev.id];
   const km=e?evVar(e,ev.v).km:ev.km||EVENT_KM[ev.kind]||0,hm=e?evVar(e,ev.v).hm:0;
   if(!km)return null;

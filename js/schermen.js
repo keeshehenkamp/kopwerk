@@ -88,10 +88,15 @@ function formEvent(){
 /* het doelblok in één regel: van, naar en tot wanneer */
 const dtShort=d=>`${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}`;
 function blockVal(b,v){const kg=state.profile.weight||75;return blockKind(b.goal)==='wkg'?`${nl((v/kg).toFixed(1))} W/kg`:blockKind(b.goal)==='sprint'?`${v} W over 15 sec`:`${v} W`}
+/* het doel met de marge eromheen */
+function blockGoal(b){
+  const B=blockBand(b),kg=state.profile.weight||75;
+  return blockKind(b.goal)==='sprint'?`${B.lo}-${B.hi} W over 15 sec`:blockKind(b.goal)==='wkg'?`${blockVal(b,b.target)} ±${nl((B.m/kg).toFixed(1))}`:`${b.target} W ±${B.m}`;
+}
 function blockLine(){
   const b=state.block;if(!b||(state.event&&state.event.date&&state.event.date>=iso(new Date())))return '';
   const what=blockKind(b.goal)==='sprint'?'Sprint':blockKind(b.goal)==='wkg'?'Klimmen':'FTP';
-  return `<p class="small muted">${b.from?`${what} van ${blockVal(b,b.from)} naar ${blockVal(b,b.target)}`:'Doel volgt uit je eerste sprints'}, tot ${dtShort(parseISO(b.end))}.</p>`;
+  return `<p class="small muted">${b.from?`${what} van ${blockVal(b,b.from)} naar ${blockGoal(b)}`:'Doel volgt uit je eerste sprints'}, tot ${dtShort(parseISO(b.end))}.</p>`;
 }
 function evNotice(cur){
   if(!cur.id||!/^\d{4}-\d{2}-\d{2}$/.test(cur.date))return '';
@@ -197,7 +202,7 @@ function feelHTML(plan,today,H){
   const k=iso(today),d=plan.days.find(x=>x.iso===k);
   if(H||!d||!d.wo||d.event||realOn(k)||(state.missed||{})[k])return '';
   const v=(state.feel||{})[k];
-  return `<div class="feel" role="group" aria-label="Hoe voel je je vandaag">${[['goed','Goed',I.smile],['moe','Moe',I.meh],['slecht','Slecht',I.frown]].map(([x,t,i])=>`<button class="btn small lab fe-${x}" data-act="feel" data-v="${x}" aria-pressed="${v===x}">${i}${t}</button>`).join('')}</div>`;
+  return `<div class="feel" role="group" aria-label="Hoe voel je je vandaag">${[['goed','Goed',I.smile],['moe','Moe',I.meh],['slecht','Slecht',I.frown]].map(([x,t,i])=>`<button class="btn small lab fe-${x}" data-act="feel" data-v="${x}" aria-pressed="${v===x}">${i}${t}</button>`).join('')}</div>${v==='moe'?`<div class="feel zin" role="group" aria-label="Zin om te trainen"><span class="small muted">Zin om te trainen?</span>${[['ja','Ja','goed'],['nee','Nee','moe']].map(([x,t,c])=>`<button class="btn small fe-${c}" data-act="zin" data-v="${x}" aria-pressed="${(state.zin||{})[k]===x}">${t}</button>`).join('')}</div>`:''}`;
 }
 /* de coach zegt één ding tegelijk: wat hij zag en wat er daardoor verandert; meer tijd vragen doet hij zelden */
 function coachLine(plan,today,rd){
@@ -206,15 +211,20 @@ function coachLine(plan,today,rd){
   const test=plan.days.some(d=>d.test&&d.iso>=tk);
   if(plan.ctx.kind==='test')return {t:'Laatste blokweek: rustiger, met een test.'};
   const last=(state.blockLog||[]).slice(-1)[0],b=state.block;
-  if(b&&b.raised&&dayDiff(parseISO(b.raised.date),today)<7)return {t:`Je loopt voor op schema: nieuw doel ${blockVal(b,b.target)}.`};
-  if(last&&b&&last.result&&dayDiff(parseISO(b.start),today)<7)return {t:`Blok klaar: ${blockVal(last,last.from)} naar ${blockVal(last,last.result)}${last.result>=last.target?', doel gehaald':''}. Nieuw doel: ${blockVal(b,b.target)}.`};
-  if(fat.back!=null)return {t:fat.back>=14?`${fat.back} dagen niet gereden: je bouwt rustig weer op.`:'Weinig gereden de laatste weken: je bouwt rustig weer op.'};
-  if(R&&R.k==='diep')return {t:'Zwaar gevoel, lage hartslag: waarschijnlijk diep vermoeid. Deze week rustiger.'};
+  if(b&&b.raised&&dayDiff(parseISO(b.raised.date),today)<7)return {t:`Je loopt voor op schema: nieuw doel ${blockGoal(b)}.`};
+  if(last&&b&&last.result&&dayDiff(parseISO(b.start),today)<7)return {t:`Blok klaar: ${blockVal(last,last.from)} naar ${blockVal(last,last.result)}${blockHit(last,last.result)?', doel gehaald':''}. Nieuw doel: ${blockGoal(b)}.`};
+  if(fat.back!=null)return {t:`${fat.back} dagen niet gereden: je bouwt rustig weer op.${fat.stage===3?' Na een week een FTP-test.':''} Je hartslag kan even hoger zijn.`};
+  if(fat.restart)return {t:`${fat.restart} dagen niet gereden: eerst een paar rustige dagen.`};
+  if(R&&R.k==='diep')return {t:R.ease?'Zwaar gevoel, lage hartslag: eerst een paar lichtere dagen, dan kijken we opnieuw.':'Zwaar gevoel en lage hartslag komen terug: deze week rustiger.'};
   if(R&&R.k==='moe')return {t:'Zwaar gevoel, hoge hartslag: deze week minder.'};
-  if(R&&R.k==='zwaar')return {t:`Trainingen voelden zwaarder dan verwacht: deze week lichter.${test?' Met FTP-test.':''}`};
+  if(R&&R.k==='zwaar')return {t:R.ease?'Trainingen voelden zwaarder dan verwacht: eerst een paar lichtere dagen.':'Trainingen voelden zwaarder dan verwacht: deze week lichter.'};
+  if(R&&R.test&&test)return {t:'Lichtere dagen gehad: nu de FTP-test.'};
   if(R&&R.k==='hoog')return {t:'Hartslag al een paar ritten hoog: zware trainingen lichter.'};
-  if(fat.level&&fat.pct)return {t:fat.plan?'Belasting snel opgelopen: zware trainingen lichter.':`${fat.pct}% meer gereden dan normaal: zware trainingen lichter.`};
+  if(fat.level&&fat.pct)return {t:`${fat.pct}% meer gereden dan normaal en het voelt zwaar: zware trainingen lichter.`};
   const nx=plan.days.find(d=>d.adj&&d.iso>tk);if(nx)return {t:`${nx.adj.split(':')[0]}: ${DAYS_L[nx.i]} een stap lichter.`};
+  /* een rit in deze week die veel langer is dan je gewend bent: alleen een melding */
+  const lg=plan.days.find(d=>d.wo&&d.iso>=tk&&!d.logged&&!d.done&&longJump(d.wo.minutes,tk,state));
+  if(lg)return {t:`${DAYS_L[lg.i].replace(/^./,c=>c.toUpperCase())} ${durTxt(lg.wo.minutes)}: veel langer dan je langste van 30 dagen (${durTxt(longJump(lg.wo.minutes,tk,state))}). Begin rustig.`};
   const from=iso(addDays(today,-14));
   if(R&&R.k==='gegroeid')return {t:`Lichter gevoel, lagere hartslag: je wordt sterker. Trainingen gaan omhoog.${test?' Met FTP-test.':''}`};
   if(R&&R.k==='kanmeer'){
@@ -232,13 +242,13 @@ function statusCard(plan,today){
   const why=H?`Sinds ${dateLong(parseISO(H.from))} · ${HEALTH[H.kind].cap?'alleen korte, rustige ritjes':'niet trainen'}`:rd.lvl==='ok'?'':rd.why;
   /* cijfers voorop: vorm, fitheid en FTP; bij een ziekmelding alleen de melding */
   const sg=n=>n>0?'+'+n:n<0?'−'+(-n):'0';
-  const nums=H?'':`<div class="nums"><div class="${f.tsb<-25?'tred':f.tsb<-8?'torange':'tgreen'}"><span>Vorm</span><b>${sg(f.tsb)}</b></div><div class="tblue"><span>Fitheid</span><b>${f.ctl}</b></div><div class="tacc"><span>FTP</span><b>${ftp}<i>W</i></b></div></div>`;
+  const nums=H?'':`<div class="nums"><div class="${f.tsb<-25?'tred':f.tsb<-8?'torange':'tgreen'}"><span>Vorm</span><b>${sg(f.tsb)}</b></div><div class="tblue"><span>Fitheid</span><b>${f.ctl}</b></div><div class="tacc"><span>FTP</span><b>${ftp}<i>W ±${ftpMargin(ftp)}</i></b></div></div>`;
   return `<div class="card"><div class="sthead"><div><p class="stat ${rd.lvl}"><i></i>${rd.label}</p>${why?`<p class="small muted" style="margin-top:6px">${why}</p>`:''}${coach?`<p class="small coachl">${I.say}<span>${coach.t}</span></p>${coach.btn?`<div class="row coachb">${coach.btn}</div>`:''}`:''}</div>
       ${H?'':`<button class="ibtn" data-act="openHealth" aria-label="Ziek of geblesseerd melden" title="Ziek of geblesseerd">${ICO.ziek}</button>`}</div>${nums}
     ${H?`<div class="hbtns"><button class="btn small pri" data-act="healthBetter">Ik ben weer beter</button><button class="btn small" data-act="openHealth">Aanpassen</button><button class="btn small" data-act="healthDrop">Intrekken</button></div>`
       :hs&&hs.ret?`<div class="row" style="margin-top:12px"><button class="btn small" data-act="healthUndo" data-from="${hs.h.from}">Melding intrekken</button></div>`:''}
     ${feelHTML(plan,today,H)}
-    ${e&&e>ftp*1.02?`<p class="small" style="margin-top:12px"><button class="link tacc" data-act="setFtp" data-w="${e}">FTP naar ${e} W</button> <span class="muted">volgens je ritten</span></p>`:''}</div>`;
+    ${e&&e>=ftp+5?`<p class="small" style="margin-top:12px"><button class="link tacc" data-act="setFtp" data-w="${e}">FTP naar ${e} W</button> <span class="muted">volgens je ritten</span></p>`:''}</div>`;
 }
 /* zonder de app gedaan: alles loopt via één route (training afronden) */
 const logBtn=(d,t='Al gedaan')=>`<button class="btn lab logb" data-act="openLog" data-iso="${d.iso}">${I.done}${t}</button>`;
@@ -331,7 +341,7 @@ function weekCard(today){
   const planned=plan.days.filter(d=>d.wo),wk=state.rides.filter(r=>!r.sim&&r.date>=k&&r.date<=iso(addDays(mon,6))),doneM=Math.round(wk.reduce((a,r)=>a+r.dur,0)/60);
   const ev=state.event,evDate=ev&&ev.date?parseISO(ev.date):null,toEv=evDate?dayDiff(today,evDate):-1,sub=[esc(plan.label)];
   if(toEv>=0)sub.push(`${esc(ev.name)} over ${toEv} ${toEv===1?'dag':'dagen'}`);
-  else if(state.block&&state.block.target)sub.push(`doel ${blockVal(state.block,state.block.target)} op ${dtShort(parseISO(state.block.end))}`);
+  else if(state.block&&state.block.target)sub.push(`doel ${blockGoal(state.block)} op ${dtShort(parseISO(state.block.end))}`);
   /* de week in één regel: de dagen zelf staan in de Kalender */
   const strip=plan.days.map(d=>`<button class="wsd${d.iso===tk?' today':''}" ${d.event?'disabled':realOn(d.iso)?`data-act="openRide" data-id="${realOn(d.iso).id}"`:`data-act="openDay" data-iso="${d.iso}"`} aria-label="${DAYS_L[d.i]} ${d.date.getDate()}: ${realOn(d.iso)?esc(realOn(d.iso).name)+', gereden':d.event?esc(d.event):d.wo?esc(d.wo.name):'rust'}"><span>${DAYS[d.i]}</span><b>${d.date.getDate()}</b>${dotFor(d,realOn(d.iso))}</button>`).join('');
   const open=ui.avOpen&&wkAskKey(today)!==k;
@@ -369,7 +379,7 @@ function phaseStrip(today){
 }
 /* ---------- een training in detail ---------- */
 function segList(w){
-  return `<div class="segs">${w.segs.map(s=>`<div><i style="background:var(--z${zoneOf((s.a+s.b)/2)})"></i><span>${esc(s.label)}${s.cad?` <span class="muted">op ${s.cad} rpm</span>`:''}</span><span class="muted">${clock(s.d)}</span><b>${s.a===s.b?watts(s.a):watts(s.a)+'–'+watts(s.b)} W</b></div>`).join('')}</div>`;
+  return `<div class="segs">${w.segs.map(s=>`<div><i style="background:var(--z${zoneOf((s.a+s.b)/2)})"></i><span>${esc(s.label)}${s.cad?` <span class="muted">op ${s.cad} rpm</span>`:''}</span><span class="muted">${clock(s.d)}</span><b>${/^Sweet spot/.test(s.label)?watts(s.a-.03)+'–'+watts(s.a+.03):s.a===s.b?watts(s.a):watts(s.a)+'–'+watts(s.b)} W</b></div>`).join('')}</div>`;
 }
 function modalWo(){
   const m=ui.detail;if(!m)return null;
@@ -390,7 +400,7 @@ function trainingView(){
   const title=day?dateLong(day.date).replace(/^./,c=>c.toUpperCase()):'Losse training';
   let adjust='';
   if(day){
-    const types=[['','Automatisch']].concat(Object.entries(TYPES).filter(([k])=>k!=='ramptest').map(([k,t])=>[k,t.name]));
+    const types=[['','Automatisch']].concat(Object.entries(TYPES).filter(([k])=>!isFtpTest(k)).map(([k,t])=>[k,t.name]));
     const ty=`<div class="form"><div><label class="f" for="m-type">Soort training</label>${sel('id="m-type" data-chg="ovType"',w?types:[['','Rust']].concat(types.slice(1)),day.o.type||'')}</div></div>`;
     adjust=w?(day.o.type?'<button class="link small" data-act="pickAlt" data-t="">Terug naar de training van het schema</button>':''):`<div class="card stack"><h3>Toch trainen</h3>${ty}</div>`;
   }
@@ -405,7 +415,7 @@ function trainingView(){
         </div>
       ${day&&day.iso<iso(new Date())&&!rideOn(day.iso)?`<div class="card">${sech('tacc',I.done,'Hoe ging deze training?')}${checkBtns(day.iso)}</div>`
       :canRide()?`<div class="cta"><button class="btn pri big lab" data-act="startModal">${I.play}Start training</button>${swapBtn(day)}<button class="btn" data-act="zwoModal">Zwift</button></div>`:`<div class="noride"><span class="small muted">Rijden kan op je laptop, in Chrome of Edge.</span>${swapBtn(day)}</div>`}
-      <div class="card stack"><p>${esc(w.desc)}</p>${why?`<details class="why"><summary>Waarom deze training?</summary><p class="small muted" style="margin-top:8px">${esc(why)}</p></details>`:''}</div>
+      <div class="card stack"><p>${esc(w.desc)}</p>${['duur','duurgolf','duuropbouw'].includes(w.type)&&state.profile.maxHr?`<p class="small muted">♥ onder ${Math.round(state.profile.maxHr*.7)} bpm</p>`:''}${why?`<details class="why"><summary>Waarom deze training?</summary><p class="small muted" style="margin-top:8px">${esc(why)}</p></details>`:''}</div>
       <details class="card fold"><summary>Specificatie</summary><div style="margin-top:8px">${segList(w)}</div></details>
       ${adjust}</div>`;
 }
@@ -417,7 +427,7 @@ function libWo(t,min){
   return buildWorkout(t,min,1,lvlFor(state,t,C,ctx,fat));
 }
 /* zwaarte van een soort training: uit het gevoel dat erbij hoort (1-10) */
-const ZWAAR=[['licht','Licht'],['middel','Gemiddeld'],['zwaar','Zwaar']],zwaarOf=t=>{const e=t==='ramptest'?10:rpeExp(t)??5;return e<=4?'licht':e<=6?'middel':'zwaar'};
+const ZWAAR=[['licht','Licht'],['middel','Gemiddeld'],['zwaar','Zwaar']],zwaarOf=t=>{const e=isFtpTest(t)?10:rpeExp(t)??5;return e<=4?'licht':e<=6?'middel':'zwaar'};
 const LIB_MIN=[30,45,60,75,90,120];
 function libView(){
   const l=ui.lib,on=l.cats||[],zw=l.zw||[],n=on.length+zw.length;
@@ -458,9 +468,9 @@ function progressCard(){
      anders volgt het je schema: groei per week naar niveau en fitheid, samen nooit meer dan 12%. Een schatting, geen belofte. */
   let FW;
   if(bl){FW=Math.max(1,Math.round(dayDiff(mon,mondayOf(parseISO(bl.end)))/7));for(let k=1;k<=FW;k++){const m=addDays(mon,7*k);pts.push({m,fut:blockPath(bl,addDays(m,6))})}}
-  else{FW=clamp(Math.round(horizonDays(today)/7),6,16);const path=fitnessPath(today,FW*7),c0=Math.max(path.now.ctl,15),g0=hk<2.5?.008:hk<3.2?.006:hk<4?.004:.0025;let fv=head;
+  else{FW=clamp(Math.round(horizonDays(today)/7),6,16);const path=fitnessPath(today,FW*7),c0=Math.max(path.now.ctl,15),g0=gainFor(hk)*.07;let fv=head;
     for(let k=1;k<=FW;k++){const p=path.fut[Math.min(path.fut.length-1,k*7-1)],ratio=p?p.ctl/c0:1;fv=Math.min(head*1.12,fv*(1+g0*clamp((ratio-.8)/.2,-.5,1.5)));pts.push({m:addDays(mon,7*k),fut:Math.round(fv)})}}
-  const N=pts.length,vals=pts.flatMap(p=>[p.f,p.est,p.fut]).concat(goal?[goal]:[]).filter(v=>v),lo=Math.min(...vals)*.9,hi=Math.max(...vals)*1.05,y=v=>200-(v-lo)/(hi-lo)*200,X=i=>(i/(N-1)*1000).toFixed(1);
+  const N=pts.length,vals=pts.flatMap(p=>[p.f,p.est,p.fut]).concat(goal?[goal,blockBand(bl).lo,blockBand(bl).hi]:[]).filter(v=>v),lo=Math.min(...vals)*.9,hi=Math.max(...vals)*1.05,y=v=>200-(v-lo)/(hi-lo)*200,X=i=>(i/(N-1)*1000).toFixed(1);
   const line=k=>{let d='',pen=false;pts.forEach((p,i)=>{const v=p[k];if(!v){pen=false;return}d+=k==='f'&&pen?`H${X(i)}V${y(v).toFixed(1)}`:`${pen?'L':'M'}${X(i)},${y(v).toFixed(1)}`;pen=true});return d};
   /* met een blok: het schema vanaf de start van het blok, ook het stuk dat al voorbij is; anders vanaf vandaag */
   const b0=bl?Math.max(0,pts.findIndex(p=>iso(addDays(p.m,6))>=bl.start)):N0-1;
@@ -471,14 +481,15 @@ function progressCard(){
   const dots=pts.map((p,i)=>p.est&&!(pts[i-1]&&pts[i-1].est)&&!(pts[i+1]&&pts[i+1].est)?`<path d="M${X(i)},${y(p.est).toFixed(1)}h.01" stroke="var(--acc)" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`:'').join('');
   /* op schema? Alleen te zeggen na een FTP-test in dit blok: een schatting uit gewone ritten is daar te grof voor */
   const tst=bl?real.filter(r=>r.type==='ramptest'&&r.date>=bl.start&&ftpEstimate(r)).sort((a,b)=>a.date<b.date?1:-1)[0]:null,gap=tst?ftpEstimate(tst)-blockPath(bl,parseISO(tst.date)):null;
-  const goalTxt=!bl?'':now>=goal?` · doel ${goal} W gehaald`:` · doel ${goal} W op ${dt(parseISO(bl.end))}${gap==null?'':gap>=-3?' · op schema':` · ${-gap} W achter`}`;
+  const goalTxt=!bl?'':blockHit(bl,now)?` · doel ${blockGoal(bl)} gehaald`:` · doel ${blockGoal(bl)} op ${dt(parseISO(bl.end))}${gap==null?'':gap>=-blockBand(bl).m?' · op schema':` · ${-gap} W achter`}`;
   SCRUB.ftp=f=>{
     const i=Math.round(f*(N-1)),p=pts[i],v=p.fut||p.est||p.f;
     return {x:i/(N-1),html:`<span>Week ${weekNo(p.m)} · ${dt(p.m)}${i===N0-1?' · nu':''}</span><span><b>${v||'–'} W</b> ${p.fut?(bl?'volgens schema':'verwacht'):p.est?'geschat':'ingesteld'}</span>${goal&&v&&goal>v?`<span>Nog ${goal-v} W tot je doel</span>`:p.est&&p.f?`<span>Ingesteld ${p.f} W</span>`:''}`};
   };
-  const ftpCard=`<div class="card"><div class="bignum tacc"><span>${est?'Geschatte FTP':'FTP'}</span><b>${head}<i>W</i></b><small>${nl(hk.toFixed(1))} W/kg · ${levelOf(hk)}${grow?` · <em class="${grow>0?'up':'down'}">${grow>0?'+':''}${grow} W</em> in zes weken`:''}${goalTxt}</small></div>
+  const ftpCard=`<div class="card"><div class="bignum tacc"><span>${est?'Geschatte FTP':'FTP'}</span><b>${head}<i>W ±${ftpMargin(head)}</i></b><small>${nl(hk.toFixed(1))} W/kg · ${levelOf(hk)}${grow?` · <em class="${grow>0?'up':'down'}">${grow>0?'+':''}${grow} W</em> in zes weken`:''}${goalTxt}</small></div>
     <div class="chart" data-scrub="ftp" style="height:170px;margin-top:14px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je FTP: was, nu en verwacht">
       <line x1="${X(N0-1)}" x2="${X(N0-1)}" y1="0" y2="200" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      ${goal?`<rect x="0" width="1000" y="${y(blockBand(bl).hi).toFixed(1)}" height="${(y(blockBand(bl).lo)-y(blockBand(bl).hi)).toFixed(1)}" fill="var(--ink)" fill-opacity=".06"/>`:''}
       ${goal?`<line x1="0" x2="1000" y1="${y(goal).toFixed(1)}" y2="${y(goal).toFixed(1)}" stroke="var(--ink)" stroke-opacity=".45" stroke-dasharray="2 4" vector-effect="non-scaling-stroke"/>`:''}
       <path d="${line('f')}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
       <path d="${line('est')}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>${dots}
@@ -505,9 +516,9 @@ function rideView(){
   const v=verdict(r,state.profile.ftp),est=ftpEstimate(r),c=cijfer(r);
   const fs=r.ftpSet&&state.profile.ftp===r.ftpSet.to?r.ftpSet:null;
   const ftpBtn=fs?`<p class="small">Je FTP is bijgewerkt van ${fs.from} naar ${fs.to} W. Alle trainingen zijn daarop aangepast. <button class="link" data-act="setFtp" data-w="${fs.from}">Terugzetten naar ${fs.from} W</button></p>`
-    :est&&Math.abs(est-state.profile.ftp)>=2&&(r.type==='ramptest'||est>state.profile.ftp*1.02)?`<button class="btn pri" data-act="setFtp" data-w="${est}">FTP bijwerken naar ${est} W</button>`:'';
+    :est&&(isFtpTest(r.type)?Math.abs(est-state.profile.ftp)>=2:est>=state.profile.ftp+5)?`<button class="btn pri" data-act="setFtp" data-w="${est}">FTP bijwerken naar ${est} W</button>`:'';
   /* cijfer (of bij een FTP-test de uitkomst) met wat de coach ervan vindt */
-  const mark=r.type==='ramptest'&&est?`<div class="grade"><b>${est}</b><span>W FTP</span></div>`:c!=null?`<div class="grade ${c>=7.5?'hi':c>=5.5?'mid':'lo'}"><b>${nl(c.toFixed(1))}</b><span>cijfer</span></div>`:'';
+  const mark=isFtpTest(r.type)&&est?`<div class="grade"><b>${est}</b><span>W FTP ±${ftpMargin(est)}</span></div>`:c!=null?`<div class="grade ${c>=7.5?'hi':c>=5.5?'mid':'lo'}"><b>${nl(c.toFixed(1))}</b><span>cijfer</span></div>`:'';
   const hero=v.length||mark?`<div class="card hero">${mark}<div class="herotxt"><p>${esc(v[0]||'')}</p>${v.slice(1).map(t=>`<p class="small muted">${esc(t)}</p>`).join('')}${ftpBtn?`<div style="margin-top:12px">${ftpBtn}</div>`:''}</div></div>`:'';
   /* met de hand ingevoerd: alleen wat je invulde; iets anders dan een training uit het schema heeft geen geplande duur */
   const other=r.manual&&!TYPES[r.type];

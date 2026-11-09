@@ -10,7 +10,7 @@ function openPlayer(wo){
   const starts=[];let t=0;for(const s of wo.segs){starts.push(t);t+=s.d}
   const maxI=Math.max(1.3,...wo.segs.map(s=>Math.max(s.a,s.b)))*1.08;
   wo=Object.assign({},wo,{segs:wo.segs.map(s=>Object.assign({},s))});
-  P={wo,planned:wo.sec,tr:[],free:false,freeSec:0,ftp:state.profile.ftp,starts,total:t,maxI,mode:'ready',sim:false,speed:1,clock:0,pos:0,si:-1,bias:1,erg:true,grade:1,gear:GEAR0,sent:-1,
+  P={wo,planned:wo.sec,tr:[],free:false,freeSec:0,ftp:state.profile.ftp,starts,total:t,maxI,mode:'ready',sim:false,speed:1,clock:0,pos:0,si:-1,bias:1,erg:wo.type!=='test20',grade:1,gear:GEAR0,sent:-1,
      rec:{p:[],hr:[],cad:[],tgt:[]},game:gameNew(wo),laps:[],trace:'',last:now(),zero:0,auto:false,startTs:0,simP:0,simH:70,lastSave:0,stopArm:false,drawn:-1};
   ui.modal=null;ui.bleMsg='';ui.startTab=null;
   P.timer=setInterval(tick,200);
@@ -359,9 +359,10 @@ async function storeRide(a){
   /* van demo's bewaren we alleen de laatste */
   if(a.sim){const old=state.rides.filter(r=>r.sim);for(const r of old)await idb.del('s:'+r.id);state.rides=state.rides.filter(r=>!r.sim);state.deleted=(state.deleted||[]).concat(old.map(r=>r.id))}
   markRecords(ride);
-  /* na een FTP-test: je FTP gaat meteen naar de uitkomst; op de ritpagina kun je hem terugzetten */
-  if(ride.type==='ramptest'&&!a.sim){const e=ftpEstimate(ride),old=state.profile.ftp;
-    if(e>=60&&e!==old){state.profile.ftp=e;logFtp(e);ride.ftpSet={from:old,to:e}}}
+  /* na een FTP-test: bij een verschil van 5 W of meer gaat je FTP naar de uitkomst; op de ritpagina kun je hem terugzetten.
+     Een 20-minutentest telt alleen als hij je verhouding geeft: anders was hij niet voluit */
+  if(isFtpTest(ride.type)&&!a.sim){if(calibrate(ride,state))ride.cal=state.ftpCal.r;const e=ftpEstimate(ride),old=state.profile.ftp;
+    if((ride.type==='ramptest'||ride.cal)&&ftpAdopt(e,old)){state.profile.ftp=e;logFtp(e);ride.ftpSet={from:old,to:e}}}
   state.rides.push(ride);if(before){ride.change=planDiff(before,ride);ui.planBefore={id:ride.id,snap:before}}save();
   await idb.put('s:'+ride.id,a.rec);await idb.del('active');
   ui.rideFrom=tabOf(ui.view);ui.deep=false;ui.rpeEdit=false;ui.streams={id:ride.id,rec:a.rec};ui.view='ride';ui.rideId=ride.id;

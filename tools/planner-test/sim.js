@@ -31,7 +31,8 @@ function run(sc){
     const hr=sc.hr?sc.hr(w.i):null;
     const r={id:'r'+NOW,date:iso(today),ts:NOW,name:wo.name,type:wo.type,lvl:wo.lvl||null,planned:wo.sec,ftp:state.profile.ftp,sim:false,rpe,adj:true,laps:[],dur:Math.round(wo.minutes*60*f),avgP:Math.round(state.profile.ftp*wo.IF*.95),np:Math.round(state.profile.ftp*wo.IF),IF:wo.IF,tss:Math.round(wo.tss*f),kj:0,zones:[0,0,0,0,0,0,0],best:{},score:sc.score?sc.score(w.i,wo.type):95,decoup:null};
     if(hr!=null)r.hrOff=hr;
-    if(wo.type==='ramptest'){const g=sc.ftp?sc.ftp(state.profile.ftp,w.i):Math.round(state.profile.ftp*1.03);r.best={60:Math.round(g/.75)};state.profile.ftp=g;(w.tests=w.tests||[]).push(g)}
+    if(wo.type==='ramptest'){const g=sc.ftp?sc.ftp(state.profile.ftp,w.i):Math.round(state.profile.ftp*1.03);r.best={60:Math.round(g/rampRatio())};if(ftpAdopt(g,state.profile.ftp))state.profile.ftp=g;(w.tests=w.tests||[]).push(g)}
+    if(wo.type==='test20'){r.best={1200:Math.round(state.profile.ftp/.95)};state.rides.push(r);calibrate(r,state);state.rides.pop();(w.tests=w.tests||[]).push('t20')}
     if(LADDER[wo.type]&&wo.lvl)applyProg(r);
     state.rides.push(r);w.doneMin+=r.dur/60;w.doneTss+=r.tss;w.rides++;
   }

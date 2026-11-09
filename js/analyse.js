@@ -28,6 +28,8 @@ function lapStats(rec,laps){
   return out;
 }
 
+/* sweet spot is een gebied dat je op gevoel invult, geen exact getal: daar telt pas een afwijking boven de 5% */
+const tolOf=l=>/^Sweet spot/.test(l.label||'')?5:2;
 function analyze(rec,ftp,laps,plannedSec,type){
   const p=rec.p,n=p.length;
   const np=normPower(p),IF=ftp?np/ftp:0;
@@ -36,18 +38,18 @@ function analyze(rec,ftp,laps,plannedSec,type){
   for(const v of p)zones[zoneOf(v/ftp)-1]++;
   const best={};for(const[w]of BESTS)best[w]=bestEffort(p,w);
   let score=null,miss=null;
-  if(type!=='ramptest'&&type!=='vrij'){
+  if(!isFtpTest(type)&&type!=='vrij'){
     /* heeft de training werkblokken, dan bepalen die het cijfer; bij een duurrit telt het rustige rijden.
        Warming-up, herstel en cooling-down tellen nauwelijks mee. Elke procent afwijking boven de 2% kost 5 punten. */
     const LS=lapStats(rec,laps),hasWork=LS.some(l=>l.kind==='work'&&l.d>=20),KW=hasWork?{work:1}:{steady:1};let w=0,acc=0;
     for(const l of LS){
       if(l.d<20||l.t<=0)continue;
-      const s=clamp(100-Math.max(0,Math.abs(l.dev)-2)*5,0,100),k=l.d*(KW[l.kind]||(hasWork?.04:.3));
+      const s=clamp(100-Math.max(0,Math.abs(l.dev)-tolOf(l))*5,0,100),k=l.d*(KW[l.kind]||(hasWork?.04:.3));
       acc+=s*k;w+=k;
     }
     if(w>0)score=Math.round(acc/w*Math.min(1,n/Math.max(1,plannedSec)));
     /* welke blokken duidelijk naast het doel zaten, voor de uitleg bij het cijfer */
-    const tel=LS.filter(l=>l.d>=20&&l.t>0&&(hasWork?l.kind==='work':l.kind==='steady')),off=tel.filter(l=>Math.abs(l.dev)>6);
+    const tel=LS.filter(l=>l.d>=20&&l.t>0&&(hasWork?l.kind==='work':l.kind==='steady')),off=tel.filter(l=>Math.abs(l.dev)>tolOf(l)+4);
     if(tel.length)miss={n:off.length,N:tel.length,low:off.filter(l=>l.dev<0).length};
   }
   let decoup=null;
@@ -83,11 +85,26 @@ function applyProg(r,again){
   if(r.prog0==null)r.prog0=!again&&state.prog[r.type]!=null?state.prog[r.type]:r.lvl;
   state.prog[r.type]=clamp(r.prog0+progStep(r),1,LADDER[r.type].steps.length);
 }
+/* Een FTP is een schatting. De marge is de herhaalfout van een test thuis (CV 3,7%, Matta 2022); een kleiner verschil dan 5 W nemen we niet vanzelf over. */
+const ftpMargin=w=>Math.round((w||0)*.037);
+const ftpAdopt=(e,old)=>e>=60&&Math.abs(e-old)>=5;
+/* de verhouding tussen je beste rampminuut en je FTP: 75%, tot een 20-minutentest jouw eigen verhouding geeft (calibrate) */
+const rampRatio=()=>(state.ftpCal&&state.ftpCal.r)||.75;
 function ftpEstimate(r){
   if(r.sim)return 0;
-  if(r.type==='ramptest')return r.best[60]?Math.round(r.best[60]*.75):0;
-  /* de hoogste van: beste 20 minuten x 0,95, beste 60 minuten, beste 5 minuten x 0,80 */
-  return Math.round(Math.max((r.best[1200]||0)*.95,r.best[3600]||0,(r.best[300]||0)*.8));
+  if(r.type==='ramptest')return r.best[60]?Math.round(r.best[60]*rampRatio()):0;
+  if(r.type==='test20')return r.best[1200]?Math.round(r.best[1200]*.95):0;
+  /* uit een gewone rit: beste 20 minuten x 0,95 of beste 60 minuten gaan voor; 5 minuten x 0,80 alleen als er niets langers is */
+  return Math.round(Math.max((r.best[1200]||0)*.95,r.best[3600]||0)||(r.best[300]||0)*.8);
+}
+/* Eén 20-minutentest naast een ramptest van de vier weken ervoor: daaruit volgt je eigen verhouding. Te ver onder wat de ramp aangaf, dan was hij niet voluit en telt hij niet.
+   De aanpak is eigen afleiding; dat de verhouding per persoon verschilt, is literatuur (Iannetta 2020). */
+function calibrate(r,st){
+  if(r.sim||r.type!=='test20'||!r.best||!r.best[1200])return false;
+  const a=(st.rides||[]).filter(x=>!x.sim&&x.type==='ramptest'&&x.best&&x.best[60]&&x.date<=r.date&&dayDiff(parseISO(x.date),parseISO(r.date))<=28).sort((x,y)=>x.date<y.date?1:-1)[0];
+  if(!a)return false;
+  const t=r.best[1200]*.95;if(t<a.best[60]*.75*.85)return false;
+  st.ftpCal={r:+clamp(t/a.best[60],.65,.85).toFixed(3),ramp:a.date,t20:r.date};return true;
 }
 
 function fitness(rides,today,span){
@@ -140,7 +157,7 @@ function matchPlan(ride,rec){
   ride.as=rideKind(ride);
   if(state.rides.some(r=>!r.sim&&r.date===ride.date&&r.id!==ride.id&&TYPES[r.type]))return;
   const d=planWeek(state,mondayOf(parseISO(ride.date)),new Date()).days.find(x=>x.iso===ride.date),wo=d&&d.wo;
-  if(!wo||wo.type==='ramptest')return;
+  if(!wo||isFtpTest(wo.type))return;
   const c=compareRide(wo,rec.p,ride.ftp);
   ride.cmp={t:wo.type,name:wo.name,score:c.score,hit:c.hit,n:c.n};ride.score=c.score;ride.planned=wo.sec;
   if(c.score>=75){ride.type=wo.type;ride.lvl=wo.lvl||null;ride.name=wo.name;ride.outdoor=true;ride.adj=false}
@@ -155,17 +172,32 @@ function matchFeel(r){
   if(!r.cmp){
     if(state.rides.some(x=>!x.sim&&x.date===r.date&&x.id!==r.id&&TYPES[x.type]))return;
     const d=planWeek(state,mondayOf(parseISO(r.date)),new Date()).days.find(x=>x.iso===r.date),wo=d&&d.wo;
-    if(!wo||wo.type==='ramptest')return;
+    if(!wo||isFtpTest(wo.type))return;
     r.cmp={t:wo.type,name:wo.name,sec:wo.sec,feel:true};r.planned=wo.sec;
   }
   const c=r.cmp,s=feelScore(c.t,r.dur,c.sec,r.rpe),ok=s>=75;
   c.score=s;r.score=s;r.type=ok?c.t:'buiten';r.name=ok?c.name:'Buitenrit';r.outdoor=true;
 }
+/* Jouw eigen lijn: belasting per uur bij elk gevoelscijfer, uit je ritten met vermogen. Pas vanaf vijf ritten met drie verschillende cijfers;
+   anders de algemene tabel. Duur maal gevoel volgt de belasting goed (Haddad 2017, Vermeire 2023), de ijking is eigen afleiding. Snelheid telt niet mee: wind en zog overheersen. */
+function feelLine(st){
+  const pts=(st.rides||[]).filter(r=>!r.sim&&!r.manual&&!r.noPower&&r.rpe!=null&&r.tss>0&&r.dur>=1200&&r.avgP>0&&!isFtpTest(r.type)).sort((a,b)=>b.ts-a.ts).slice(0,30).map(r=>[r.rpe,r.tss/(r.dur/3600)]);
+  if(pts.length<5||new Set(pts.map(p=>p[0])).size<3)return null;
+  const n=pts.length,sx=pts.reduce((a,p)=>a+p[0],0),sy=pts.reduce((a,p)=>a+p[1],0),sxx=pts.reduce((a,p)=>a+p[0]*p[0],0),sxy=pts.reduce((a,p)=>a+p[0]*p[1],0),d=n*sxx-sx*sx;
+  if(d<=0)return null;
+  const b=(n*sxy-sx*sy)/d;return b>0?{a:(sy-b*sx)/n,b,n}:null;
+}
+/* belasting per uur bij een gevoelscijfer */
+function feelRate(rpe,st){
+  const L=feelLine(st);if(L)return clamp(L.a+L.b*rpe,15,130);
+  const f=FEEL_IF[clamp(Math.round(rpe),1,10)-1];return f*f*100;
+}
 /* zonder vermogen komt de belasting uit je gevoel; bij hardlopen ook uit je snelheid */
 function feelLoad(r){
   if(r.rpe==null)return;
   if(r.type==='hardlopen'&&r.dist){const L=runLoad(r.dist/1000,r.dur/60,r.rpe);r.IF=+L.IF.toFixed(2);r.tss=L.tss}
-  else if(r.manual||r.noPower){r.IF=FEEL_IF[r.rpe-1];r.tss=Math.round(r.dur/3600*r.IF*r.IF*100)}
+  else if(r.type==='buiten'||r.outdoor||r.noPower){const v=feelRate(r.rpe,state);r.IF=+Math.sqrt(v/100).toFixed(2);r.tss=Math.round(r.dur/3600*v);r.ownLine=!!feelLine(state)}
+  else if(r.manual){r.IF=FEEL_IF[r.rpe-1];r.tss=Math.round(r.dur/3600*r.IF*r.IF*100)}
 }
 /* het schema van vandaag tot over een week, om voor en na een rit te vergelijken */
 function planSnap(){
@@ -199,12 +231,12 @@ function runLoad(km,min,rpe){
    Alleen voor de lijn bij Voortgang; je FTP zelf verandert hier niet door. */
 const FEEL={5:.8,6:.84,7:.88,8:.92,9:.96,10:1};
 function ftpFromFeel(r){
-  if(r.sim||r.manual||!FEEL[r.rpe]||r.type==='ramptest'||!r.best)return 0;
+  if(r.sim||r.manual||!FEEL[r.rpe]||isFtpTest(r.type)||!r.best)return 0;
   return Math.max((r.best[1200]||0)*.95,(r.best[600]||0)*.9,(r.best[300]||0)*.8)/FEEL[r.rpe];
 }
 /* ---------- gevoel en hartslag als controle ----------
    Verwachte zwaarte (1-10) per soort training. Voelt een training twee punten of meer zwaarder, dan is dat een signaal. */
-const RPE_EXP={ssaanzet:6,oplopend:6,tempocad:5,herstelcad:2,herstelgolf:2,herstelspin:2,duursprint:6,duurss:6,tempolang:5,tempogolf:5,sslang:6,ssgolf:6,herstel:2,duur:4,souplesse:4,openers:4,tempo:5,kracht:6,sweetspot:6,duurtempo:6,duurklim:6,duurheuvels:6,klim:7,drempel:7,sprint:7,heuvels:8,vo2:8,anaeroob:8};
+const RPE_EXP={vier8:8,ssaanzet:6,oplopend:6,tempocad:5,herstelcad:2,herstelgolf:2,herstelspin:2,duursprint:6,duurss:6,tempolang:5,tempogolf:5,sslang:6,ssgolf:6,herstel:2,duur:4,souplesse:4,openers:4,tempo:5,kracht:6,sweetspot:6,duurtempo:6,duurklim:6,duurheuvels:6,klim:7,drempel:7,sprint:7,heuvels:8,vo2:8,anaeroob:8};
 /* verwacht gevoel: per soort, anders naar de groep; alleen voor trainingen uit de app, niet voor de FTP-test */
 const RPE_CAT={rustig:4,techniek:4,drempel:7,vo2:8,klim:7,kracht:7};
 const rpeExp=t=>RPE_EXP[t]??(TYPES[t]?RPE_CAT[CAT_OF[t]]:undefined);
@@ -215,18 +247,39 @@ function rideSignal(r){
   const e=r.rpe!=null?rpeExp(r.type):null,rel=e==null?null:r.rpe-e;
   return {f:rel==null?0:rel>=2?1:rel<=-1?-1:0,h:r.hrOff==null?0:r.hrOff>=6?1:r.hrOff<=-6?-1:0,known:rel!=null||r.hrOff!=null};
 }
+/* Zwaar gevoel dat zich herhaalt: twee ritten zwaar met een lage hartslag, of drie zwaar met een normale. Dan eerst een paar lichtere dagen en
+   daarna opnieuw kijken, in plaats van meteen een hele herstelweek: herstel kan binnen dagen komen (Hammes 2016, Decroix 2018). Stateless uit je ritten.
+   De ritten tot en met de lichtere dagen tellen daarna niet meer mee. De regel zelf is eigen afleiding. */
+const EASE_DAYS=4;
+function easeWalk(st,upto){
+  const a=iso(addDays(parseISO(upto),-42)),rs=(st.rides||[]).filter(r=>!r.sim&&r.date>=a&&r.date<upto).sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
+  let until='',kind='',zl=[],hv=[];const at=[];
+  for(const r of rs){
+    if(r.date<=until)continue;
+    const s=rideSignal(r),w=iso(addDays(parseISO(r.date),-14));
+    if(s.f>0&&s.h<0)zl.push(r.date);else if(s.f>0&&s.h===0)hv.push(r.date);
+    zl=zl.filter(d=>d>=w);hv=hv.filter(d=>d>=w);
+    if(zl.length>=2||hv.length>=3){kind=zl.length>=2?'diep':'zwaar';until=iso(addDays(parseISO(r.date),EASE_DAYS));at.push(r.date);zl=[];hv=[]}
+  }
+  const last=at[at.length-1],prev=at[at.length-2],twice=!!prev&&dayDiff(parseISO(prev),parseISO(last))<=21&&dayDiff(parseISO(last),parseISO(upto))<=10;
+  return {until,kind,twice};
+}
 /* Gevoel en hartslag samen, over de ritten van de twee weken vóór 'upto'. Tegenstrijdige signalen zijn de nuttigste:
    zwaar met een lage hartslag wijst op diepe vermoeidheid, licht met een lage hartslag op groei. */
 function coachRead(st,upto){
-  const from=iso(addDays(parseISO(upto),-14));
+  const E=easeWalk(st,upto),from=[iso(addDays(parseISO(upto),-14)),E.until?iso(addDays(parseISO(E.until),1)):''].sort().pop();
   const S=(st.rides||[]).filter(r=>!r.sim&&r.date>=from&&r.date<upto).map(rideSignal).filter(s=>s.known);
   const n=fn=>S.filter(fn).length,zl=n(s=>s.f>0&&s.h<0),zh=n(s=>s.f>0&&s.h>0),heavy=n(s=>s.f>0),hi=n(s=>s.f<=0&&s.h>0),ll=n(s=>s.f<0&&s.h<0),light=n(s=>s.f<0&&s.h<=0);
   const out={k:'',n:S.length,rest:false,lighter:false,more:false,fresh:false,test:false};
+  /* na de lichtere dagen van een reeks zware ritten: nu pas een test. Herhaalt het zich binnen drie weken, dan alsnog een herstelweek */
+  if(E.kind==='zwaar'&&upto>E.until&&dayDiff(parseISO(E.until),parseISO(upto))<=7)out.test=true;
+  if(E.twice){out.k=E.kind;out.rest=true;return out}
+  if(upto<=E.until){out.k=E.kind;out.ease=true;return out}
   if(S.length<2)return out;
   const clean=!heavy&&!hi;
   out.fresh=clean&&S.length>=3&&light>=2;
-  if(zl+zh>=2){out.k=zl>zh?'diep':'moe';out.rest=true}
-  else if(heavy>=2){out.k='zwaar';out.lighter=true;out.test=heavy>=3}
+  if(zh&&zl+zh>=2){out.k='moe';out.rest=true}
+  else if(heavy>=2){out.k='zwaar';out.lighter=true}
   else if(hi>=2){out.k='hoog';out.lighter=true}
   else if(clean&&ll>=2){out.k='gegroeid';out.more=true}
   else if(clean&&light>=3){out.k='kanmeer';out.more=true}
@@ -263,12 +316,26 @@ function hrOffset(rec,ftp){
   let s=0,c=0;for(const [w,h] of pr){const e=hrExpect(w);if(e){s+=h-e;c++}}
   return c>=10?Math.round(s/c):null;
 }
+/* Een rit veel langer dan je langste van de afgelopen dertig dagen. Komt uit onderzoek bij hardlopers (Frandsen 2025), voor fietsers niet bevestigd: alleen een melding.
+   Vanaf 30% en een half uur langer, als er minstens drie eerdere ritten zijn. */
+function longJump(min,k,st){
+  const a=iso(addDays(parseISO(k),-30)),l=(st.rides||[]).filter(r=>!r.sim&&r.date>=a&&r.date<k&&!['hardlopen','fitness','anders'].includes(r.type));
+  if(l.length<3)return 0;
+  const top=Math.max(...l.map(r=>(r.dur||0)/60));
+  return min>=top*1.3&&min>=top+30?Math.round(top):0;
+}
 function verdict(r,ftp){
   const out=[];
-  if(r.type==='ramptest'){
+  if(isFtpTest(r.type)){
     if(r.sim){out.push('Dit was een demo. Een FTP volgt alleen uit een test die je echt op de trainer rijdt.');return out}
     const e=ftpEstimate(r);
-    out.push(e?`Je beste minuut was ${r.best[60]} W. Daaruit volgt een FTP van ongeveer ${e} W.`:'De test was te kort om een FTP uit af te leiden. Rijd door tot je de cadans echt niet meer vasthoudt.');
+    if(r.type==='test20'){
+      out.push(e?`Je beste 20 minuten waren ${r.best[1200]} W. Daaruit volgt een FTP van ${e} W, marge ±${ftpMargin(e)} W.`:'De test was te kort. Je moet de twintig minuten uitrijden.');
+      if(r.cal)out.push(Math.round(r.cal*100)===75?'Je eigen verhouding is ook 75% van je beste minuut.':`Je ramptest rekent nu met ${Math.round(r.cal*100)}% van je beste minuut in plaats van 75%.`);else if(e)out.push('Te ver onder je ramptest om je verhouding op te baseren.');
+      return out;
+    }
+    out.push(e?`Je beste minuut was ${r.best[60]} W. Daaruit volgt een FTP van ${e} W, marge ±${ftpMargin(e)} W.`:'De test was te kort om een FTP uit af te leiden. Rijd door tot je de cadans echt niet meer vasthoudt.');
+    if(e&&!r.ftpSet&&Math.abs(e-(r.ftp||ftp))<5)out.push('Verschil kleiner dan 5 W: je FTP blijft staan.');
     return out;
   }
   /* zonder vermogen: vergeleken op tijd en gevoel */
@@ -288,7 +355,7 @@ function verdict(r,ftp){
   }
   if(r.type==='vrij'){out.push(r.dist>200?`Vrij gereden: ${nl((r.dist/1000).toFixed(1))} km in ${clock(r.dur)}, gemiddeld ${r.avgP} W.`:`Vrij gereden: ${clock(r.dur)}, gemiddeld ${r.avgP} W.`);return out}
   if(r.type==='hardlopen'&&r.dist){const L=runLoad(r.dist/1000,r.dur/60);out.push(`${L.pace} per km, ${nl(L.kmh.toFixed(1))} km/u.`,`${r.instead?`In plaats van ${r.instead}. `:''}Telt mee in je vermoeidheid, niet in je FTP.`);return out}
-  if(r.manual||r.noPower){out.push(r.type==='buiten'?'Belasting geschat uit tijd en gevoel.':'Telt mee in je vermoeidheid, niet in je FTP.');if(r.instead)out.push(`In plaats van ${r.instead}.`);return out}
+  if(r.manual||r.noPower){out.push(r.type==='buiten'?(r.ownLine?'Belasting geschat uit tijd en gevoel, geijkt op je trainerritten.':'Belasting geschat uit tijd en gevoel.'):'Telt mee in je vermoeidheid, niet in je FTP.');if(r.instead)out.push(`In plaats van ${r.instead}.`);return out}
   const done=r.dur/Math.max(1,r.planned);
   if(r.score!=null)out.push(r.score>=90?'Strak uitgevoerd.':r.score>=75?'Grotendeels volgens plan.':done<.9?'Eerder gestopt, dus de training telt maar gedeeltelijk mee.':'Het doelvermogen was vandaag te hoog gegrepen.');
   if(r.rpe!=null&&!r.sim){
@@ -299,12 +366,13 @@ function verdict(r,ftp){
   else if(r.hrOff>=6&&!r.sim)out.push('Hartslag hoger dan normaal: je volgende zware training wordt iets lichter.');
   if(r.hrOff<=-6&&!r.sim)out.push('Hartslag lager dan normaal: hetzelfde werk kost je minder.');
   const e=ftpEstimate(r);
-  if(e>ftp*1.02)out.push(`Deze rit wijst op een FTP van ongeveer ${e} W.`);
+  if(e>=ftp+5)out.push(`Deze rit wijst op een FTP van ongeveer ${e} W.`);
+  const lj=!r.sim&&longJump(r.dur/60,r.date,state);if(lj)out.push(`Veel langer dan je langste rit van de afgelopen 30 dagen (${durTxt(lj)}). Neem de dag erna rustig.`);
   return out;
 }
 /* de uitleg achter de conclusie: onder Meer cijfers */
 function verdictMore(r){
-  const out=[];if(r.sim||r.manual||r.type==='ramptest'||r.type==='vrij')return out;
+  const out=[];if(r.sim||r.manual||isFtpTest(r.type)||r.type==='vrij')return out;
   const m=r.miss,done=r.dur/Math.max(1,r.planned);
   if(m&&m.n)out.push(`In ${m.n} van de ${m.N} ${m.N===1?'blok':'blokken'} zat je meer dan 6% ${m.low*2>=m.n?'onder':'boven'} het doel.`);
   if(done<.95)out.push(`Je reed ${Math.round(r.dur/60)} van de ${Math.round(r.planned/60)} geplande minuten.`);

@@ -9,7 +9,7 @@ const view3d=()=>{try{return localStorage.getItem(VIEW_KEY)!=='cijfers'}catch(e)
 function setView3d(on){try{localStorage.setItem(VIEW_KEY,on?'3d':'cijfers')}catch(e){}}
 
 /* ---------- punten, reeksen en sterren (ook zonder 3D) ---------- */
-function gameNew(wo){return {on:wo.type!=='ramptest',pts:0,streak:0,best:0,stars:[],blk:null,pop:null}}
+function gameNew(wo){return {on:!isFtpTest(wo.type),pts:0,streak:0,best:0,stars:[],blk:null,pop:null}}
 const gameMult=()=>Math.min(5,1+Math.floor(P.game.streak/30));
 function gameStep(i,p,tgt){
   const g=P.game;if(!g||!g.on||!tgt)return;
