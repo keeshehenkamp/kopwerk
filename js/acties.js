@@ -142,60 +142,56 @@ const actions={
     render();toast(!state.avail.some(x=>x)?'Opgeslagen. Je hebt nog geen trainingsdagen gekozen.':state.event&&!state.event.date?'Opgeslagen. Vul nog de datum van je evenement in; tot dan volgt het schema je doel.':'Opgeslagen');
   },
   openRide(d){ui.modal=null;openRide(d.id)},
-  /* zonder de app gereden: buiten, of iets anders; telt mee in je belasting en (bij een training uit de app) in de trede van die soort */
-  openCheck(d){ui.modal={kind:'check',iso:d.iso,m:d.m,rpe:null,pick:!!d.p};render()},
-  chkRpe(d,el){ui.modal.rpe=+d.n;el.parentNode.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===el)));runPreview()},
-  saveCheck(){
-    const M=ui.modal,dEl=document.getElementById('c-date'),date=dEl?dEl.value:M.iso;
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>iso(new Date()))return toast('Kies een datum van vandaag of eerder.');
-    const day=planWeek(state,mondayOf(parseISO(date)),new Date()).days.find(x=>x.iso===date),w=day&&day.wo;
-    const min=clamp(Math.round(+document.getElementById('c-min').value)||0,0,900);
+  /* training afronden: wat je deed, de gegevens, hoe zwaar het was. Daarna de analyse op het ritscherm */
+  openLog(d){ui.modal={kind:'log',iso:d.iso||iso(new Date()),pick:!!d.p,step:0,rpe:null};render()},
+  logHow(d){const M=ui.modal;M.how=d.how;M.step=1;render()},
+  logBack(){const M=ui.modal;M.step--;M.ride=null;M.rec=null;render()},
+  logNext(){
+    const M=ui.modal,g=id=>document.getElementById(id),dEl=g('c-date');
+    if(dEl){if(!/^\d{4}-\d{2}-\d{2}$/.test(dEl.value)||dEl.value>iso(new Date()))return toast('Kies een datum van vandaag of eerder.');M.iso=dEl.value}
+    const min=clamp(Math.round(+g('c-min').value)||0,0,900),km=g('c-km')?+g('c-km').value||0:0;
     if(min<5)return toast('Vul in hoe lang je bezig was.');
-    if(!M.rpe)return toast('Kies hoe zwaar het voelde.');
-    let name,type,IF,tss,lvl=null,plan=w||{sec:min*60},dist=0;
-    const k=M.m==='buiten'?'buiten':(document.querySelector('input[name="ck"]:checked')||{}).value;
-    /* een andere training uit de app: de belasting komt uit die training; anders uit de duur en hoe zwaar het voelde */
-    if(k==='training')plan=libWo(document.getElementById('c-wo').value,min);
-    if(k==='training'){name=plan.name;type=plan.type;IF=plan.IF;tss=Math.round(plan.tss*min/Math.max(1,plan.minutes));lvl=plan.lvl||null}
-    else{if(!CHECK_KIND[k])return toast('Kies wat je hebt gedaan.');
-      name=CHECK_KIND[k][1];type=CHECK_KIND[k][2];IF=FEEL_IF[M.rpe-1];tss=Math.round(min/60*IF*IF*100);
-      /* hardlopen: de belasting komt uit je snelheid en je gevoel */
-      if(k==='hardlopen'){const km=+document.getElementById('c-km').value;if(!(km>=.2))return toast('Vul in hoeveel kilometer je liep.');const L=runLoad(km,min,M.rpe);IF=L.IF;tss=L.tss;dist=Math.round(km*1000)}}
-    const ride={id:'m'+Date.now().toString(36),dist,date,ts:parseISO(date).getTime()+18*36e5,name,type,lvl,manual:true,planned:plan.sec,ftp:state.profile.ftp,sim:false,rpe:M.rpe,adj:true,laps:[],
-      dur:min*60,avgP:0,np:0,IF:+IF.toFixed(2),tss,kj:0,avgHr:0,maxHr:0,avgCad:0,zones:[0,0,0,0,0,0,0],best:{},score:null,decoup:null};
-    if(LADDER[type]&&lvl){ride.rpeAdj=true;applyProg(ride)}
-    if(state.missed)delete state.missed[date];
-    state.rides.push(ride);save();ui.modal=null;render();toast(`${name} staat in je schema (${tss} TSS).`);
+    if(M.how==='hardlopen'&&km<.2)return toast('Vul in hoeveel kilometer je liep.');
+    M.min=min;M.km=km;M.name=g('c-name')?g('c-name').value.trim():'';M.step=2;render();
   },
-  openAdd(d){ui.modal={kind:'add',iso:d&&d.iso};render()},
-  async saveManual(){
-    const g=id=>document.getElementById(id),date=g('a-date').value,min=clamp(Math.round(+g('a-min').value)||0,0,900),pw=Math.round(+g('a-pw').value)||0;
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>iso(new Date()))return toast('Kies een datum van vandaag of eerder.');
-    if(min<10)return toast('Vul een duur van minstens 10 minuten in.');
-    const ftp=state.profile.ftp,IF=pw?clamp(pw*1.05/ftp,.3,1.3):EFFORT[+g('a-eff').value][0],ts=parseISO(date).getTime()+12*36e5;
-    const ride={id:'m'+Date.now().toString(36),date,ts,name:'Buitenrit',type:'buiten',manual:true,planned:min*60,ftp,sim:false,rpe:[3,5,7,9][+g('a-eff').value]||null,adj:true,laps:[],
-      dur:min*60,avgP:pw,np:pw?Math.round(pw*1.05):0,IF:+IF.toFixed(2),tss:Math.round(min/60*IF*IF*100),kj:pw?Math.round(pw*min*60/1000):0,avgHr:0,maxHr:0,avgCad:0,zones:[0,0,0,0,0,0,0],best:{},score:null,decoup:null};
-    state.rides.push(ride);save();ui.modal=null;render();toast(`Buitenrit toegevoegd: ${ride.tss} TSS.`);
-  },
-  importRide(d,el){
+  logRpe(d,el){ui.modal.rpe=+d.n;el.parentNode.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===el)))},
+  logFile(d,el){
     const f=el.files&&el.files[0];if(!f)return;
-    const eff=+document.getElementById('a-eff').value,isFit=/\.fit$/i.test(f.name),rd=new FileReader();
-    rd.onload=async()=>{
+    const isFit=/\.fit$/i.test(f.name),rd=new FileReader();
+    rd.onload=()=>{
       try{
-        const r=resample(isFit?parseFit(rd.result):parseTcx(rd.result));
+        const txt=rd.result,r=resample(isFit?parseFit(txt):/\.gpx$/i.test(f.name)?parseGpx(txt):parseTcx(txt));
         if(r.rec.p.length<120)throw 0;
-        const ftp=state.profile.ftp,start=r.start||Date.now();
-        const ride=makeRide({wo:{name:'Buitenrit',type:'buiten',sec:r.rec.p.length},ftp,rec:r.rec,laps:[{l:'Buitenrit',k:'steady',c:0,s:0}],sim:false,startTs:start});
-        ride.id='i'+Math.round(start/1000).toString(36);ride.adj=true;
-        if(!r.hasP){const IF=EFFORT[eff][0];ride.IF=IF;ride.tss=Math.round(ride.dur/3600*IF*IF*100);ride.noPower=true;ride.best={};ride.zones=[0,0,0,0,0,0,0]}
+        const start=r.start||Date.now(),ride=makeRide({wo:{name:'Buitenrit',type:'buiten',sec:r.rec.p.length},ftp:state.profile.ftp,rec:r.rec,dist:r.dist,laps:[{l:'Buitenrit',k:'steady',c:0,s:0}],sim:false,startTs:start});
+        ride.id='i'+Math.round(start/1000).toString(36);ride.adj=true;ride.dist=r.dist;
         if(state.rides.some(x=>x.id===ride.id)){ui.modal=null;render();return toast('Deze rit staat er al in.')}
-        if(r.hasP){learnHr(r.rec,ftp);matchPlan(ride,r.rec)}markRecords(ride);state.rides.push(ride);save();
-        await idb.put('s:'+ride.id,r.rec);
-        ui.modal=null;ui.rideFrom=tabOf(ui.view);ui.streams={id:ride.id,rec:r.rec};ui.view='ride';ui.rideId=ride.id;render();window.scrollTo(0,0);
-        if(!r.hasP)toast('Geen vermogen in dit bestand: de belasting is geschat.');else if(ride.cmp)toast(`Vergeleken met ${ride.cmp.name}: cijfer ${nl((ride.cmp.score/10).toFixed(1))}.`);
-      }catch(e){toast('Dit bestand kon niet worden gelezen. Gebruik een .fit- of .tcx-bestand van een rit.')}
+        if(!r.hasP){ride.noPower=true;ride.best={};ride.zones=[0,0,0,0,0,0,0]}
+        else matchPlan(ride,r.rec);
+        Object.assign(ui.modal,{ride,rec:r.rec,step:2,iso:ride.date});render();
+      }catch(e){toast('Dit bestand kon niet worden gelezen. Gebruik een .fit-, .gpx- of .tcx-bestand van een rit.')}
     };
     if(isFit)rd.readAsArrayBuffer(f);else rd.readAsText(f);
+  },
+  async logSave(){
+    const M=ui.modal;if(!M||M.kind!=='log')return;
+    if(!M.rpe)return toast('Kies hoe zwaar het was.');
+    const before=planSnap(),day=planWeek(state,mondayOf(parseISO(M.iso)),new Date()).days.find(x=>x.iso===M.iso),w=day&&day.wo&&!rideOn(M.iso)?day.wo:null;
+    let ride=M.ride;
+    if(!ride){
+      const K=LOG_KIND[M.how];
+      ride={id:'m'+Date.now().toString(36),dist:Math.round((M.km||0)*1000),date:M.iso,ts:parseISO(M.iso).getTime()+18*36e5,name:M.name||K.name,type:K.type,lvl:null,manual:true,planned:M.min*60,ftp:state.profile.ftp,sim:false,rpe:null,adj:true,laps:[],
+        dur:M.min*60,avgP:0,np:0,IF:0,tss:0,kj:0,avgHr:0,maxHr:0,avgCad:0,zones:[0,0,0,0,0,0,0],best:{},score:null,decoup:null};
+    }
+    ride.rpe=M.rpe;
+    if(ride.manual&&ride.type!=='buiten'&&w)ride.instead=w.name;
+    matchFeel(ride);feelLoad(ride);
+    if(M.rec&&!ride.noPower)learnHr(M.rec,ride.ftp);
+    if(LADDER[ride.type]&&ride.lvl&&!ride.adj){applyProg(ride);ride.adj=true;ride.rpeAdj=true}
+    if(!ride.manual)markRecords(ride);
+    if(state.missed)delete state.missed[ride.date];
+    state.rides.push(ride);ride.change=planDiff(before,ride);save();
+    if(M.rec)await idb.put('s:'+ride.id,M.rec);
+    ui.planBefore={id:ride.id,snap:before};ui.modal=null;ui.rideFrom=tabOf(ui.view);ui.deep=false;ui.rpeEdit=false;ui.streams=M.rec?{id:ride.id,rec:M.rec}:null;ui.view='ride';ui.rideId=ride.id;render();window.scrollTo(0,0);
   },
   repeat(){
     if(!P||P.mode==='ready'||P.free)return;
@@ -212,13 +208,15 @@ const actions={
   rpeEdit(){ui.rpeEdit=!ui.rpeEdit;render()},
   rpe(d){
     const r=state.rides.find(x=>x.id===ui.rideId);if(!r)return;
-    r.rpe=+d.n;
+    const before=ui.planBefore&&ui.planBefore.id===r.id?ui.planBefore.snap:planSnap();
+    r.rpe=+d.n;matchFeel(r);feelLoad(r);
     /* je gevoel en de uitvoering bepalen de volgende trede van deze soort training;
        pas je je antwoord aan, dan telt het nieuwe zolang er nog geen nieuwere rit van deze soort is beoordeeld */
     const later=state.rides.some(x=>x!==r&&!x.sim&&x.type===r.type&&x.ts>r.ts&&x.rpe!=null);
     if(!r.sim&&LADDER[r.type]&&r.lvl&&(!r.adj||(r.rpeAdj&&!later))){
       applyProg(r,r.adj);r.adj=true;r.rpeAdj=true;
     }
+    r.change=planDiff(before,r);ui.planBefore={id:r.id,snap:before};
     ui.rpeEdit=false;save();render();
   },
   /* een kortere afstand van hetzelfde evenement kiezen (vanuit de melding 'te zwaar') */
@@ -331,7 +329,7 @@ const actions={
   shift(d){shift(+d.d)}
 };
 /* acties die je met één tik kunt terugdraaien: de melding erna krijgt 'Ongedaan maken' */
-const UNDO=new Set(['saveCheck','stravaOff','healthDrop','healthUndo','healthBetter','saveHealth','missedWhy','setFtp']);
+const UNDO=new Set(['stravaOff','healthDrop','healthUndo','healthBetter','saveHealth','missedWhy','setFtp']);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;
   const k=el.dataset.act,a=actions[k];if(!a)return;

@@ -28,16 +28,16 @@ function rideChart(r,rec){
   return `<div class="chart" id="ridechart">
     <svg viewBox="0 0 1000 300" preserveAspectRatio="none" role="img" aria-label="Vermogen, doel en hartslag over de tijd">
       ${tg}
-      <line x1="0" x2="1000" y1="${yf}" y2="${yf}" stroke="var(--muted)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>
+      ${r.noPower?'':`<line x1="0" x2="1000" y1="${yf}" y2="${yf}" stroke="var(--muted)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>`}
       ${ui.showCad?`<path d="${pathOf(cb,v=>300-v/140*300)}" fill="none" stroke="var(--z2)" stroke-width="1.2" vector-effect="non-scaling-stroke"/>`:''}
       ${hv.length?`<path d="${pathOf(hb,yH)}" fill="none" stroke="var(--hr)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>`:''}
-      <path d="${pathOf(pb,yP)}" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+      ${r.noPower?'':`<path d="${pathOf(pb,yP)}" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`}
     </svg>
-    <span class="yl" style="top:${yf/3}%">FTP ${r.ftp} W</span>
-    <span class="yl" style="top:${yP(maxP*.92)/3}%">${Math.round(maxP*.92)} W</span>
+    ${r.noPower?'':`<span class="yl" style="top:${yf/3}%">FTP ${r.ftp} W</span>
+    <span class="yl" style="top:${yP(maxP*.92)/3}%">${Math.round(maxP*.92)} W</span>`}
     ${ticks}<span class="cur"></span><span class="tip"></span>
   </div>
-  <div class="legend"><span><i style="background:var(--ink)"></i>Vermogen</span><span><i style="background:var(--muted);opacity:.5;height:9px"></i>Doelvermogen</span>${hv.length?'<span><i style="background:var(--hr)"></i>Hartslag</span>':''}${ui.showCad?'<span><i style="background:var(--z2)"></i>Cadans</span>':''}
+  <div class="legend">${r.noPower?'':'<span><i style="background:var(--ink)"></i>Vermogen</span><span><i style="background:var(--muted);opacity:.5;height:9px"></i>Doelvermogen</span>'}${hv.length?'<span><i style="background:var(--hr)"></i>Hartslag</span>':''}${ui.showCad?'<span><i style="background:var(--z2)"></i>Cadans</span>':''}
     <button class="btn small" data-act="toggleCad" style="padding:4px 10px">${ui.showCad?'Cadans verbergen':'Cadans tonen'}</button></div>`;
 }
 /* door een grafiek schuiven: at(f) geeft bij een plek (0 tot 1) waar het streepje komt en wat er in de balk staat */

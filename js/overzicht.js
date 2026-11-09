@@ -55,27 +55,28 @@ function fitChart(path){
   };
   return `<div class="chart" data-scrub="fit" style="height:200px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Fitheid en vermoeidheid">
       <line x1="${xn}" x2="${xn}" y1="0" y2="200" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>
-      ${ln('ctl','var(--acc)',2.2,0,0,now)}${ln('ctl','var(--acc)',2,1,now,N-1)}${ln('atl','var(--muted)',1.5,0,0,now)}${ln('atl','var(--muted)',1.5,1,now,N-1)}</svg>
+      <path d="${pathOf(part('ctl',0,now),y)}L${xn},200L0,200Z" fill="var(--t-blue)" fill-opacity=".14"/>
+      ${ln('ctl','var(--t-blue)',2.5,0,0,now)}${ln('ctl','var(--t-blue)',2,1,now,N-1)}${ln('atl','var(--t-purple)',2,0,0,now)}${ln('atl','var(--t-purple)',1.5,1,now,N-1)}</svg>
       ${dateTick(all[0].d,0)}${now>0&&now<N-1?`<span class="xl" style="left:${now/(N-1)*100}%">vandaag</span>`:''}${dateTick(all[N-1].d,1)}${scrubMarks}</div>
-    <div class="legend"><span><i style="background:var(--acc)"></i>Fitheid</span><span><i style="background:var(--muted)"></i>Vermoeidheid</span><span><i class="dash"></i>Verwacht</span></div>`;
+    <div class="legend"><span><i style="background:var(--t-blue)"></i>Fitheid</span><span><i style="background:var(--t-purple)"></i>Vermoeidheid</span><span><i class="dash"></i>Verwacht</span></div>`;
 }
 /* ---------- Kalender: bovenaan wat nog komt, daaronder wat je deed, per week in te klappen ----------
    Verder vooruit plannen heeft geen zin: je tijd verandert elke week. */
 function calWhen(d){return `<span class="when"><b>${DAYS[dow(d)]}</b>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span>`}
-const calRide=(r,cls='')=>`<button data-act="openRide" data-id="${r.id}" class="${cls}">${calWhen(parseISO(r.date))}<span class="dot done">${I.check}</span><span class="w"><b>${esc(r.name)}</b><span>${clock(r.dur)}${r.type==='hardlopen'&&r.dist?` · ${nl((r.dist/1000).toFixed(1))} km`:''}${r.rpe?` · gevoel ${r.rpe}`:''}</span></span><span class="r">${r.tss} TSS</span></button>`;
+const calRide=(r,cls='')=>`<button data-act="openRide" data-id="${r.id}" class="${cls}">${calWhen(parseISO(r.date))}<span class="dot done">${I.check}</span><span class="w"><b>${esc(r.name)}</b><span>${clock(r.dur)}${r.manual&&r.dist?` · ${nl((r.dist/1000).toFixed(1))} km`:''}</span></span>${r.rpe?`<b class="rpev r${r.rpe}">${r.rpe}</b>`:''}<span class="r">${r.tss} TSS</span></button>`;
 function kalenderView(){
   if(!state.setup)return setupView();
   const today=new Date(),tk=iso(today),mon=mondayOf(today),real=state.rides.filter(r=>!r.sim);
   const planned=(m,title,edit)=>{
     /* vandaag staat op Home; hier wat daarna komt */
     const k=iso(m),rows=planWeek(state,m,today).days.filter(d=>d.iso>tk).flatMap(d=>{
-      if(d.event)return [`<div class="li">${calWhen(d.date)}<span class="dot ev"></span><span class="w"><b>${esc(d.event)}</b><span>Evenement</span></span></div>`];
+      if(d.event)return [`<div class="li">${calWhen(d.date)}<span class="dot ev"></span><span class="w"><b>${esc(d.event)}</b></span>${I.flag}</div>`];
       if(!d.wo)return [];
       return [`<button data-act="openDay" data-iso="${d.iso}">${calWhen(d.date)}<span class="dot" style="background:var(--z${woZone(d.wo)})"></span><span class="w"><b>${esc(d.wo.name)}</b><span>${durTxt(d.wo.minutes)}</span></span><span class="r">${d.wo.tss} TSS</span></button>`]});
     const open=ui.calEdit===k;
-    return `<div class="wkh"><h2>${title}</h2>${edit?`<button class="ibtn${open?' on':''}" data-act="calEdit" data-k="${k}" aria-pressed="${open}" aria-label="Tijd per dag, ${title.toLowerCase()}" title="Tijd per dag">${ICO.tijd}</button>`:''}</div>
+    return `<div class="wkh">${sech(edit?'tpurple':'tblue',ICON.schema,title)}${edit?`<button class="ibtn${open?' on':''}" data-act="calEdit" data-k="${k}" aria-pressed="${open}" aria-label="Tijd per dag, ${title.toLowerCase()}" title="Tijd per dag">${ICO.tijd}</button>`:''}</div>
       ${open?`<div class="card" style="margin-bottom:8px">${availEditor(k)}</div>`:''}
-      <div class="card tl">${rows.length?`<div class="list">${rows.join('')}</div>`:'<p class="muted" style="padding:10px 0">Geen trainingen meer.</p>'}</div>`};
+      <div class="card tl">${rows.length?`<div class="list">${rows.join('')}</div>`:'<p class="muted" style="padding:10px 0">Geen trainingen.</p>'}</div>`};
   /* geweest: alleen wat je echt deed, per week ingeklapt; een tik op de week klapt hem open */
   const weeks=new Map();
   for(const r of real){if(r.date>tk)continue;const w=iso(mondayOf(parseISO(r.date)));if(!weeks.has(w))weeks.set(w,[]);weeks.get(w).push(r)}
@@ -84,13 +85,13 @@ function kalenderView(){
     const m=parseISO(w),rs=weeks.get(w).sort((a,b)=>b.ts-a.ts),sec=rs.reduce((a,r)=>a+r.dur,0),tss=rs.reduce((a,r)=>a+r.tss,0);
     const mt=MONTHS[m.getMonth()].replace(/^./,c=>c.toUpperCase())+(m.getFullYear()!==today.getFullYear()?' '+m.getFullYear():'');
     if(mt!==month){month=mt;log+=`<div class="month">${mt}</div>`}
-    log+=`<details class="wkf" data-wk="${w}"${open[w]?' open':''}><summary class="wkl"><span>Week ${weekNo(m)}</span><span>${rs.length} ${rs.length===1?'training':'trainingen'} · ${durTxt(Math.round(sec/60))} · ${tss} TSS</span></summary><div class="card tl"><div class="list">${rs.map(r=>calRide(r)).join('')}</div></div></details>`;
+    log+=`<details class="wkf" data-wk="${w}"${open[w]?' open':''}><summary class="wkl"><span>Week ${weekNo(m)}</span><span>${rs.length}× · ${durTxt(Math.round(sec/60))} · ${tss} TSS</span></summary><div class="card tl"><div class="list">${rs.map(r=>calRide(r)).join('')}</div></div></details>`;
   }
-  const tools=`<div class="row">${state.strava&&stravaReady()?'<button class="btn" data-act="stravaFetch">Ophalen van Strava</button>':''}<button class="btn" data-act="openAdd">Rit toevoegen</button><button class="btn" data-act="openCheck" data-iso="${tk}" data-m="other" data-p="1">Iets anders</button></div>`;
+  const tools=`<div class="row"><button class="btn pri lab" data-act="openLog" data-iso="${tk}" data-p="1">${I.plus}Toevoegen</button></div>`;
   const strip=phaseStrip(today);
   return `<div class="head"><div><h1>Kalender</h1></div>${tools}</div><div class="timeline">${strip?`<div style="margin-bottom:6px">${strip}</div>`:''}
     ${planned(mon,'Deze week')}${planned(addDays(mon,7),'Volgende week',true)}
-    ${log?`<div class="wkh"><h2>Geweest</h2></div>${log}`:''}</div>`;
+    ${log?`<div class="wkh">${sech('tgreen',I.check,'Geweest')}</div>${log}`:''}</div>`;
 }
 
 /* ---------- Prestaties: vermogenscurve, vermogen na werk en records ---------- */
@@ -98,7 +99,7 @@ const PERIODS=[[42,'6 weken'],[91,'3 maanden'],[365,'1 jaar'],[0,'Alles']];
 function prestatiesView(){
   if(!state.setup)return setupView();
   const head=`<div class="head"><div><h1>Prestaties</h1></div>${vtabs()}</div>`,real=state.rides.filter(r=>!r.sim);
-  if(!real.length)return `${head}<div class="card"><p class="muted">Je records verschijnen na je eerste rit.</p></div>`;
+  if(!real.length)return `${head}<div class="card"><p class="muted">Nog geen ritten.</p></div>`;
   const per=ui.perf??91,cut=per?iso(addDays(new Date(),-per)):'',sel=real.filter(r=>!cut||r.date>=cut);
   const chips=`<div class="seg" role="group" aria-label="Periode">${PERIODS.map(([v,t])=>`<button class="btn small" data-act="perf" data-p="${v}" aria-pressed="${v===per}">${t}</button>`).join('')}</div>`;
   /* word je sterker? je beste 1, 5 en 20 minuten, en het verschil met de periode ervoor */
@@ -108,7 +109,7 @@ function prestatiesView(){
   const kg=state.profile.weight||75,perKg=[[60,'1 min'],[300,'5 min'],[1200,'20 min']].filter(([w])=>now[w]).map(([w,t])=>`${t} ${nl((now[w].w/kg).toFixed(1))}`).join(' · ');
   /* nieuwste records, de laatste drie: groot, en een tik opent de rit */
   const prs=sel.filter(r=>r.prs&&r.prs.length).sort((a,b)=>b.ts-a.ts).flatMap(r=>r.prs.map(x=>({x,r}))).slice(0,3);
-  const prHTML=prs.length?`<div class="prs"><h3>Nieuwe records</h3><div class="prg">${prs.map(({x,r})=>{const d=parseISO(r.date);
+  const prHTML=prs.length?`<div class="prs"><h3>${I.flag}Nieuwe records</h3><div class="prg">${prs.map(({x,r})=>{const d=parseISO(r.date);
     return `<button class="prb" data-act="openRide" data-id="${r.id}"><b>${x.w} W</b><span>${x.t} · <em>+${x.w-x.old} W</em></span><span>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span></button>`}).join('')}</div></div>`:'';
   return `${head}<div class="stack">${chips}<div><div class="nrow prow">${nums}</div>${perKg?`<p class="small muted" style="margin-top:8px">Per kilo: ${perKg} W/kg</p>`:''}</div>${prHTML}${curveChart(now,prev,per)}</div>`;
 }
@@ -124,7 +125,7 @@ function curveChart(now,prev,per){
     const [w,t]=ds.reduce((p,c)=>Math.abs(X(c[0])-f)<Math.abs(X(p[0])-f)?c:p),d=parseISO(now[w].date),o=prev[w];
     return {x:X(w),html:`<span>${t}</span><span><b>${now[w].w} W</b> ${nl((now[w].w/kg).toFixed(1))} W/kg</span><span>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}${o?` · ervoor ${o.w} W`:''}</span>`};
   };
-  return `<div class="card"><h3>Beste vermogen per duur</h3><p class="small muted" style="margin-top:2px">Hoeveel watt je hoe lang volhield.</p>
+  return `<div class="card">${sech('tacc',I.zap,'Beste vermogen per duur','h3')}
     <div class="chart" data-scrub="curve" style="height:170px;margin-top:12px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Beste vermogen per duur">
       <path d="${line(ds,now)}L1000,200L0,200Z" fill="var(--acc)" fill-opacity=".14"/>
       ${pv.length>1?`<path d="${line(pv,prev)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>`:''}
@@ -136,17 +137,17 @@ function curveChart(now,prev,per){
 function voortgangView(){
   if(!state.setup)return setupView();
   const today=new Date(),head=`<div class="head"><div><h1>Voortgang</h1></div>${vtabs()}</div>`;
-  if(!state.rides.some(r=>!r.sim))return `${head}<div class="card"><p class="muted">Je voortgang verschijnt na je eerste rit.</p></div>`;
+  if(!state.rides.some(r=>!r.sim))return `${head}<div class="card"><p class="muted">Nog geen ritten.</p></div>`;
   const path=fitnessPath(today,horizonDays(today)),f=path.now;
   const pc=progressCard()||{ftpCard:''};
   /* fitheid en vermoeidheid: de stand van nu groot, de lijn eronder; vorm is het verschil */
-  const fit=`<div class="card"><div class="trio"><div class="bignum"><span>Fitheid</span><b>${f.ctl}</b></div><div class="bignum"><span>Vermoeidheid</span><b>${f.atl}</b></div><div class="bignum"><span>Vorm</span><b>${f.tsb>0?'+':f.tsb<0?'−':''}${Math.abs(f.tsb)}</b><small>${formOf(f.tsb)}</small></div></div>${fitChart(path)}</div>`;
+  const fit=`<div class="card"><div class="trio"><div class="bignum tblue"><span>Fitheid</span><b>${f.ctl}</b></div><div class="bignum tpurple"><span>Vermoeidheid</span><b>${f.atl}</b></div><div class="bignum ${f.tsb<-25?'tred':f.tsb<-8?'torange':'tgreen'}"><span>Vorm</span><b>${f.tsb>0?'+':f.tsb<0?'−':''}${Math.abs(f.tsb)}</b><small>${formOf(f.tsb)}</small></div></div>${fitChart(path)}</div>`;
   /* belasting per week: gereden tegenover gepland */
   const mon=mondayOf(today),bars=[];let mx=1;
   for(let w=7;w>=0;w--){const m=addDays(mon,-7*w),s=iso(m),en=iso(addDays(m,6));
     const done=state.rides.filter(r=>!r.sim&&r.date>=s&&r.date<=en).reduce((a,r)=>a+r.tss,0),pl=s>=state.planStart?weekSum(planWeek(state,m)).t:0;
     mx=Math.max(mx,done,pl);bars.push({m,done,pl})}
-  const load=`<div class="card"><h3 style="margin-bottom:14px">Belasting per week</h3><div class="bars">${bars.map(b=>`<div class="b"><span class="num">${b.done||''}</span><div class="col" style="height:${Math.max(2,Math.max(b.pl,b.done)/mx*100)}%${b.pl?'':';border-color:transparent'}"><i style="height:${Math.round(b.done/Math.max(1,Math.max(b.pl,b.done))*100)}%"></i></div><span>wk ${weekNo(b.m)}</span></div>`).join('')}</div>
-    <div class="legend"><span><i style="background:var(--acc)"></i>Gereden</span><span><i class="box"></i>Gepland</span></div></div>`;
+  const load=`<div class="card"><div style="margin-bottom:14px">${sech('tgreen',I.zap,'Belasting per week','h3')}</div><div class="bars">${bars.map(b=>`<div class="b"><span class="num">${b.done||''}</span><div class="col" style="height:${Math.max(2,Math.max(b.pl,b.done)/mx*100)}%${b.pl?'':';border-color:transparent'}"><i style="height:${Math.round(b.done/Math.max(1,Math.max(b.pl,b.done))*100)}%"></i></div><span>wk ${weekNo(b.m)}</span></div>`).join('')}</div>
+    <div class="legend"><span><i style="background:var(--t-green)"></i>Gereden</span><span><i class="box"></i>Gepland</span></div></div>`;
   return `${head}<div class="stack"><div class="cols">${pc.ftpCard}${fit}</div>${load}</div>`;
 }

@@ -46,6 +46,25 @@ function runChecks(){
     for(const k of ['2026-11-02','2026-11-03','2026-11-04','2026-11-05','2026-11-06']){NOW=parseISO(k).getTime()+8*36e5;const d=new Date(NOW);logPlan(planWeek(state,mondayOf(d),d),d)}
     NOW=new RD(2026,10,7,9).getTime();const d=new Date(NOW),z=planWeek(state,mondayOf(d),d).days[6];
     if(!z.wo)add('vrije tijd','zondag',`${sun} min vrij, geen training`);else if(z.wo.minutes<sun-20)add('vrije tijd','zondag',`${sun} min vrij, maar ${z.wo.minutes} min gepland`)}
+  /* 8. de coach zegt niet dat je je tijd moet nakijken: zo'n vaste tekst helpt niet */
+  if(/Klopt je tijd|Tik op de klok/.test(coachLine.toString()))add('coachregel','tijd','vaste tekst over de klok staat er weer in');
+  /* 9. buitenrit zonder vermogen: op tijd en met het verwachte gevoel telt hij als de training van die dag, te kort niet */
+  NOW=new RD(2026,10,9,18).getTime();
+  state=Object.assign(defaults(),{setup:true,started:'2026-11-02',planStart:'2026-11-02',ftpGiven:'2026-11-02',plog:{},overrides:{},missed:{},profile:{ftp:197,weight:85,goal:'ftp',niveau:'gevorderd'},avail:[60,60,60,60,60,60,60],weeks:{}});
+  const wd=planWeek(state,mondayOf(new Date(NOW)),new Date(NOW)).days.find(d=>d.iso==='2026-11-09'),wf=wd&&wd.wo;
+  if(!wf)add('buitenrit','maandag','geen training gepland om mee te vergelijken');
+  else{const rit=(min,rpe)=>{const r={id:'x'+min+rpe,date:'2026-11-09',type:'buiten',name:'Buitenrit',manual:true,dur:min*60,rpe};matchFeel(r);feelLoad(r);return r};
+    const e=rpeExp(wf.type)??5,goed=rit(wf.minutes,e),kort=rit(Math.round(wf.minutes*.3),e),licht=rit(wf.minutes,clamp(e-4,1,10));
+    if(goed.type!==wf.type)add('buitenrit',wf.type,`op tijd met gevoel ${e} telt niet als de training (${goed.score})`);
+    if(goed.lvl)add('buitenrit',wf.type,'zonder vermogen hoort de ladder niet te bewegen');
+    if(kort.type!=='buiten')add('buitenrit',wf.type,`30% van de tijd telt toch als de training (${kort.score})`);
+    if(licht.score>=goed.score)add('buitenrit',wf.type,'veel lichter dan bedoeld scoort niet lager');
+    if(!(goed.tss>0))add('buitenrit',wf.type,'geen belasting uit tijd en gevoel')}
+  /* 10. rijtijd uit een bestand: een gat waarin je vooruitkwam telt mee, echte stilstand niet */
+  const t0=1e9,gaps=resample([0,10,20,30].map((s,i)=>({t:t0+s,dm:i*80}))),stil=resample([{t:t0,dm:0},{t:t0+600,dm:0}]);
+  if(gaps.rec.p.length<30)add('rijtijd','bestand',`30 s rijden met een punt per 10 s telt als ${gaps.rec.p.length} s`);
+  if(stil.rec.p.length>5)add('rijtijd','bestand',`10 min stilstand telt als ${stil.rec.p.length} s`);
+  if(gaps.dist!==240)add('rijtijd','bestand',`afstand ${gaps.dist} m in plaats van 240 m`);
   return bad;
 }
 function showChecks(){

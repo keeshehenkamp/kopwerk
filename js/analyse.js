@@ -145,6 +145,47 @@ function matchPlan(ride,rec){
   ride.cmp={t:wo.type,name:wo.name,score:c.score,hit:c.hit,n:c.n};ride.score=c.score;ride.planned=wo.sec;
   if(c.score>=75){ride.type=wo.type;ride.lvl=wo.lvl||null;ride.name=wo.name;ride.outdoor=true;ride.adj=false}
 }
+/* zonder vermogen: lijkt een rit op de training van die dag? Tijd telt het zwaarst, daarna of het gevoel past bij die soort */
+function feelScore(t,sec,plan,rpe){
+  const f=sec/Math.max(1,plan),time=f>=.9?(f<=1.3?1:Math.max(.6,1-(f-1.3))):Math.max(0,f/.9),rel=Math.abs(rpe-(rpeExp(t)??5)),feel=rel<=1?1:rel===2?.6:.25;
+  return Math.round(100*(.6*time+.4*feel));
+}
+function matchFeel(r){
+  if(r.sim||r.rpe==null||!(r.manual||r.noPower)||(r.cmp?!r.cmp.feel:r.type!=='buiten'))return;
+  if(!r.cmp){
+    if(state.rides.some(x=>!x.sim&&x.date===r.date&&x.id!==r.id&&TYPES[x.type]))return;
+    const d=planWeek(state,mondayOf(parseISO(r.date)),new Date()).days.find(x=>x.iso===r.date),wo=d&&d.wo;
+    if(!wo||wo.type==='ramptest')return;
+    r.cmp={t:wo.type,name:wo.name,sec:wo.sec,feel:true};r.planned=wo.sec;
+  }
+  const c=r.cmp,s=feelScore(c.t,r.dur,c.sec,r.rpe),ok=s>=75;
+  c.score=s;r.score=s;r.type=ok?c.t:'buiten';r.name=ok?c.name:'Buitenrit';r.outdoor=true;
+}
+/* zonder vermogen komt de belasting uit je gevoel; bij hardlopen ook uit je snelheid */
+function feelLoad(r){
+  if(r.rpe==null)return;
+  if(r.type==='hardlopen'&&r.dist){const L=runLoad(r.dist/1000,r.dur/60,r.rpe);r.IF=+L.IF.toFixed(2);r.tss=L.tss}
+  else if(r.manual||r.noPower){r.IF=FEEL_IF[r.rpe-1];r.tss=Math.round(r.dur/3600*r.IF*r.IF*100)}
+}
+/* het schema van vandaag tot over een week, om voor en na een rit te vergelijken */
+function planSnap(){
+  const t=new Date(),tk=iso(t),end=iso(addDays(t,7)),out={};
+  for(const off of [0,7])for(const d of planWeek(state,addDays(mondayOf(t),off),t).days)
+    if(d.iso>=tk&&d.iso<=end&&!d.event&&!d.done)out[d.iso]=d.wo?{n:d.wo.name,y:d.wo.type,m:d.wo.minutes,t:d.wo.tss}:null;
+  return out;
+}
+/* wat er door deze rit veranderde: de dag, van wat naar wat en of het lichter of zwaarder werd */
+function planDiff(a,r){
+  const b=planSnap(),out=[];
+  for(const k of Object.keys(b).sort()){
+    if(k===r.date||!(k in a))continue;
+    const x=a[k],y=b[k];
+    if(!x&&!y)continue;
+    if(x&&y&&x.y===y.y&&x.m===y.m&&Math.abs(x.t-y.t)<3)continue;
+    out.push({iso:k,from:x?x.n:'Rust',to:y?y.n:'Rust',m:y?y.m:0,dir:(y?y.t:0)>(x?x.t:0)?1:-1});
+  }
+  return out;
+}
 /* Belasting van een stuk hardlopen. Je drempeltempo is geschat uit je FTP: FTP geeft je maximale zuurstofopname (ACSM-formules),
    en die de snelheid waarop je die haalt; je drempel ligt op ongeveer 85% daarvan. Omdat je loopvorm die schatting kan
    tegenspreken, telt je gevoel voor de helft mee. Belasting = uren x intensiteit in het kwadraat x 100, net als op de fiets. */
@@ -230,6 +271,13 @@ function verdict(r,ftp){
     out.push(e?`Je beste minuut was ${r.best[60]} W. Daaruit volgt een FTP van ongeveer ${e} W.`:'De test was te kort om een FTP uit af te leiden. Rijd door tot je de cadans echt niet meer vasthoudt.');
     return out;
   }
+  /* zonder vermogen: vergeleken op tijd en gevoel */
+  if(r.cmp&&r.cmp.feel){
+    const c=r.cmp,e=rpeExp(c.t),off=r.rpe-e,short=r.dur<c.sec*.85;
+    out.push(r.score>=75?`Telt als ${c.name}.`:`Telt niet als ${c.name}: ${short?'te kort':off>0?'zwaarder dan bedoeld':'lichter dan bedoeld'}.`);
+    out.push(`${Math.round(r.dur/60)} van ${Math.round(c.sec/60)} min · gevoel ${r.rpe}, verwacht ${e}`);
+    return out;
+  }
   /* buiten gereden en vergeleken met de training van die dag */
   if(r.cmp){
     const c=r.cmp,w=c.n?`${c.hit} van ${c.n} ${c.n===1?'blok':'blokken'} gehaald`:c.score>=75?'lang genoeg en rustig genoeg':'te kort of te hard voor een rustige rit';
@@ -239,8 +287,8 @@ function verdict(r,ftp){
     return out;
   }
   if(r.type==='vrij'){out.push(r.dist>200?`Vrij gereden: ${nl((r.dist/1000).toFixed(1))} km in ${clock(r.dur)}, gemiddeld ${r.avgP} W.`:`Vrij gereden: ${clock(r.dur)}, gemiddeld ${r.avgP} W.`);return out}
-  if(r.type==='hardlopen'&&r.dist){const L=runLoad(r.dist/1000,r.dur/60);out.push(`${nl((r.dist/1000).toFixed(1))} km in ${clock(r.dur)}: ${L.pace} per km, ${nl(L.kmh.toFixed(1))} km/u.`,'Telt mee in je vermoeidheid en fitheid, niet in je FTP.');return out}
-  if(r.manual){out.push(TYPES[r.type]?'Met de hand ingevoerd. De belasting is geschat uit de training en de duur.':'Met de hand ingevoerd. De belasting is geschat uit de duur en hoe zwaar het voelde.');return out}
+  if(r.type==='hardlopen'&&r.dist){const L=runLoad(r.dist/1000,r.dur/60);out.push(`${L.pace} per km, ${nl(L.kmh.toFixed(1))} km/u.`,`${r.instead?`In plaats van ${r.instead}. `:''}Telt mee in je vermoeidheid, niet in je FTP.`);return out}
+  if(r.manual||r.noPower){out.push(r.type==='buiten'?'Belasting geschat uit tijd en gevoel.':'Telt mee in je vermoeidheid, niet in je FTP.');if(r.instead)out.push(`In plaats van ${r.instead}.`);return out}
   const done=r.dur/Math.max(1,r.planned);
   if(r.score!=null)out.push(r.score>=90?'Strak uitgevoerd.':r.score>=75?'Grotendeels volgens plan.':done<.9?'Eerder gestopt, dus de training telt maar gedeeltelijk mee.':'Het doelvermogen was vandaag te hoog gegrepen.');
   if(r.rpe!=null&&!r.sim){

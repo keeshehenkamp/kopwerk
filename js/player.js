@@ -354,7 +354,7 @@ function makeRide(a){
   return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),dist,date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,route:typeof W!=='undefined'&&W&&W.C?W.C.route.id:undefined,planned:a.wo.type==='vrij'?a.rec.p.length:(a.planned||a.wo.sec),ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game),kjb:a.sim?{}:kjBests(a.rec.p)},hrOff!=null?{hrOff}:{},perf?{perf}:{},an);
 }
 async function storeRide(a){
-  const ride=makeRide(a);if(!a.sim)learnHr(a.rec,a.ftp);
+  const before=a.sim?null:planSnap(),ride=makeRide(a);if(!a.sim)learnHr(a.rec,a.ftp);
   state.rides=state.rides.filter(r=>r.id!==ride.id);
   /* van demo's bewaren we alleen de laatste */
   if(a.sim){const old=state.rides.filter(r=>r.sim);for(const r of old)await idb.del('s:'+r.id);state.rides=state.rides.filter(r=>!r.sim);state.deleted=(state.deleted||[]).concat(old.map(r=>r.id))}
@@ -362,7 +362,7 @@ async function storeRide(a){
   /* na een FTP-test: je FTP gaat meteen naar de uitkomst; op de ritpagina kun je hem terugzetten */
   if(ride.type==='ramptest'&&!a.sim){const e=ftpEstimate(ride),old=state.profile.ftp;
     if(e>=60&&e!==old){state.profile.ftp=e;logFtp(e);ride.ftpSet={from:old,to:e}}}
-  state.rides.push(ride);save();
+  state.rides.push(ride);if(before){ride.change=planDiff(before,ride);ui.planBefore={id:ride.id,snap:before}}save();
   await idb.put('s:'+ride.id,a.rec);await idb.del('active');
   ui.rideFrom=tabOf(ui.view);ui.deep=false;ui.rpeEdit=false;ui.streams={id:ride.id,rec:a.rec};ui.view='ride';ui.rideId=ride.id;
 }

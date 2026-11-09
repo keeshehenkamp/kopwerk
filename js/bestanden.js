@@ -6,20 +6,21 @@ function parseFit(buf){
   let pos=b[0];const end=Math.min(b.length,b[0]+dv.getUint32(4,true));
   const defs={},out=[];let lastTs=0;
   const read=(def,tsOff)=>{
-    const le=def.le;let ts=null,p=null,hr=null,cad=null;
+    const le=def.le;let ts=null,p=null,hr=null,cad=null,dm=null;
     for(const f of def.fields){
       if(def.g===20){
         if(f.n===253&&f.s===4)ts=dv.getUint32(pos,le);
         else if(f.n===7&&f.s===2){const v=dv.getUint16(pos,le);if(v!==0xFFFF)p=v}
         else if(f.n===3&&f.s===1){const v=b[pos];if(v!==0xFF)hr=v}
         else if(f.n===4&&f.s===1){const v=b[pos];if(v!==0xFF)cad=v}
+        else if(f.n===5&&f.s===4){const v=dv.getUint32(pos,le);if(v!==0xFFFFFFFF)dm=v/100}
       }else if(f.n===253&&f.s===4){const v=dv.getUint32(pos,le);if(v!==0xFFFFFFFF)lastTs=v}
       pos+=f.s;
     }
     pos+=def.dev;
     if(def.g===20){
       if(ts==null&&tsOff!=null){ts=(lastTs&~31)+tsOff;if(tsOff<(lastTs&31))ts+=32}
-      if(ts!=null){lastTs=ts;out.push({t:ts+631065600,p,hr,cad})}
+      if(ts!=null){lastTs=ts;out.push({t:ts+631065600,p,hr,cad,dm})}
     }
   };
   while(pos<end){
@@ -39,29 +40,47 @@ function parseTcx(text){
   const all=doc.getElementsByTagName('*');
   for(const tp of all){
     if(tp.localName!=='Trackpoint')continue;
-    let t=null,p=null,hr=null,cad=null;
+    let t=null,p=null,hr=null,cad=null,dm=null;
     for(const e of tp.getElementsByTagName('*')){
       const v=e.textContent.trim();
       if(e.localName==='Time')t=Date.parse(v)/1000;
       else if(e.localName==='Watts')p=+v;
+      else if(e.localName==='DistanceMeters'&&e.parentNode===tp)dm=+v;
       else if(e.localName==='Cadence'&&e.parentNode===tp)cad=+v;
       else if(e.localName==='Value'&&e.parentNode.localName==='HeartRateBpm')hr=+v;
     }
-    if(t)out.push({t,p,hr,cad});
+    if(t)out.push({t,p,hr,cad,dm});
   }
   return out;
 }
-/* Naar één meetpunt per seconde; stilstand van meer dan 5 seconden telt niet mee. */
+/* GPX: wat Strava bij elke rit kan exporteren. De afstand volgt uit de plaatsen; vermogen, hartslag en cadans staan in de extensies. */
+function parseGpx(text){
+  const doc=new DOMParser().parseFromString(text,'application/xml'),out=[];let dm=0,la=null,lo=null;
+  for(const tp of doc.getElementsByTagName('*')){
+    if(tp.localName!=='trkpt')continue;
+    const y=+tp.getAttribute('lat'),x=+tp.getAttribute('lon');let t=null,p=null,hr=null,cad=null;
+    for(const e of tp.getElementsByTagName('*')){
+      const v=e.textContent.trim(),n=e.localName.toLowerCase();
+      if(n==='time')t=Date.parse(v)/1000;else if(n==='power'||n==='watts')p=+v;else if(n==='hr')hr=+v;else if(n==='cad')cad=+v;
+    }
+    if(la!=null){const R=6371000,r=Math.PI/180,a=Math.sin((y-la)*r/2)**2+Math.cos(y*r)*Math.cos(la*r)*Math.sin((x-lo)*r/2)**2;dm+=2*R*Math.asin(Math.sqrt(a))}
+    la=y;lo=x;if(t)out.push({t,p,hr,cad,dm});
+  }
+  return out;
+}
+/* Naar één meetpunt per seconde; stilstand van meer dan 5 seconden telt niet mee. Een gat waarin je wel vooruitkwam is geen stilstand:
+   veel fietscomputers en de Strava-app slaan niet elke seconde een punt op. */
 function resample(pts){
   pts=pts.filter(x=>x.t>0).sort((a,b)=>a.t-b.t);
-  const rec={p:[],hr:[],cad:[],tgt:[]};let hasP=false;
+  const rec={p:[],hr:[],cad:[],tgt:[]};let hasP=false,dist=0;
   for(let i=0;i<pts.length;i++){
-    const x=pts[i],gap=i?Math.round(x.t-pts[i-1].t):1,n=gap>5||gap<1?1:gap;
+    const x=pts[i],gap=i?Math.round(x.t-pts[i-1].t):1,moved=i&&x.dm!=null&&pts[i-1].dm!=null&&(x.dm-pts[i-1].dm)/Math.max(1,gap)>=1,n=gap<1||(gap>5&&!moved)?1:gap;
     if(i&&gap<1)continue;
     if(x.p!=null)hasP=true;
+    if(x.dm>dist)dist=x.dm;
     for(let k=0;k<n;k++){rec.p.push(Math.round(x.p||0));rec.hr.push(Math.round(x.hr||0));rec.cad.push(Math.round(x.cad||0));rec.tgt.push(0)}
   }
-  return {rec,hasP,start:pts.length?pts[0].t*1000:0};
+  return {rec,hasP,dist:Math.round(dist),start:pts.length?pts[0].t*1000:0};
 }
 const EFFORT=[[.55,'Rustig, praattempo'],[.68,'Gemiddeld, stevig doorgereden'],[.8,'Zwaar, veel tempo of klimmen'],[.9,'Zeer zwaar, koers of alles gegeven']];
 
