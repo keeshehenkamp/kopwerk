@@ -121,7 +121,7 @@ Object.assign(LADDER,{
     make:([n,m])=>RP(n,i=>[...RP(Math.round(m/4),()=>[S(15,1.3,null,'Aanzetten','work'),S(225,.9,null,`Sweet spot ${i+1} van ${n}`,'work')]),...restB(i,n,240)])},
   oplopend:{label:'Tempo',steps:[[5],[6],[8],[10],[12],[15]],
     work:s=>s[0]*4,tag:s=>`4×${s[0]}`,
-    make:([m])=>[.7,.8,.88,.95].map((p,i)=>S(m*60,p,null,`Trap ${i+1} van 4`,i?'work':'steady'))},
+    make:([m])=>[.7,.8,.88,.95].map((p,i)=>S(m*60,p,null,`Trap ${i+1} van 4`,'work'))},
   tempocad:{label:'Tempo',steps:[[2,10],[3,10],[2,15],[3,15],[2,20],[3,20],[2,30]],
     work:s=>s[0]*s[1]+(s[0]-1)*4,tag:s=>`${s[0]}×${s[1]}`,
     make:([n,m])=>RP(n,i=>[S(m*60,.8,null,`Tempo ${i+1} van ${n}`,'work',100),...restB(i,n,240)])},
@@ -216,18 +216,55 @@ Object.assign(LADDER,{
     work:s=>s[0]*6.5-3,tag:s=>`${s[0]}×`,
     make:([n])=>RP(n,i=>[S(30,1.5,null,`Aanval ${i+1} van ${n}`,'work'),S(180,.92,null,'Voorsprong houden','work'),...restB(i,n,180)])}
 });
+/* een rustig stuk dat niet vlak is: om de paar minuten iets anders, zodat er geen lang eentonig stuk ontstaat */
+function easyRun(min,label){
+  const P=[[.62,0,6],[.68,0,5],[.64,95,4],[.7,0,5]],o=[];
+  for(let i=0,l=min;l>.05;i++){const [q,c,d]=P[i%P.length],m=l-d<2?l:d;o.push(S(m*60,q,null,c?'Hoge cadans':(label||'Duurtempo'),'steady',c));l-=m}
+  return o;
+}
+/* Heb je meer tijd dan de blokken vragen, dan is de rit geen korte rit met duurtempo erachter: het eerste deel wordt langer,
+   de blokken komen verder uit elkaar en er komt een tweede soort werk bij, passend bij de training. */
+const EX={tempo:{p:.82,lab:'Tempo',tag:'tempo',max:25},ss:{p:.88,lab:'Sweet spot',tag:'sweet spot',max:20},klim:{p:.8,lab:'Klim op lage cadans',tag:'klimblok',cad:65,max:25},
+  kracht:{p:.78,lab:'Zware versnelling',tag:'kracht',cad:58,max:20},cad:{p:.76,lab:'Tempo op hoge cadans',tag:'hoge cadans',cad:100,max:20}};
+/* per training een eigen tweede soort werk, zodat lange ritten binnen een pakket niet op elkaar lijken */
+const EXTRA_OF={tempo:'ss',tempocad:'klim',tempolang:'kracht',tempogolf:'ss',sweetspot:'tempo',ssaanzet:'klim',oplopend:'cad',sslang:'kracht',ssgolf:'tempo',
+  drempel:'ss',overunder:'tempo',drempelramp:'klim',drempelkort:'ss',tijdrit:'cad',vo2:'ss',i3015:'tempo',piramide:'ss',vo2oplopend:'klim',
+  anaeroob:'tempo',i4020:'ss',microbursts:'cad',minuut:'klim',tabata:'tempo',heuvels:'klim',topsprint:'tempo',muurtjes:'kracht',heuveltrein:'ss',
+  klim:'tempo',staand:'klim',colsim:'ss',klimtrappen:'cad',tweecols:'tempo',kracht:'tempo',krachtsprint:'kracht',heuvelstart:'klim',zwaarlicht:'ss',
+  sprint:'kracht',langesprint:'tempo',sprintblok:'ss',kasseien:'tempo',kasseitempo:'ss',groepsrit:'tempo',koersdag:'ss',demarrage:'cad'};
+/* bij deze trainingen komt het extra werk eerst: het hoofdblok rij je dan op vermoeide benen */
+const EXTRA_FIRST=new Set(['tempolang','sslang','oplopend','tijdrit','drempelramp','klimtrappen','colsim','tempogolf','ssgolf','zwaarlicht','kasseitempo']);
+function shapeLong(type,main,left){
+  if(left<=.05)return {segs:main,tag:''};
+  const ex=TYPES[type].hard&&EX[EXTRA_OF[type]||'tempo'],pre=ex&&left>=12?Math.min(left*.25,8):left<=5?left:Math.min(left*.3,10);
+  let l=left-pre;
+  /* net te weinig voor een extra blok: rustiger beginnen, want achteraan plakken doen we niet */
+  if(ex&&l<12)return {segs:[...easyRun(left,'Inrijden'),...main],tag:''};
+  /* hard werk: één of twee extra blokken (de tweede van een andere soort); rustig werk: alleen variatie */
+  const nB=!ex?0:l>=60?2:1,B=nB?clamp(Math.round(l*.4/nB),5,ex.max):0,ex2=ex===EX.ss?EX.tempo:ex===EX.kracht?EX.cad:ex===EX.cad?EX.tempo:EX.ss;
+  l-=nB*B;
+  /* de blokken uit elkaar: bij een rustpauze in het midden komt een deel van de rustige tijd */
+  const rests=main.map((x,i)=>x.kind==='rest'&&x.d>=60?i:-1).filter(i=>i>=0),mid=rests[Math.floor((rests.length-1)/2)];
+  const inMain=rests.length&&l>=8?l*(nB?.5:.6):0;l-=inMain;
+  const body=[];main.forEach((x,i)=>{body.push(x);if(i===mid&&inMain)body.push(...easyRun(inMain))});
+  const out=[...easyRun(pre,'Inrijden')],gap=nB?l/nB:0,block=(e,k)=>S(B*60,e.p,null,e.lab,'work',e.cad||0);
+  if(!nB){out.push(...body);if(l>.05)out.push(...easyRun(l))}
+  else if(EXTRA_FIRST.has(type)){out.push(block(ex));out.push(...easyRun(gap));out.push(...body);if(nB>1){out.push(...easyRun(gap));out.push(block(ex2))}}
+  else{out.push(...body);out.push(...easyRun(gap));out.push(block(ex));if(nB>1){out.push(...easyRun(gap));out.push(block(ex2))}}
+  return {segs:out,tag:nB?` + ${ex.tag}`:''};
+}
 /* rustige trainingen die de hele tijd vullen: niet zwaarder per trede. Krijgen de duur tussen warming-up en cooling-down (min) */
 const FILL={
   duurgolf:min=>{const o=[];for(let i=0,l=min;l>0;i++){const d=Math.min(5,l);o.push(S(d*60,i%2?.72:.6,null,'Duurtempo','steady'));l-=d}return o},
-  duuropbouw:min=>[.6,.66,.72].map((p,i)=>S(min*20,p,null,`Deel ${i+1} van 3`,'steady')),
+  duuropbouw:min=>[.6,.66,.72].flatMap((p,i)=>{const o=[];for(let j=0,l=min/3;l>.05;j++){const d=l-8<2?l:8;o.push(S(d*60,j%2?p+.03:p,null,`Deel ${i+1} van 3`,'steady'));l-=d}return o}),
   herstelcad:min=>[S(min*60,.5,null,'Losrijden op hoge cadans','steady',95)],
   herstelgolf:min=>{const o=[];for(let i=0,l=min;l>0;i++){const d=Math.min(5,l);o.push(S(d*60,i%2?.55:.45,null,'Losrijden','steady'));l-=d}return o},
   herstelspin:min=>{const o=[];for(let l=min;l>0;){const d=Math.min(7,l);o.push(S(d*60,.5,null,'Losrijden','steady'));l-=d;if(l>=1){o.push(S(60,.5,null,'Hoge cadans','steady',110));l--}}return o},
   spinups:min=>{const o=[];for(let l=min;l>0;){const d=Math.min(4,l);o.push(S(d*60,.6,null,'Rustig doorrijden','steady'));l-=d;if(l>=1){o.push(S(30,.6,null,'Cadans omhoog','steady',105),S(30,.6,null,'Zo hoog als het soepel gaat','steady',120));l--}}return o},
   cadansgolf:min=>{const o=[];for(let i=0,l=min;l>0;i++){const d=Math.min(3,l);o.push(S(d*60,.62,null,i%2?'Hoge cadans':'Lage cadans','steady',i%2?100:70));l-=d}return o},
-  openers30:min=>{const o=[];let l=min;for(let i=0;i<4&&l>=2;i++){o.push(S(30,1.2,null,`Prikkel ${i+1} van 4`,'work'),S(90,.55,null,'Herstel','rest'));l-=2}if(l>=1)o.push(S(l*60,.6,null,'Rustig doorrijden','steady'));return o},
-  scherp:min=>{const o=[];let l=min;for(let i=0;i<3&&l>=6;i++){o.push(S(180,1,null,`Blok ${i+1} van 3`,'work'),S(180,.55,null,'Herstel','rest'));l-=6}if(l>=1)o.push(S(l*60,.6,null,'Rustig doorrijden','steady'));return o},
-  prikkels:min=>{const o=[];let l=min;for(let i=0;i<6&&l>=3;i++){o.push(S(15,1.4,null,`Prikkel ${i+1} van 6`,'work'),S(165,.58,null,'Rustig','rest'));l-=3}if(l>=1)o.push(S(l*60,.6,null,'Rustig doorrijden','steady'));return o}
+  openers30:min=>{const o=[];let l=min;for(let i=0;i<4&&l>=2;i++){o.push(S(30,1.2,null,`Prikkel ${i+1} van 4`,'work'),S(90,.55,null,'Herstel','rest'));l-=2}if(l>=1)o.push(...easyRun(l));return o},
+  scherp:min=>{const o=[];let l=min;for(let i=0;i<3&&l>=6;i++){o.push(S(180,1,null,`Blok ${i+1} van 3`,'work'),S(180,.55,null,'Herstel','rest'));l-=6}if(l>=1)o.push(...easyRun(l));return o},
+  prikkels:min=>{const o=[];let l=min;for(let i=0;i<6&&l>=3;i++){o.push(S(15,1.4,null,`Prikkel ${i+1} van 6`,'work'),S(165,.58,null,'Rustig','rest'));l-=3}if(l>=1)o.push(...easyRun(l));return o}
 };
 const ladderWork=(type,st)=>LADDER[type].work?LADDER[type].work(st):type==='anaeroob'?st[0]*st[1]+(st[0]-1)*5:type==='sprint'?st[0]*5:st[0]*st[1]+(st[0]-1)*st[2];
 /* minuten die een trede nodig heeft, inclusief warming-up en cooling-down */
@@ -237,7 +274,7 @@ function ladderBuild(type,T,lvl){
   const wu=T>=60?10:T>=40?8:5,cd=T>=60?5:T>=40?4:3,room=T-wu-cd;
   let i=clamp(Math.round(lvl),1,steps.length)-1;
   while(i>0&&ladderWork(type,steps[i])>room)i--;
-  const segs=[S(wu*60,.45,.75,'Warming-up','warmup')];let tag,used;
+  const segs=[];let tag,used;
   if(Ld.make){
     let st=steps[i];
     for(let k=0;k<12&&ladderWork(type,st)>room;k++){const nx=Ld.shrink?Ld.shrink(st):st[0]>1?[st[0]-1,...st.slice(1)]:st;if(JSON.stringify(nx)===JSON.stringify(st)||ladderWork(type,nx)<=0)break;st=nx}
@@ -261,10 +298,8 @@ function ladderBuild(type,T,lvl){
     }
     used=ladderWork(type,[reps,on,off]);tag=`${reps}×${nl(on)}`;
   }
-  const left=room-used;
-  if(left>=1)segs.push(S(left*60,.62,.62,'Rustig doorrijden','steady'));
-  segs.push(S(cd*60,.6,.4,'Cooling-down','cooldown'));
-  return {segs,tag,lvl:i+1};
+  const shaped=shapeLong(type,segs,room-used);
+  return {segs:[S(wu*60,.45,.75,'Warming-up','warmup'),...shaped.segs,S(cd*60,.6,.4,'Cooling-down','cooldown')],tag:tag+shaped.tag,lvl:i+1};
 }
 /* opt.b = blokduur in minuten, afgestemd op de klimmen van je evenement (lange rit met klimblokken of korte klimmen) */
 function buildWorkout(type,T,L,lvl,opt){
@@ -283,14 +318,14 @@ function buildWorkout(type,T,L,lvl,opt){
   }else if(type==='duursprint'){
     const room=T-10-5,n=Math.floor(room/20);
     segs.push(S(600,.45,.66,'Warming-up','warmup'));
-    for(let i=0;i<n;i++){segs.push(S(1185,.66,null,'Duurtempo','steady'));segs.push(S(15,1.6,null,`Sprint ${i+1} van ${n}`,'work'))}
-    const left=room-n*20;if(left>=1)segs.push(S(left*60,.64,null,'Duurtempo','steady'));
+    for(let i=0;i<n;i++){segs.push(...easyRun(19.75));segs.push(S(15,1.6,null,`Sprint ${i+1} van ${n}`,'work'))}
+    const left=room-n*20;if(left>=1)segs.push(...easyRun(left));
     segs.push(S(300,.6,.4,'Cooling-down','cooldown'));tag=`${n}×15 s`;
   }else if(type==='duurss'){
     const room=T-10-5,B=pick([12,15,20],L),n=clamp(Math.floor(room/(B+15)),1,pick([2,3,3],L));
     segs.push(S(600,.45,.66,'Warming-up','warmup'));
-    for(let i=0;i<n;i++){segs.push(S(900,.66,null,'Duurtempo','steady'));segs.push(S(B*60,.88,null,`Sweet spot ${i+1} van ${n}`,'work'))}
-    const left=room-n*(B+15);if(left>=1)segs.push(S(left*60,.64,null,'Duurtempo','steady'));
+    for(let i=0;i<n;i++){segs.push(...easyRun(15));segs.push(S(B*60,.88,null,`Sweet spot ${i+1} van ${n}`,'work'))}
+    const left=room-n*(B+15);if(left>=1)segs.push(...easyRun(left));
     segs.push(S(300,.6,.4,'Cooling-down','cooldown'));tag=`${n}×${B}`;
   }else if(type==='herstel'){
     segs=[S(180,.4,.52,'Inrijden','warmup'),S((T-5)*60,.52,.52,'Losrijden','steady'),S(120,.52,.4,'Uitrijden','cooldown')];
@@ -304,15 +339,16 @@ function buildWorkout(type,T,L,lvl,opt){
     /* blokken zo lang als de klimmen van je evenement (10 tot 40 min), anders 10 min */
     const room=T-10-5,B=Math.min(ob?clamp(Math.round(ob/5)*5,10,40):10,Math.max(5,Math.floor((room-10)/5)*5)),n=clamp(Math.floor(room/(B+10)),1,B>=25?Math.max(1,L+1):L+2);
     segs.push(S(600,.45,.66,'Warming-up','warmup'));
-    for(let i=0;i<n;i++){segs.push(S(600,.66,null,'Duurtempo','steady'));segs.push(S(B*60,pick([.78,.80,.83],L)-(B>=25?.03:B>=15?.015:0),null,`Klimblok ${i+1} van ${n}`,'work',70))}
-    const left=room-n*(B+10);tag=`${n}×${B}`;
-    if(left>=1)segs.push(S(left*60,.64,null,'Duurtempo','steady'));
+    /* de blokken verdeeld over de hele rit, niet achter elkaar met een lange staart */
+    const gap=(room-n*B)/(n+.25);
+    for(let i=0;i<n;i++){segs.push(...easyRun(gap));segs.push(S(B*60,pick([.78,.80,.83],L)-(B>=25?.03:B>=15?.015:0),null,`Klimblok ${i+1} van ${n}`,'work',70))}
+    segs.push(...easyRun(gap*.25));tag=`${n}×${B}`;
     segs.push(S(300,.6,.4,'Cooling-down','cooldown'));
   }else if(type==='duurtempo'){
     const room=T-5-5,fin=Math.min(pick([15,20,25],L),Math.max(5,Math.floor(room/3)));
     segs.push(S(300,.45,.65,'Warming-up','warmup'));
     let left=room-fin,i=0;
-    while(left>0){let d=Math.min(15,left);if(left-d<5)d=left;segs.push(S(d*60,i%2?.70:.65,null,'Duurtempo','steady'));left-=d;i++}
+    if(left>0)segs.push(...easyRun(left));
     segs.push(S(fin*60,pick([.78,.80,.82],L),null,'Tempofinale','work'));
     segs.push(S(300,.6,.4,'Cooling-down','cooldown'));
     tag=`${fin} min`;
@@ -321,17 +357,18 @@ function buildWorkout(type,T,L,lvl,opt){
     const K=ob?clamp(Math.round(ob*2)*30,60,300):120,f=K<=60?.08:K<=90?.04:K>=240?-.06:K>=180?-.03:0;
     const room=T-10-5,n=clamp(Math.floor(room/15),1,pick([6,8,10],L));
     segs.push(S(600,.45,.66,'Warming-up','warmup'));
-    for(let i=0;i<n;i++){segs.push(S(900-K,.66,null,'Duurtempo','steady'));segs.push(S(K,pick([1.05,1.1,1.15],L)+f,null,`Klim ${i+1} van ${n}`,'work',K<=90?70:0))}
-    const left=room-n*15;
+    const gap=(room-n*K/60)/(n+.25);
+    for(let i=0;i<n;i++){segs.push(...easyRun(gap));segs.push(S(K,pick([1.05,1.1,1.15],L)+f,null,`Klim ${i+1} van ${n}`,'work',K<=90?70:0))}
+    const left=gap*.25;
     if(left>=1)segs.push(S(left*60,.64,null,'Duurtempo','steady'));
     segs.push(S(300,.6,.4,'Cooling-down','cooldown'));
     tag=`${n}×${K%60?nl(K/60):K/60}`;
   }else if(type==='duurkracht'){
     const room=T-10-5,n=clamp(Math.floor(room/15),1,pick([3,4,5],L));
     segs.push(S(600,.45,.66,'Warming-up','warmup'));
-    for(let i=0;i<n;i++){segs.push(S(420,.65,null,'Duurtempo','steady'));segs.push(S(480,.7,null,`Lage cadans ${i+1} van ${n}`,'steady',60))}
-    const left=room-n*15;
-    if(left>=1)segs.push(S(left*60,.64,null,'Duurtempo','steady'));
+    const gap=(room-n*8)/(n+.25);
+    for(let i=0;i<n;i++){segs.push(...easyRun(gap));segs.push(S(480,.7,null,`Lage cadans ${i+1} van ${n}`,'steady',60))}
+    segs.push(...easyRun(gap*.25));
     segs.push(S(300,.6,.4,'Cooling-down','cooldown'));
     tag=`${n}×8`;
   }else if(type==='cadansladder'){
@@ -340,7 +377,7 @@ function buildWorkout(type,T,L,lvl,opt){
     while(room>=8&&k<pick([3,4,5],L)){k++;
       for(const c of [80,90,100,110,120])segs.push(S(60,.62,null,`${c} rpm (ladder ${k})`,'steady',c));
       segs.push(S(180,.6,null,'Eigen cadans','steady'));room-=8}
-    if(room>=1)segs.push(S(room*60,.62,null,'Rustig doorrijden','steady'));
+    if(room>=1)segs.push(...easyRun(room));
     segs.push(S(cd*60,.6,.4,'Cooling-down','cooldown'));
   }else if(type==='fartlek'){
     const P=[[60,1.1],[120,.6],[180,.95],[120,.6],[30,1.3],[90,.6],[120,1.05],[120,.6],[300,.88],[120,.6],[20,1.5],[100,.6]],m=pick([.97,1,1.03],L);
@@ -354,7 +391,7 @@ function buildWorkout(type,T,L,lvl,opt){
     segs.push(S(wu*60,.45,.7,'Warming-up','warmup'));
     for(let i=0;i<3&&room>=3;i++){segs.push(S(60,1.05,null,`Prikkel ${i+1} van 3`,'work'));segs.push(S(120,.55,null,'Herstel','rest'));room-=3}
     for(let i=0;i<2&&room>=3;i++){segs.push(S(15,1.5,null,`Versnelling ${i+1} van 2`,'work'));segs.push(S(165,.55,null,'Herstel','rest'));room-=3}
-    if(room>=1)segs.push(S(room*60,.6,null,'Rustig doorrijden','steady'));
+    if(room>=1)segs.push(...easyRun(room));
     segs.push(S(cd*60,.6,.4,'Cooling-down','cooldown'));
   }else if(type==='ramptest'){
     segs.push(S(300,.45,.5,'Warming-up','warmup'));

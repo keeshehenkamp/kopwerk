@@ -39,7 +39,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 - `block`: het doelblok van twaalf weken zonder evenement (`goal`, `start`, `end`, `from`, `target`), door de coach gekozen in `ensureBlock`; afgeronde blokken staan in `blockLog` met `result`. De laatste week heet Testweek (`kind: 'test'`). Rond week 6 komt een tussentest; ligt die boven het schema, dan gaat `target` omhoog (`raised`, `tested`). `v: 2` = doel volgens de huidige regels.
 - Een rit van buiten (bestand of Strava) wordt naast de training van die dag gelegd (`matchPlan`, `compareRide` in `js/analyse.js`): `cmp` met het cijfer, `as` met wat de rit was. Cijfer 7,5 of meer: de rit telt als die training.
 - Hardlopen is een rit met `type: 'hardlopen'`, `manual: true` en `dist` in meters.
-- `tools/planner-test/`: scenario's die de planner doorrekenen (volgen, overslaan, gevoel, hartslag). Open `index.html` via een lokale webserver.
+- `tools/planner-test/`: scenario's die de planner doorrekenen (`sim.js`) en controles op de inhoud van de trainingen (`checks.js`: lengte, geen staart, geen vlakke stukken, langer is meer werk, variatie binnen een pakket, vrije tijd blijft niet leeg). Open `index.html` via een lokale webserver; bovenaan staat ALLES GOED of wat er fout is.
 
 - `ftpGiven`: de dag waarop je bij de start zelf een FTP invulde. De coach telt dat als test, dus de eerste FTP-test komt pas na zes weken. Ritten krijgen `rpeAdj` als hun trede uit je gevoel komt; pas je je gevoel later aan, dan rekent de coach die trede opnieuw uit (zolang er geen nieuwere rit van die soort is beoordeeld).
 - Van demo-ritten (`sim`) bewaart de app alleen de laatste. Ze tellen niet mee in het schema, de kalender of je beste ritten.
