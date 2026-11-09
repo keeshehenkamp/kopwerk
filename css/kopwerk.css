@@ -3,8 +3,8 @@
   /* neutrale tinten met één primaire kleur; de zonekleuren tonen alleen hoe zwaar iets is */
   --bg:#FAFAFA;--surface:#FFFFFF;--sunk:#EFEFF1;--ink:#111113;--muted:#56565F;--line:#D4D4D8;--edge:#D4D4D8;--hover:#A1A1AA;
   --acc:#CF4419;--acc-soft:#FCEEE9;--ok:#15803D;--bad:#DC2626;--hr:#BE185D;
-  /* de kleuren van Kopwerk als tekst: fitheid blauw, goed groen, vermoeidheid paars */
-  --t-blue:#1F6DBB;--t-green:#15803D;--t-purple:#7B3FD1;--t-yellow:#9A7000;--t-orange:#C2620A;--t-red:#C92A2A;
+  /* de kleuren van Kopwerk: de tinten van het logo en de zones, alleen voor kleine accenten; cijfers en koppen blijven zwart */
+  --t-blue:var(--z2);--t-green:var(--z3);--t-purple:var(--z7);--t-yellow:var(--z4);--t-orange:var(--z5);--t-red:var(--z6);
   --z1:#8C98A6;--z2:#3D8BD4;--z3:#2EAA6E;--z4:#DDAE00;--z5:#F08A24;--z6:#E04848;--z7:#9B5DE5;
   --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;--cond:"Barlow Condensed","Arial Narrow",var(--body);
   --r:10px;--shadow:none;
@@ -13,12 +13,10 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   color-scheme:dark;--bg:#09090B;--surface:#18181B;--sunk:#26262B;--ink:#FFFFFF;--muted:#B8B8C2;--line:#3A3A40;--edge:#3A3A40;--hover:#5A5A63;
   --acc:#F0653A;--acc-soft:rgba(240,101,58,.2);--ok:#22C55E;--bad:#F87171;--hr:#F472B6;
-  --t-blue:#5FAAF0;--t-green:#3DD68C;--t-purple:#B794F6;--t-yellow:#EFC42F;--t-orange:#F7A54F;--t-red:#FF7B7B;
 }}
 :root[data-theme="dark"]{
   color-scheme:dark;--bg:#09090B;--surface:#18181B;--sunk:#26262B;--ink:#FFFFFF;--muted:#B8B8C2;--line:#3A3A40;--edge:#3A3A40;--hover:#5A5A63;
   --acc:#F0653A;--acc-soft:rgba(240,101,58,.2);--ok:#22C55E;--bad:#F87171;--hr:#F472B6;
-  --t-blue:#5FAAF0;--t-green:#3DD68C;--t-purple:#B794F6;--t-yellow:#EFC42F;--t-orange:#F7A54F;--t-red:#FF7B7B;
 }
 *,*::before,*::after{box-sizing:inherit}
 html{height:100%}
@@ -676,21 +674,19 @@ h1{font-size:36px;line-height:1.05}h2{font-size:24px}.wcard h3{font-size:23px;li
 .nrow.md b{font-size:clamp(34px,4.6vw,44px)}
 .herotxt p+p{margin-top:2px}.herotxt p.small{font-size:15px}
 .feel{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px}
-/* ---------- meer kleur en contrast: elk onderdeel zijn eigen kleur uit Kopwerk, grote cijfers in die kleur ---------- */
-.tacc{color:var(--acc)}.tblue{color:var(--t-blue)}.tgreen{color:var(--t-green)}.tpurple{color:var(--t-purple)}.tyellow{color:var(--t-yellow)}.torange{color:var(--t-orange)}.tred{color:var(--t-red)}
-.tacc>span,.tblue>span,.tgreen>span,.tpurple>span,.tred>span,.torange>span,.tacc>small,.tblue>small,.tgreen>small,.tpurple>small,.tred>small,.torange>small{color:var(--muted)}
-.tacc b i,.tblue b i{color:var(--muted)}
-b.tgreen,b.tyellow,b.tred{font-weight:600}.link.tacc{color:var(--acc);text-decoration-color:currentColor}
+/* ---------- contrast en kleur: cijfers en koppen zwart, elk onderdeel een klein accent in zijn eigen kleur uit Kopwerk ---------- */
+.tacc{--k:var(--acc)}.tblue{--k:var(--z2)}.tgreen{--k:var(--z3)}.tpurple{--k:var(--z7)}.tyellow{--k:var(--z4)}.torange{--k:var(--z5)}.tred{--k:var(--z6)}
+:is(.tacc,.tblue,.tgreen,.tpurple,.torange,.tred)>span::before{content:'';display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;background:var(--k);vertical-align:1px}
+b.tgreen,b.tyellow,b.tred{font-weight:600}b.tgreen{color:var(--ok)}b.tred,h3.tred{color:var(--bad)}.link.tacc{color:var(--acc);text-decoration-color:currentColor}
 .sech{display:flex;align-items:center;gap:8px;font-family:var(--cond);font-weight:600;letter-spacing:.005em}
 h2.sech{font-size:26px}h3.sech{font-size:21px;line-height:1.15}
-.sech .ic{width:.82em;height:.82em;stroke-width:2.4}
+.sech .ic{width:.82em;height:.82em;stroke-width:2.4;color:var(--k)}
 .prs h3{display:flex;align-items:center;gap:7px;font-family:var(--cond);font-size:21px;font-weight:600}.prs h3 .ic{width:17px;height:17px;stroke-width:2.4}
 .main .stack>*+*{margin-top:28px}
 .stack>.card+.card,.cols>.card+.card,.stack>.cols+.cols{border-top:2px solid var(--line);padding-top:26px}
 .btn{font-weight:600;border-color:var(--hover)}.btn:hover{border-color:var(--ink)}
 .btn.lab{justify-content:center}.btn.lab .ic{width:17px;height:17px}.btn.ink{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .btn.pri{font-weight:700}
-.seg .btn[aria-pressed="true"],.libfil .btn[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#fff}
 .vtabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg);box-shadow:none;font-weight:600}
 .tabs button{color:var(--muted)}.tabs button[aria-current="page"] svg{stroke-width:2.6}
 @media (min-width:960px){.tabs button[aria-current="page"]{background:var(--acc-soft);color:var(--acc);font-weight:600}.side{border-right-width:2px}}
@@ -704,22 +700,18 @@ h2.sech{font-size:26px}h3.sech{font-size:21px;line-height:1.15}
 .wcard.day .m{margin-top:6px;font-size:14.5px;color:var(--muted)}.wcard.day .chev{color:#fff}
 .wcard.day .profile{height:92px;margin-top:14px}
 .wcard.day .note.moved{color:#F7A54F}.wcard.day .note.late{color:#FF9B9B}
-.wcard.day.donec{--surface:#14713A!important;background:#14713A!important}
+.wcard.day.donec h3 .ic{color:var(--z3)}
 .dgrade{font-family:var(--cond);font-size:46px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
 .dstart{display:flex;width:100%;margin-top:10px;padding-top:15px;padding-bottom:15px;font-size:18px;gap:9px}.dstart .ic{width:17px;height:17px}
 .dacts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.dacts .btn{flex:1 1 0;white-space:nowrap;padding-left:8px;padding-right:8px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .dayw>.noride{margin-top:10px}
-/* status als pil: in één blik goed, let op of stop */
-.stat{display:inline-flex;padding:4px 11px 4px 9px;border-radius:999px;font-weight:700;background:color-mix(in srgb,var(--t-green) 15%,transparent);color:var(--t-green)}
-.stat.warn{background:color-mix(in srgb,var(--t-orange) 17%,transparent);color:var(--t-orange)}.stat.stop{background:color-mix(in srgb,var(--t-red) 15%,transparent);color:var(--t-red)}
-.stat i{background:currentColor!important}
+/* status: stip met zwarte tekst */
+.stat{display:inline-flex;font-weight:600}.stat.warn i{background:var(--z5)}.stat.stop i{background:var(--z6)}
 .coachl{display:flex;gap:7px;margin-top:9px;font-weight:500}.coachl .ic{width:16px;height:16px;margin-top:2px;color:var(--acc)}
 .nums{gap:clamp(28px,8vw,56px)}.nums b{font-size:50px;font-weight:700}.nums span{font-size:13px}.nums div>span{color:var(--muted)}
 @media (max-width:420px){.nums b{font-size:44px}}
 .feel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:16px}.feel .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .feel .btn[aria-pressed="true"]{color:#fff}.fe-goed[aria-pressed="true"]{background:var(--t-green);border-color:var(--t-green)}.fe-moe[aria-pressed="true"]{background:var(--t-orange);border-color:var(--t-orange)}.fe-slecht[aria-pressed="true"]{background:var(--t-red);border-color:var(--t-red)}
-:root[data-theme="dark"] .feel .btn[aria-pressed="true"]{color:#111}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .feel .btn[aria-pressed="true"]{color:#111}}
 /* week: gereden groen gevuld, gemist rood, gepland in de kleur van de zwaarte */
 .prog{height:10px;border-radius:5px}.prog i{background:var(--t-blue);border-radius:5px}
 .kvl{font-size:14px}.kvl b{font-family:var(--cond);font-size:20px;font-weight:600}
@@ -738,21 +730,18 @@ h2.sech{font-size:26px}h3.sech{font-size:21px;line-height:1.15}
 .rpev.r1,.rpev.r2{background:var(--z2)}.rpev.r3,.rpev.r4{background:var(--z3)}.rpev.r5,.rpev.r6{background:var(--z4);color:#18181B}.rpev.r7,.rpev.r8{background:var(--z5);color:#18181B}.rpev.r9,.rpev.r10{background:var(--z6)}
 .wkl span:first-child{color:var(--ink);font-family:var(--cond);font-size:18px}
 .month{font-family:var(--cond);font-size:21px}
-/* hoe zwaar: de schaal loopt van blauw via groen en geel naar rood */
-.rpe button{border:0;color:#111;font-family:var(--cond);font-size:21px;transition:transform .1s}
-.rpe button:nth-child(-n+2){background:color-mix(in srgb,var(--z2) 36%,var(--surface))}.rpe button:nth-child(n+3):nth-child(-n+4){background:color-mix(in srgb,var(--z3) 36%,var(--surface))}
-.rpe button:nth-child(n+5):nth-child(-n+6){background:color-mix(in srgb,var(--z4) 40%,var(--surface))}.rpe button:nth-child(n+7):nth-child(-n+8){background:color-mix(in srgb,var(--z5) 42%,var(--surface))}.rpe button:nth-child(n+9){background:color-mix(in srgb,var(--z6) 42%,var(--surface))}
-:root[data-theme="dark"] .rpe button{color:#fff}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .rpe button{color:#fff}}
-.rpe button[aria-pressed="true"]{color:#fff;outline:3px solid var(--ink);outline-offset:1px}
-.rpe button:nth-child(-n+2)[aria-pressed="true"]{background:var(--z2)}.rpe button:nth-child(n+3):nth-child(-n+4)[aria-pressed="true"]{background:var(--z3)}.rpe button:nth-child(n+5):nth-child(-n+6)[aria-pressed="true"]{background:var(--z4);color:#18181B}.rpe button:nth-child(n+7):nth-child(-n+8)[aria-pressed="true"]{background:var(--z5);color:#18181B}.rpe button:nth-child(n+9)[aria-pressed="true"]{background:var(--z6)}
-/* rit: cijfer in kleur, kerngetallen elk een eigen kleur, wat er in je schema verandert */
-.grade.hi b{color:var(--t-green)}.grade.mid b{color:var(--t-orange)}.grade.lo b{color:var(--t-red)}
-.ncol>div:nth-child(1) b{color:var(--acc)}.ncol>div:nth-child(2) b{color:var(--t-blue)}.ncol>div:nth-child(3) b{color:var(--t-green)}.ncol>div:nth-child(4) b{color:var(--t-purple)}
+/* hoe zwaar: neutrale knoppen met een streepje in de kleur van de zwaarte; je keuze wordt helemaal die kleur */
+.rpe button{--r:var(--z2);border:0;background:var(--sunk);color:var(--ink);font-family:var(--cond);font-size:21px;box-shadow:inset 0 -4px 0 var(--r);transition:transform .1s}
+.rpe button:nth-child(n+3):nth-child(-n+4){--r:var(--z3)}.rpe button:nth-child(n+5):nth-child(-n+6){--r:var(--z4)}.rpe button:nth-child(n+7):nth-child(-n+8){--r:var(--z5)}.rpe button:nth-child(n+9){--r:var(--z6)}
+.rpe button[aria-pressed="true"]{background:var(--r);color:#fff;box-shadow:none;outline:3px solid var(--ink);outline-offset:1px}
+.rpe button:nth-child(n+5):nth-child(-n+8)[aria-pressed="true"]{color:#18181B}
+/* rit: cijfer zwart met een blokje dat zegt hoe goed het ging; wat er in je schema verandert */
+.grade span::before{content:'';display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:1px;background:var(--hover)}.grade.hi span::before{background:var(--z3)}.grade.mid span::before{background:var(--z5)}.grade.lo span::before{background:var(--z6)}
+.ncol>div>span::before{content:'';display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:1px;background:var(--z2)}.ncol>div:nth-child(1)>span::before{background:var(--acc)}.ncol>div:nth-child(3)>span::before{background:var(--z3)}.ncol>div:nth-child(4)>span::before{background:var(--z7)}
 .herotxt p:first-child{font-weight:500;font-size:17px}
 .chgl{display:grid;gap:8px;margin-top:10px}
 .chgl>div{display:grid;grid-template-columns:30px minmax(0,1fr) 18px;align-items:center;column-gap:8px;font-size:14px}
-.chgl b{grid-row:1/3;font-family:var(--cond);font-size:20px;font-weight:600}.chgl span{grid-column:2;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:line-through}.chgl span.to{color:var(--ink);font-weight:600;text-decoration:none}.chgl i{grid-row:1/3;grid-column:3}.chgl i .ic{width:17px;height:17px;stroke-width:2.6}
+.chgl b{grid-row:1/3;font-family:var(--cond);font-size:20px;font-weight:600}.chgl span{grid-column:2;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:line-through}.chgl span.to{color:var(--ink);font-weight:600;text-decoration:none}.chgl i{grid-row:1/3;grid-column:3}.chgl i{color:var(--k)}.chgl i .ic{width:17px;height:17px;stroke-width:2.6}
 /* training afronden: drie stappen in één venster */
 .logm.stack>*+*{margin-top:16px}.logm .steps{margin:12px 0 0}
 .loghd{display:flex;align-items:flex-start;gap:8px}.loghd>div{flex:1;min-width:0}.loghd h2{font-size:28px}
@@ -764,10 +753,10 @@ h2.sech{font-size:26px}h3.sech{font-size:21px;line-height:1.15}
 .logopts button:nth-child(2) .ic{color:var(--t-blue)}.logopts button:nth-child(3) .ic{color:var(--t-green)}.logopts button:nth-child(4) .ic{color:var(--t-purple)}.logopts button:nth-child(5) .ic{color:var(--t-orange)}
 .logform{grid-template-columns:repeat(2,minmax(0,1fr))}.logm .btn.big{display:flex;width:100%;justify-content:center;gap:8px}
 .logm .logfile{cursor:pointer;position:relative}.logm #c-run b{font-family:var(--cond);font-size:20px}
-.logsum{font-family:var(--cond);font-size:26px;font-weight:600;color:var(--t-blue)}
+.logsum{font-family:var(--cond);font-size:26px;font-weight:600}
 .cbtns{grid-template-columns:repeat(2,minmax(0,1fr))}.cbtns .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px}
 /* kaders in de rest van de app wat steviger */
-.grid .wcard h3{font-size:23px}.avd.on{background:var(--acc);border-color:var(--acc);color:#fff}.avd.on b{color:#fff}.avd{border-color:var(--hover)}
+.grid .wcard h3{font-size:23px}.avd{border-color:var(--hover)}
 .steps i{background:var(--line)}
 .bars .col i{background:var(--t-green)}
 .dzone{border-top-width:2px}
