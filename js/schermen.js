@@ -468,9 +468,24 @@ function progressCard(){
   if(bl){FW=Math.max(1,Math.round(dayDiff(mon,mondayOf(parseISO(bl.end)))/7));for(let k=1;k<=FW;k++){const m=addDays(mon,7*k);pts.push({m,fut:blockPath(bl,addDays(m,6))})}}
   else{FW=clamp(Math.round(horizonDays(today)/7),6,16);const path=fitnessPath(today,FW*7),c0=Math.max(path.now.ctl,15),g0=gainFor(hk)*.07;let fv=head;
     for(let k=1;k<=FW;k++){const p=path.fut[Math.min(path.fut.length-1,k*7-1)],ratio=p?p.ctl/c0:1;fv=Math.min(head*1.12,fv*(1+g0*clamp((ratio-.8)/.2,-.5,1.5)));pts.push({m:addDays(mon,7*k),fut:Math.round(fv)})}}
-  /* één lijn voor wat je FTP was: de schatting uit je ritten als die er is, anders wat er ingesteld stond */
-  pts.forEach((p,i)=>{if(i<N0)p.v=p.est||p.f});
-  const N=pts.length,vals=pts.flatMap(p=>[p.v,p.fut]).concat(goal?[goal]:[]).filter(v=>v),lo=Math.min(...vals)*.8,hi=Math.max(...vals)*1.06,y=v=>200-(v-lo)/(hi-lo)*200,X=i=>(i/(N-1)*1000).toFixed(1);
+  /* waarschijnlijk: wat je werk in dit blok je FTP waarschijnlijk opleverde. Vanaf de start van het blok (of je laatste test erin)
+     het schema naar je doel, maal het deel van de geplande belasting dat je echt reed. Alleen voor de grafiek: je trainingen
+     rekenen met je ingestelde FTP. Een vuistregel, geen meting. */
+  const tk0=iso(today),wkPlan=new Map(),planOf=m=>{const k=iso(m);if(!wkPlan.has(k))wkPlan.set(k,planWeek(state,m,today));return wkPlan.get(k)};
+  const probOf=e=>{
+    const t=real.filter(r=>isTestRide(r)&&r.date>=bl.start&&r.date<=e&&ftpEstimate(r)).sort((a,b)=>a.date<b.date?1:-1)[0];
+    const a0=t?t.date:bl.start,v0=t?ftpEstimate(t):bl.from;let pl=0;
+    for(let m=mondayOf(parseISO(a0));iso(m)<=e;m=addDays(m,7))for(const d of planOf(m).days)if(d.wo&&d.iso>=a0&&d.iso<=e)pl+=d.wo.tss||0;
+    const dn=real.filter(r=>r.date>=a0&&r.date<=e&&!(t&&r.id===t.id)).reduce((x,r)=>x+(r.tss||0),0);
+    return Math.round(v0+Math.max(0,blockPath(bl,parseISO(e))-blockPath(bl,parseISO(a0)))*(pl?clamp(dn/pl,0,1):0));
+  };
+  /* één lijn voor wat je FTP was: in het blok de waarschijnlijke FTP (of de schatting uit je ritten als die hoger is), daarvoor
+     de schatting uit je ritten als die er is, anders wat er ingesteld stond */
+  pts.forEach((p,i)=>{if(i>=N0)return;const e=iso(addDays(p.m,6));
+    if(bl&&e>=bl.start){p.prob=probOf(e<tk0?e:tk0);p.v=Math.max(p.prob,p.est||0)}else p.v=p.est||p.f});
+  /* gereden FTP-tests als stip */
+  const tdots=real.filter(isTestRide).map(r=>{const i=pts.findIndex((p,j)=>j<N0&&r.date>=iso(p.m)&&r.date<=iso(addDays(p.m,6)));return i>=0&&ftpEstimate(r)?[i,ftpEstimate(r)]:null}).filter(Boolean);
+  const N=pts.length,vals=pts.flatMap(p=>[p.v,p.fut]).concat(goal?[goal]:[],tdots.map(d=>d[1])).filter(v=>v),lo=Math.min(...vals)*.8,hi=Math.max(...vals)*1.06,y=v=>200-(v-lo)/(hi-lo)*200,X=i=>(i/(N-1)*1000).toFixed(1);
   const was=pts.map((p,i)=>p.v?[i,p.v]:null).filter(Boolean),wasD=was.map(([i,v],j)=>`${j?'L':'M'}${X(i)},${y(v).toFixed(1)}`).join('');
   /* met een blok: het schema vanaf de start van het blok, ook het stuk dat al voorbij is; anders vanaf vandaag */
   const b0=bl?Math.max(0,pts.findIndex(p=>iso(addDays(p.m,6))>=bl.start)):N0-1;
@@ -484,7 +499,7 @@ function progressCard(){
   const goalHTML=!bl?'':`<div class="ftpgoal"><div class="kvl"><span><b>Doel ${goal} W</b> op ${dt(parseISO(bl.end))}</span><span>${hit?'gehaald':gap!=null&&gap<-blockBand(bl).m?`${-gap} W achter`:gap!=null?'op schema':`nog ${Math.max(0,goal-head)} W`}</span></div><div class="prog"><i style="width:${hit?100:pct}%;background:var(--acc)"></i></div></div>`;
   SCRUB.ftp=f=>{
     const i=Math.round(f*(N-1)),p=pts[i],v=p.fut||p.v;
-    return {x:i/(N-1),html:`<span>Week ${weekNo(p.m)} · ${dt(p.m)}${i===N0-1?' · nu':''}</span><span><b>${v||'–'} W</b> ${p.fut?(bl?'volgens schema':'verwacht'):p.est?'geschat':'ingesteld'}</span>${goal&&v&&goal>v?`<span>Nog ${goal-v} W tot je doel</span>`:''}`};
+    return {x:i/(N-1),html:`<span>Week ${weekNo(p.m)} · ${dt(p.m)}${i===N0-1?' · nu':''}</span><span><b>${v||'–'} W</b> ${p.fut?(bl?'volgens schema':'verwacht'):p.prob&&v===p.prob?'waarschijnlijk':p.est?'geschat':'ingesteld'}</span>${p.prob&&p.est&&p.est!==v?`<span>Uit je ritten ${p.est} W</span>`:goal&&v&&goal>v?`<span>Nog ${goal-v} W tot je doel</span>`:''}`};
   };
   const ftpCard=`<div class="card"><div class="bignum tacc"><span>${est?'Geschatte FTP':'FTP'}</span><b>${head}<i>W ±${ftpMargin(head)}</i></b><small>${nl(hk.toFixed(1))} W/kg${!bl&&grow?` · <em class="${grow>0?'up':'down'}">${grow>0?'+':''}${grow} W</em> in zes weken`:''}</small></div>
     ${goalHTML}
@@ -493,9 +508,10 @@ function progressCard(){
       ${goal?`<line x1="0" x2="1000" y1="${y(goal).toFixed(1)}" y2="${y(goal).toFixed(1)}" stroke="var(--ink)" stroke-opacity=".35" stroke-dasharray="2 4" vector-effect="non-scaling-stroke"/>`:''}
       ${was.length>1?`<path d="${wasD}L${X(was[was.length-1][0])},200L${X(was[0][0])},200Z" fill="var(--acc)" fill-opacity=".14"/>`:''}
       <path d="${futLine}" fill="none" stroke="var(--acc)" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
-      ${was.length>1?`<path d="${wasD}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>`:was.length?`<path d="M${X(was[0][0])},${y(was[0][1]).toFixed(1)}h.01" stroke="var(--acc)" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`:''}</svg>
+      ${was.length>1?`<path d="${wasD}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>`:was.length?`<path d="M${X(was[0][0])},${y(was[0][1]).toFixed(1)}h.01" stroke="var(--acc)" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`:''}
+      ${tdots.map(([i,v])=>`<path d="M${X(i)},${y(v).toFixed(1)}h.01" stroke="var(--ink)" stroke-width="8" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`).join('')}</svg>
       ${goal?`<span class="yl" style="top:${y(goal)/2}%">Doel</span>`:''}${tk}${scrubMarks}</div>
-    <div class="legend"><span><i style="background:var(--acc)"></i>Jouw FTP</span><span><i class="dash" style="border-color:var(--acc)"></i>${bl?'Schema naar je doel':'Verwacht'}</span></div>
+    <div class="legend"><span><i style="background:var(--acc)"></i>${bl?'Waarschijnlijk':'Jouw FTP'}</span>${tdots.length?'<span><i style="background:var(--ink);border-radius:50%"></i>Test</span>':''}<span><i class="dash" style="border-color:var(--acc)"></i>${bl?'Schema naar je doel':'Verwacht'}</span></div>
 </div>`;
   return {ftpCard};
 }
