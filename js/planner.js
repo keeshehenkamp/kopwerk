@@ -103,7 +103,7 @@ function pickSlots(st,src,monday,n,stalled){
 }
 /* werkt het? De laatste twee FTP-tests, minstens vier weken uit elkaar. Bijna geen groei: het accent verschuift. */
 function ftpTrend(st){
-  const t=(st.rides||[]).filter(r=>!r.sim&&r.type==='ramptest'&&ftpEstimate(r)).sort((a,b)=>a.date<b.date?-1:1);
+  const t=(st.rides||[]).filter(r=>isTestRide(r)&&ftpEstimate(r)).sort((a,b)=>a.date<b.date?-1:1);
   if(t.length<2)return null;
   const a=t[t.length-2],b=t[t.length-1];if(dayDiff(parseISO(a.date),parseISO(b.date))<28)return null;
   const from=ftpEstimate(a),to=ftpEstimate(b);return {from,to,stall:to<=from*1.01};
@@ -145,7 +145,7 @@ const EVENT_KM={vlak:150,kassei:150,heuvels:150,middel:130,bergen:120,koers:100}
    Bij een evenement uit de lijst bepalen de klimmen (hoe lang ze voor jou duren) het soort schema. */
 const evKind=st=>st.event?evStyle(st.event,st.profile.ftp,st.profile.weight||75):'';
 const coachFor=(st,ctx)=>{const k=evKind(st);return ctx&&ctx.toGo!=null&&EVENTS[k]?EVENTS[k]:(GOALS[st.profile.goal]||GOALS.ftp)};
-const whyFor=(prof,type)=>((prof&&prof.why)||{})[type]||WHY[type]||'';
+const whyFor=(prof,type)=>type==='test20'&&ftpTestOf(state)==='test20'?'Je vaste test. Steeds dezelfde test, zodat je uitslagen te vergelijken zijn.':((prof&&prof.why)||{})[type]||WHY[type]||'';
 const whyOn=(date,type)=>whyFor(coachFor(state,weekCtx(state,mondayOf(date))),type);
 
 const CYCLE=ph=>ph===3?{label:'Herstelweek',kind:'rec',rec:true,ph,L:0,sp:0,vol:.7,cap:1}:{label:`Opbouwweek ${ph+1}`,kind:'build',rec:false,ph,L:ph,sp:ph,vol:1,cap:3};
@@ -217,7 +217,7 @@ function ensureBlock(st,today){
     if(blockKind(goal)==='sprint'&&b.from&&!b.noSprint){const w=dayDiff(parseISO(b.start),today)/7,n=(st.rides||[]).filter(r=>!r.sim&&r.date>=b.start&&r.date<=tk&&CAT_OF[r.type]==='kracht').length;if(w>=4&&n<w*.5){b.noSprint=true;b.target=r5(b.from*1.02);return true}}
     /* een FTP-test in dit blok boven het schema: het verschil komt bij het doel */
     if(blockKind(goal)!=='sprint'){
-      const t=(st.rides||[]).filter(r=>!r.sim&&r.type==='ramptest'&&r.date>=b.start&&r.date<=tk&&r.date!==b.tested&&ftpEstimate(r)).sort((x,y)=>x.date<y.date?1:-1)[0];
+      const t=(st.rides||[]).filter(r=>isTestRide(r)&&r.date>=b.start&&r.date<=tk&&r.date!==b.tested&&ftpEstimate(r)).sort((x,y)=>x.date<y.date?1:-1)[0];
       if(t){b.tested=t.date;const lead=ftpEstimate(t)-blockPath(b,parseISO(t.date));if(lead>=3&&t.date<iso(addDays(parseISO(b.end),-6))){b.raised={date:t.date,old:b.target};b.target=r5(b.target+lead)}return true}
     }
     return false;
@@ -304,7 +304,7 @@ function coachTargets(st,monday,ctx,fat){
   const p=st.profile,wkg=p.ftp/clamp(p.weight||75,35,200);
   /* niveau: wat je zelf opgaf, en zodra je FTP bekend is ook je watt per kilo */
   const nv=NIVEAU[p.niveau],wl=clamp(3+(wkg-1.5)*3,4,12);
-  const known=!!st.ftpGiven||(st.rides||[]).some(r=>!r.sim&&r.type==='ramptest');
+  const known=!!st.ftpGiven||(st.rides||[]).some(isTestRide);
   const level=nv?(known?clamp((nv.base*2+wl)/3,3,12):nv.base):wl;
   let ideal=level*(p.goal==='duur'?1.1:p.goal==='fit'?.9:1);
   const ev=ctx.toGo!=null&&st.event?st.event:null,ek=ev?evKind(st):'';
@@ -554,34 +554,37 @@ function planWeek(st,monday,today){
       d.T=Math.min(d.minutes,Math.max(45,r5((rec?60:keyLen(t))*fit+spare)));d.wo=buildWorkout(t,d.T,L,lv(t));d.key=!rec;
     }
     /* FTP-test: in de eerste week en daarna elke zes weken, in een rustige week zodat je fris bent */
-    if(tk&&thisWeek>=0&&!['peak','taper','event'].includes(ctx.kind)){
+    /* een test staat maar in één week: staat er deze week nog een, dan niet ook volgende week. Komt hij er niet van, dan schuift hij door zodra de nieuwe week begint */
+    const testOpen=thisWeek===7&&planWeek(st,mondayOf(today),today).days.some(d=>d.test&&d.iso>=tk&&!rides.some(r=>!r.sim&&r.date===d.iso));
+    if(tk&&thisWeek>=0&&!testOpen&&!['peak','taper','event'].includes(ctx.kind)){
       /* een FTP die je bij de start zelf opgaf, telt als test */
-      const tests=rides.filter(r=>!r.sim&&r.type==='ramptest').map(r=>r.date).concat(st.ftpGiven?[st.ftpGiven]:[]).sort(),last=tests[tests.length-1];
+      const tests=rides.filter(isTestRide).map(r=>r.date).concat(st.ftpGiven?[st.ftpGiven]:[]).sort(),last=tests[tests.length-1];
       /* na twee weken of langer ziek of geblesseerd: opnieuw testen zodra je weer zwaar mag trainen */
       const brk=(st.healthLog||[]).some(h=>h.to&&dayDiff(parseISO(h.from),parseISO(h.to))>=13&&(!last||last<h.to)&&iso(monday)>h.to)&&!hw.some(x=>x&&x.cap!=null);
       const since=dayDiff(parseISO(last||st.started||st.planStart),addDays(monday,6)),after=rides.filter(r=>!r.sim&&(!last||r.date>last));
       /* hartslag lager zonder dat het zwaar voelt, of het voelt steeds lichter dan verwacht: je FTP loopt waarschijnlijk achter, dus eerder testen */
       const fitter=last&&since>=28&&(after.filter(r=>r.hrOff<=-5&&rideSignal(r).f<=0).length>=3||after.filter(r=>rideSignal(r).f<0).length>=4);
       /* blijft het zwaarder voelen dan verwacht: misschien staat je FTP te hoog. Nog nooit getest: dan sneller */
-      const tooHigh=read&&read.test&&since>=(rides.some(r=>!r.sim&&r.type==='ramptest')?42:21);
+      const tooHigh=read&&read.test&&since>=(rides.some(isTestRide)?42:21);
       /* gewoon op tijd: liefst in een rustige week, na acht weken ook in een andere. Niet als je net terug bent of eerst moet herstellen */
       const calm=rec||ctx.kind==='base',onTime=last?(since>=42&&calm)||since>=56:calm||iso(monday)===st.planStart||since>=42;
       /* testweek aan het eind van het doelblok: altijd een test, tenzij je net getest hebt */
       const blockTest=ctx.kind==='test'&&since>=14;
       /* halverwege het blok een tussentest, in een rustige week tussen week 5 en 7 (anders in week 7): zo schuift het doel op tijd mee */
-      const bw=ctx.toGo==null&&st.block?Math.floor(dayDiff(parseISO(st.block.start),monday)/7):-1,midTest=bw>=4&&bw<=6&&(rec||bw===6)&&!rides.some(r=>!r.sim&&r.type==='ramptest'&&r.date>=st.block.start);
+      const bw=ctx.toGo==null&&st.block?Math.floor(dayDiff(parseISO(st.block.start),monday)/7):-1,midTest=bw>=4&&bw<=6&&(rec||bw===6)&&!rides.some(r=>isTestRide(r)&&r.date>=st.block.start);
       /* binnen vijf weken komt de testweek van het blok: dan geen extra test ertussen */
       const soon=ctx.toGo==null&&st.block&&ctx.kind!=='test'&&dayDiff(monday,parseISO(st.block.end))<=35&&dayDiff(monday,parseISO(st.block.end))>=0;
       /* langer dan vier weken weg: na de eerste lichtere week een nieuwe test */
-      const gapTest=cb&&cb.stage===3&&cb.age>=7&&!rides.some(r=>!r.sim&&r.type==='ramptest'&&r.date>=cb.back);
+      const gapTest=cb&&cb.stage===3&&cb.age>=7&&!rides.some(r=>isTestRide(r)&&r.date>=cb.back);
       const due=brk||gapTest||(fat.back==null&&fat.level<2&&(blockTest||midTest||(!soon&&(fitter||tooHigh||onTime))));
       /* nooit testen als het zwaar voelt: de uitslag valt dan te laag uit. Eerst een paar dagen zonder rit die zwaarder voelde dan verwacht */
       const heavyBefore=d=>rides.some(r=>!r.sim&&r.date<d.iso&&r.date>=iso(addDays(d.date,-3))&&rideSignal(r).f>0);
-      const td=due&&H.filter(d=>d.iso>=tk&&!heavyBefore(d)).sort((a,b)=>a.i-b.i)[0];
-      if(td){td.wo=buildWorkout('ramptest',45,0);td.key=true;td.test=true}
+      const tt=ftpTestOf(st),tMin=tt==='test20'?55:45;
+      const td=due&&H.filter(d=>d.iso>=tk&&!heavyBefore(d)&&(tt!=='test20'||d.minutes>=tMin)).sort((a,b)=>a.i-b.i)[0];
+      if(td){td.wo=buildWorkout(tt,tMin,0);td.key=true;td.test=true}
       /* eenmalig een 20-minutentest vier dagen tot ruim drie weken na een ramptest: daaruit volgt je eigen verhouding (calibrate) */
       const ramp=rides.filter(r=>!r.sim&&r.type==='ramptest'&&r.best&&r.best[60]).sort((a,b)=>a.date<b.date?1:-1)[0];
-      if(!td&&!st.ftpCal&&ramp&&ctx.kind==='build'&&!fat.level&&(TYPES.test20.min||0)<=nivIdx(st)&&!rides.some(r=>!r.sim&&r.type==='test20'&&r.date>=ramp.date)){
+      if(!td&&tt==='ramptest'&&!st.ftpCal&&ramp&&ctx.kind==='build'&&!fat.level&&(TYPES.test20.min||0)<=nivIdx(st)&&!rides.some(r=>!r.sim&&r.type==='test20'&&r.date>=ramp.date)){
         const t20=H.filter(d=>{const n=dayDiff(parseISO(ramp.date),d.date);return d.iso>=tk&&n>=4&&n<=24&&d.minutes>=55&&!heavyBefore(d)}).sort((a,b)=>a.i-b.i)[0];
         if(t20){t20.wo=buildWorkout('test20',55,0);t20.key=true;t20.test=true}
       }

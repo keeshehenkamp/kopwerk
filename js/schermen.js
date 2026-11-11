@@ -143,7 +143,8 @@ function settingsForm(first){
         <div><label class="f" for="s-ftp">FTP in watt</label><input type="number" id="s-ftp" min="60" max="600" value="${first&&!state.setup?'':p.ftp}" placeholder="weet ik niet"></div>
         <div><label class="f" for="s-w">Gewicht in kg</label><input type="number" id="s-w" min="35" max="200" value="${p.weight}"></div>
  ${first?'':`<div><label class="f" for="s-mhr">Maximale hartslag</label><input type="number" id="s-mhr" min="120" max="230" value="${p.maxHr||''}" placeholder="optioneel"></div>
-        <div><label class="f" for="s-snd">Geluid bij blokwissel</label>${sel('id="s-snd"',[[1,'Aan'],[0,'Uit']],p.sound?1:0)}</div>`}
+        <div><label class="f" for="s-snd">Geluid bij blokwissel</label>${sel('id="s-snd"',[[1,'Aan'],[0,'Uit']],p.sound?1:0)}</div>
+        <div><label class="f" for="s-ftest">FTP-test</label>${sel('id="s-ftest"',[['ramp','Ramptest'],['20','20 minuten']],p.ftpTest==='20'?'20':'ramp')}</div>`}
       </div>${first?evNotice(cur):''}
 </div>
     ${first?`<div class="card"${hid(2)}><div style="margin-bottom:12px">${sech('tgreen',I.clock,'Wanneer kun je fietsen?')}</div>${availEditor('setup')}</div>`:''}
@@ -477,7 +478,7 @@ function progressCard(){
   const dt=m=>`${m.getDate()} ${MONTHS[m.getMonth()].slice(0,3)}`,q=(N0-1)/(N-1);
   const tk=`<span class="xl first" style="left:0">${dt(pts[0].m)}</span><span class="xl" style="left:${q*100}%">vandaag</span><span class="xl last" style="left:100%">${dt(pts[N-1].m)}</span>`;
   /* op schema? Alleen te zeggen na een FTP-test in dit blok: een schatting uit gewone ritten is daar te grof voor */
-  const tst=bl?real.filter(r=>r.type==='ramptest'&&r.date>=bl.start&&ftpEstimate(r)).sort((a,b)=>a.date<b.date?1:-1)[0]:null,gap=tst?ftpEstimate(tst)-blockPath(bl,parseISO(tst.date)):null;
+  const tst=bl?real.filter(r=>isTestRide(r)&&r.date>=bl.start&&ftpEstimate(r)).sort((a,b)=>a.date<b.date?1:-1)[0]:null,gap=tst?ftpEstimate(tst)-blockPath(bl,parseISO(tst.date)):null;
   /* het doel als eigen regel: waar, wanneer, en hoe ver je nog moet */
   const hit=bl&&blockHit(bl,head),pct=bl?clamp(Math.round((head-bl.from)/Math.max(1,goal-bl.from)*100),0,100):0;
   const goalHTML=!bl?'':`<div class="ftpgoal"><div class="kvl"><span><b>Doel ${goal} W</b> op ${dt(parseISO(bl.end))}</span><span>${hit?'gehaald':gap!=null&&gap<-blockBand(bl).m?`${-gap} W achter`:gap!=null?'op schema':`nog ${Math.max(0,goal-head)} W`}</span></div><div class="prog"><i style="width:${hit?100:pct}%;background:var(--acc)"></i></div></div>`;

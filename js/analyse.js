@@ -331,7 +331,7 @@ function verdict(r,ftp){
     const e=ftpEstimate(r);
     if(r.type==='test20'){
       out.push(e?`Je beste 20 minuten waren ${r.best[1200]} W. Daaruit volgt een FTP van ${e} W, marge ±${ftpMargin(e)} W.`:'De test was te kort. Je moet de twintig minuten uitrijden.');
-      if(r.cal)out.push(Math.round(r.cal*100)===75?'Je eigen verhouding is ook 75% van je beste minuut.':`Je ramptest rekent nu met ${Math.round(r.cal*100)}% van je beste minuut in plaats van 75%.`);else if(e)out.push('Te ver onder je ramptest om je verhouding op te baseren.');
+      if(r.std){if(e&&!r.ftpSet&&Math.abs(e-(r.ftp||ftp))<5)out.push('Verschil kleiner dan 5 W: je FTP blijft staan.')}else if(r.cal)out.push(Math.round(r.cal*100)===75?'Je eigen verhouding is ook 75% van je beste minuut.':`Je ramptest rekent nu met ${Math.round(r.cal*100)}% van je beste minuut in plaats van 75%.`);else if(e)out.push('Te ver onder je ramptest om je verhouding op te baseren.');
       return out;
     }
     out.push(e?`Je beste minuut was ${r.best[60]} W. Daaruit volgt een FTP van ${e} W, marge ±${ftpMargin(e)} W.`:'De test was te kort om een FTP uit af te leiden. Rijd door tot je de cadans echt niet meer vasthoudt.');

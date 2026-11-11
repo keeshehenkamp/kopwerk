@@ -26,6 +26,16 @@ function runCoachChecks(add){
   const heeft=(d,t)=>plan(d).days.some(x=>x.wo&&x.wo.type===t);
   T('ftp-marge','na een ramptest komt eenmalig de 20-minutentest',()=>{state=na();const d=at('2026-11-09');return heeft(d,'test20')});
   T('ftp-marge','met een eigen verhouding geen 20-minutentest meer',()=>{state=na({ftpCal:{r:.78}});return !heeft(at('2026-11-09'),'test20')});
+  /* een test staat één keer in het schema: niet deze week en volgende week allebei (Kees, 11-11-2026) */
+  const tests=d=>[0,7].flatMap(o=>plan2(addDays(mondayOf(d),o),d).days.filter(x=>x.wo&&isFtpTest(x.wo.type)&&x.iso>=iso(d)));
+  const plan2=(m,d)=>planWeek(state,m,d);
+  T('test','de 20-minutentest staat niet in twee weken',()=>{state=na({avail:[60,90,60,90,0,120,90]});return tests(at('2026-11-11')).length===1});
+  T('test','een geplande ramptest staat niet in twee weken',()=>{state=base({started:'2026-09-14',planStart:'2026-09-14',ftpGiven:'2026-09-14',rides:steady('2026-09-14','2026-11-10',{rpe:4})});const l=tests(at('2026-11-11'));return l.length===1});
+  /* 20 minuten als vaste test: dan geen ramptest en geen extra 20-minutentest om je verhouding te bepalen */
+  const t20=o=>({ftp:197,weight:85,goal:'ftp',niveau:'gevorderd',ftpTest:'20',...(o||{})});
+  T('test','met 20 minuten als vaste test: geen extra test na een ramptest',()=>{state=na({profile:t20()});return tests(at('2026-11-11')).length===0});
+  T('test','met 20 minuten als vaste test: de test is een 20-minutentest',()=>{state=base({started:'2026-09-14',planStart:'2026-09-14',ftpGiven:'2026-09-14',profile:t20(),rides:steady('2026-09-14','2026-11-10',{rpe:4})});const l=tests(at('2026-11-11'));return l.length===1&&l[0].wo.type==='test20'});
+  T('test','een vaste 20-minutentest telt als test',()=>{state=base({started:'2026-09-14',planStart:'2026-09-14',ftpGiven:'2026-09-14',profile:t20(),rides:[...steady('2026-09-14','2026-11-10',{rpe:4}),rideOf('2026-11-05','test20',{std:true,best:{1200:215}})]});return tests(at('2026-11-11')).length===0});
   /* ---------- 4. buitenritten: duur maal gevoel ---------- */
   const lijn=[[4,40],[5,55],[6,70],[7,85],[8,100],[8,100]].map(([rpe,tss],i)=>rideOf(iso(addDays(parseISO('2026-10-20'),i)),'sweetspot',{rpe,tss}));
   T('buiten','eigen lijn uit trainerritten',()=>{state=base({rides:lijn});return Math.abs(feelRate(6,state)-70)<3});

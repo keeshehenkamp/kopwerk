@@ -74,12 +74,17 @@ Object.assign(TYPES,{
   koersdag:{name:'Koersritme',hard:true,min:1,desc:'Series met wisselend tempo en korte versnellingen, zoals in een wedstrijd of snelle groep.'},
   demarrage:{name:'Demarrages',hard:true,min:1,desc:'Een harde aanval van dertig seconden en daarna drie minuten doorrijden om de voorsprong vast te houden.'},
   vier8:{name:'Blokken van 8 minuten',hard:true,min:1,desc:'Blokken van acht minuten met twee minuten rust. Zwaar maar vol te houden: zo hard dat je het laatste blok even goed rijdt als het eerste.'},
-  test20:{name:'FTP-test (20 minuten)',hard:true,min:1,desc:'Na een opwarming twintig minuten zo hard als je gelijkmatig volhoudt. Het doel is een richtlijn, de trainer houdt het vermogen niet vast. Eén keer naast de ramptest: daaruit volgt je eigen verhouding.'}
+  test20:{name:'FTP-test (20 minuten)',hard:true,min:1,desc:'Na een opwarming twintig minuten zo hard als je gelijkmatig volhoudt. Het doel is een richtlijn, de trainer houdt het vermogen niet vast. Je FTP is 95% van wat je die twintig minuten gemiddeld trapt.'}
 });
 /* de tests als laatste in de bibliotheek */
 {const t=TYPES.test20;delete TYPES.test20;TYPES.test20=t}
 {const t=TYPES.ramptest;delete TYPES.ramptest;TYPES.ramptest=t}
 const isFtpTest=t=>t==='ramptest'||t==='test20';
+/* je vaste FTP-test: de ramptest, of de 20-minutentest als je die in Profiel kiest */
+const ftpTestOf=st=>st.profile&&st.profile.ftpTest==='20'?'test20':'ramptest';
+/* telt als FTP-test voor het schema: een ramptest, of een 20-minutentest die je als vaste test reed (r.std).
+   De eenmalige 20-minutentest naast de ramptest (je verhouding) telt niet. */
+const isTestRide=r=>!r.sim&&(r.type==='ramptest'||r.type==='test20'&&!!r.std);
 /* soort per training, voor de filter in de bibliotheek */
 const CATS=[['','Alle'],['rustig','Rustig en lang'],['drempel','Tempo en drempel'],['vo2','Kort en hard'],['klim','Klimmen'],['kracht','Kracht en sprint'],['techniek','Cadans'],['test','Test']];
 const CAT_OF={herstel:'rustig',duur:'rustig',openers:'rustig',duurklim:'rustig',duurtempo:'rustig',duurheuvels:'rustig',duurkracht:'rustig',

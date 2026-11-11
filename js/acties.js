@@ -124,7 +124,7 @@ const actions={
     const mh=g('s-mhr')?Math.round(+g('s-mhr').value)||0:state.profile.maxHr||0,evd=val('s-evd'),evn=val('s-evn').trim(),evid=val('s-evid');
     if(ftp!==state.profile.ftp)logFtp(ftp);
     const niv=NIVEAU[val('s-niv')]?val('s-niv'):state.profile.niveau;
-    state.profile=Object.assign({ftp,weight:w,goal:g('s-goal').value,sound:g('s-snd')?g('s-snd').value==='1':state.profile.sound!==false,maxHr:mh?clamp(mh,120,230):0},niv?{niveau:niv}:{});
+    state.profile=Object.assign({ftp,weight:w,goal:g('s-goal').value,sound:g('s-snd')?g('s-snd').value==='1':state.profile.sound!==false,maxHr:mh?clamp(mh,120,230):0,ftpTest:g('s-ftest')?g('s-ftest').value:state.profile.ftpTest||'ramp'},niv?{niveau:niv}:{});
     const evk=val('s-evk'),evkm=Math.round(+val('s-evkm'))||0,date=/^\d{4}-\d{2}-\d{2}$/.test(evd)?evd:'';
     const old=state.event;
     /* uit de lijst: naam, afstand en hellingen komen uit de lijst. Zonder datum blijft je keuze staan, maar plant de coach nog niet naar het evenement. */
@@ -351,7 +351,7 @@ document.addEventListener('change',e=>{
     if(state.setup&&ui.view==='profiel')actions.saveSettings(null,null,null,true);
     return render();
   }
-  if(state.setup&&ui.view==='profiel'&&/^s-(goal|ftp|w|mhr|snd|evn|evk|evkm)$/.test(id))return actions.saveSettings(null,null,null,true);
+  if(state.setup&&ui.view==='profiel'&&/^s-(goal|ftp|w|mhr|snd|ftest|evn|evk|evkm)$/.test(id))return actions.saveSettings(null,null,null,true);
   const el=e.target.closest('[data-chg]');if(!el)return;
   const a=actions[el.dataset.chg];if(a)a(el.dataset,el,e);
 });

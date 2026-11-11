@@ -361,8 +361,11 @@ async function storeRide(a){
   markRecords(ride);
   /* na een FTP-test: bij een verschil van 5 W of meer gaat je FTP naar de uitkomst; op de ritpagina kun je hem terugzetten.
      Een 20-minutentest telt alleen als hij je verhouding geeft: anders was hij niet voluit */
-  if(isFtpTest(ride.type)&&!a.sim){if(calibrate(ride,state))ride.cal=state.ftpCal.r;const e=ftpEstimate(ride),old=state.profile.ftp;
-    if((ride.type==='ramptest'||ride.cal)&&ftpAdopt(e,old)){state.profile.ftp=e;logFtp(e);ride.ftpSet={from:old,to:e}}}
+  if(isFtpTest(ride.type)&&!a.sim){
+    /* is de 20-minutentest je vaste test, dan geeft hij gewoon je FTP; anders bepaalt hij eenmalig je verhouding */
+    if(ride.type==='test20'&&ftpTestOf(state)==='test20')ride.std=true;else if(calibrate(ride,state))ride.cal=state.ftpCal.r;
+    const e=ftpEstimate(ride),old=state.profile.ftp;
+    if((ride.type==='ramptest'||ride.std||ride.cal)&&ftpAdopt(e,old)){state.profile.ftp=e;logFtp(e);ride.ftpSet={from:old,to:e}}}
   state.rides.push(ride);if(before){ride.change=planDiff(before,ride);ui.planBefore={id:ride.id,snap:before}}save();
   await idb.put('s:'+ride.id,a.rec);await idb.del('active');
   ui.rideFrom=tabOf(ui.view);ui.deep=false;ui.rpeEdit=false;ui.streams={id:ride.id,rec:a.rec};ui.view='ride';ui.rideId=ride.id;
