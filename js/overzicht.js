@@ -74,7 +74,7 @@ function kalenderView(){
       if(!d.wo)return [];
       return [`<button data-act="openDay" data-iso="${d.iso}">${calWhen(d.date)}<span class="dot" style="background:var(--z${woZone(d.wo)})"></span><span class="w"><b>${esc(d.wo.name)}</b><span>${durTxt(d.wo.minutes)}</span></span><span class="r">${d.wo.tss} TSS</span></button>`]});
     const open=ui.calEdit===k;
-    return `<div class="wkh">${sech(edit?'tpurple':'tblue',ICON.schema,title)}${edit?`<button class="ibtn${open?' on':''}" data-act="calEdit" data-k="${k}" aria-pressed="${open}" aria-label="Tijd per dag, ${title.toLowerCase()}" title="Tijd per dag">${ICO.tijd}</button>`:''}</div>
+    return `<div class="wkh">${sech(k===iso(mon)?'tblue':'tpurple',ICON.schema,title)}${edit?`<button class="ibtn${open?' on':''}" data-act="calEdit" data-k="${k}" aria-pressed="${open}" aria-label="Tijd per dag, ${title.toLowerCase()}" title="Tijd per dag">${ICO.tijd}</button>`:''}</div>
       ${open?`<div class="card" style="margin-bottom:8px">${availEditor(k)}</div>`:''}
       <div class="card tl">${rows.length?`<div class="list">${rows.join('')}</div>`:'<p class="muted" style="padding:10px 0">Geen trainingen.</p>'}</div>`};
   /* geweest: alleen wat je echt deed, per week ingeklapt; een tik op de week klapt hem open */
@@ -90,7 +90,7 @@ function kalenderView(){
   const tools=`<div class="row"><button class="btn pri lab" data-act="openLog" data-iso="${tk}" data-p="1">${I.plus}Toevoegen</button></div>`;
   const strip=phaseStrip(today);
   return `<div class="head"><div><h1>Kalender</h1></div>${tools}</div><div class="timeline">${strip?`<div style="margin-bottom:6px">${strip}</div>`:''}
-    ${planned(mon,'Deze week')}${planned(addDays(mon,7),'Volgende week',true)}
+    ${planned(mon,'Deze week',true)}${planned(addDays(mon,7),'Volgende week',true)}
     ${log?`<div class="wkh">${sech('tgreen',I.check,'Geweest')}</div>${log}`:''}</div>`;
 }
 

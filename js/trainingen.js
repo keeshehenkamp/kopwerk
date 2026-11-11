@@ -223,9 +223,10 @@ Object.assign(LADDER,{
     make:([n])=>RP(n,i=>[S(30,1.5,null,`Aanval ${i+1} van ${n}`,'work'),S(180,.92,null,'Voorsprong houden','work'),...restB(i,n,180)])}
 });
 /* een rustig stuk dat niet vlak is: om de paar minuten iets anders, zodat er geen lang eentonig stuk ontstaat */
+/* rustig rijden tussen het werk: één stuk per kwartier, om en om iets lichter en iets steviger; geen blokjes van een paar minuten */
 function easyRun(min,label){
-  const P=[[.6,0,6],[.65,0,5],[.62,95,4],[.66,0,5]],o=[];
-  for(let i=0,l=min;l>.05;i++){const [q,c,d]=P[i%P.length],m=l-d<2?l:d;o.push(S(m*60,q,null,c?'Hoge cadans':(label||'Duurtempo'),'steady',c));l-=m}
+  const sec=Math.round(min*60),n=Math.max(1,Math.ceil(sec/900-.01)),o=[];
+  for(let i=0,l=sec;i<n;i++){const d=i===n-1?l:Math.round(sec/n);o.push(S(d,i%2?.66:.62,null,label||'Duurtempo','steady'));l-=d}
   return o;
 }
 /* Heb je meer tijd dan de blokken vragen, dan is de rit geen korte rit met duurtempo erachter: het eerste deel wordt langer,
@@ -262,7 +263,7 @@ function shapeLong(type,main,left){
 /* rustige trainingen die de hele tijd vullen: niet zwaarder per trede. Krijgen de duur tussen warming-up en cooling-down (min) */
 const FILL={
   duurgolf:min=>{const o=[];for(let i=0,l=min;l>0;i++){const d=Math.min(5,l);o.push(S(d*60,i%2?.66:.58,null,'Duurtempo','steady'));l-=d}return o},
-  duuropbouw:min=>[.56,.6,.64].flatMap((p,i)=>{const o=[];for(let j=0,l=min/3;l>.05;j++){const d=l-8<2?l:8;o.push(S(d*60,j%2?p:p+.025,null,`Deel ${i+1} van 3`,'steady'));l-=d}return o}),
+  duuropbouw:min=>[.56,.6,.64].flatMap((p,i)=>{const n=Math.max(1,Math.ceil(min/3/15-.01));return Array.from({length:n},(_,j)=>S(min/3/n*60,j%2?p:p+.025,null,`Deel ${i+1} van 3`,'steady'))}),
   herstelcad:min=>[S(min*60,.5,null,'Losrijden op hoge cadans','steady',95)],
   herstelgolf:min=>{const o=[];for(let i=0,l=min;l>0;i++){const d=Math.min(5,l);o.push(S(d*60,i%2?.55:.45,null,'Losrijden','steady'));l-=d}return o},
   herstelspin:min=>{const o=[];for(let l=min;l>0;){const d=Math.min(7,l);o.push(S(d*60,.5,null,'Losrijden','steady'));l-=d;if(l>=1){o.push(S(60,.5,null,'Hoge cadans','steady',110));l--}}return o},
@@ -338,8 +339,8 @@ function buildWorkout(type,T,L,lvl,opt){
   }else if(type==='duur'){
     const hi=pick([.62,.64,.66],L),lo=.58;
     segs.push(S(300,.45,.65,'Warming-up','warmup'));
-    let left=T-5-cd,i=0;
-    while(left>0){let d=Math.min(10,left);if(left-d<5)d=left;segs.push(S(d*60,i%2?hi:lo,null,'Duurtempo','steady'));left-=d;i++}
+    const left=T-5-cd,n=Math.max(1,Math.ceil(left/15-.01));
+    for(let i=0;i<n;i++)segs.push(S(left/n*60,i%2?hi:lo,null,'Duurtempo','steady'));
     segs.push(S(cd*60,.6,.4,'Cooling-down','cooldown'));
   }else if(type==='duurklim'){
     /* blokken zo lang als de klimmen van je evenement (10 tot 40 min), anders 10 min */

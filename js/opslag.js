@@ -3,7 +3,7 @@
 const KEY='kopwerk.v1';
 const defaults=()=>({v:1,setup:false,profile:{ftp:200,weight:75,goal:'fit',sound:true,maxHr:0},event:null,avail:[0,60,0,60,0,90,120],planStart:iso(mondayOf(new Date())),overrides:{},weeks:{},levelAdj:0,rides:[],missed:{},health:null,healthLog:[],ftpLog:[]});
 let state=defaults();
-const ui={view:'vandaag',selDay:null,detail:null,rideId:null,lib:{min:60},modal:null,streams:null,showCad:false,saveFail:false,bleMsg:'',pending:null,confirm:''};
+const ui={view:'vandaag',selDay:null,detail:null,rideId:null,lib:{min:null},modal:null,streams:null,showCad:false,saveFail:false,bleMsg:'',pending:null,confirm:''};
 function load(){try{const r=localStorage.getItem(KEY);if(r){const o=JSON.parse(r);if(o&&o.v===1)state=Object.assign(defaults(),o)}}catch(e){ui.saveFail=true}}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(state));ui.saveFail=false}catch(e){ui.saveFail=true}}
 /* elke wijziging krijgt een tijdstip, zodat de synchronisatie weet welke kant het nieuwst is.

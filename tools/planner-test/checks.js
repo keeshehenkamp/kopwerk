@@ -102,9 +102,12 @@ function runChecks(){
         if(tail/60>10)add('staart',t,`${T} min, trede ${lv}: ${Math.round(tail/60)} min rustig achteraan geplakt`)}
       /* geen snippers: rustige stukjes korter dan anderhalve minuut horen alleen bij cadansoefeningen */
       if(CAT_OF[t]!=='techniek'&&!LIGHT.has(t)){const k=body(w).find((s,i,l)=>s.kind==='steady'&&s.d<90&&i>0&&i<l.length-1);if(k)add('snipper',t,`${T} min, trede ${lv}: ${k.d} s ${k.label}`)}
-      /* 3. geen lang vlak stuk: hooguit twaalf minuten rustig op hetzelfde vermogen en dezelfde cadans */
+      /* 3. geen lang vlak stuk: hooguit een kwartier rustig op hetzelfde vermogen en dezelfde cadans */
       if(!LIGHT.has(t)){let run=0,prev=null;for(const s of body(w)){const same=prev&&!isWork(s)&&!isWork(prev)&&s.a===s.b&&Math.abs(s.a-prev.a)<.02&&(s.cad||0)===(prev.cad||0);run=same?run+s.d:(isWork(s)?0:s.d);prev=s;
-        if(run/60>12){add('vlak',t,`${T} min, trede ${lv}: ${Math.round(run/60)} min vlak op ${Math.round(s.a*100)}%`);break}}}
+        if(run/60>15.5){add('vlak',t,`${T} min, trede ${lv}: ${Math.round(run/60)} min vlak op ${Math.round(s.a*100)}%`);break}}}
+      /* 3b. geen blokjes: rustig rijden tussen het werk is één stuk per kwartier, niet om de paar minuten iets anders (Kees, 11-11-2026) */
+      if(CAT_OF[t]!=='techniek'&&!LIGHT.has(t)&&t!=='duurgolf'){let run=[];const runs=[];for(const s of body(w)){if(s.kind==='steady'&&!s.cad&&(!run.length||run[0].label===s.label))run.push(s);else{if(run.length)runs.push(run);run=s.kind==='steady'&&!s.cad?[s]:[]}}if(run.length)runs.push(run);
+        const r=runs.find(r=>r.length>Math.ceil(r.reduce((a,s)=>a+s.d,0)/60/15-.01));if(r)add('blokjes',t,`${T} min, trede ${lv}: ${Math.round(r.reduce((a,s)=>a+s.d,0)/60)} min rustig in ${r.length} stukjes`)}
     }
     /* 4. langer is meer werk: een rit van 2 uur is geen rit van 1 uur met duurtempo erachter */
     if(hard){const lv=LADDER[t]?Math.ceil(LADDER[t].steps.length/2):undefined,a=buildWorkout(t,60,1,lv),b=buildWorkout(t,120,1,lv);

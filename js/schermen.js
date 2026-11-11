@@ -63,7 +63,6 @@ const woZone=w=>{let f=0;for(const s of w.segs)if(s.d>=30)f=Math.max(f,(s.a+s.b)
 /* elke rit op een dag, ook vrij rijden */
 const realOn=k=>{const l=state.rides.filter(r=>r.date===k&&!r.sim);return l.length?l[l.length-1]:null};
 /* gereden: vinkje; geplande training die voorbij is en niet gereden: kruisje */
-const dotFor=(d,r)=>r?'<span class="dot done">'+I.check+'</span>':d.wo&&!d.event&&d.iso<iso(new Date())?'<span class="dot miss">'+I.x+'</span>':d.event?'<span class="dot ev"></span>':d.wo?`<span class="dot" style="background:var(--z${woZone(d.wo)})"></span>`:'<span class="dot rest"></span>';
 const metaOf=w=>`${iv(I.clock,durTxt(w.minutes))}${iv(I.zap,w.tss+' TSS')}`;
 
 let enterMain=false,lastScreen='',lastModal='';
@@ -157,7 +156,7 @@ function setupView(){
 }
 
 /* ---------- je tijd per dag ----------
-   Op één plek: de week op Home (en bij het instellen). Tik op een dag en scrol naar de tijd die je hebt;
+   Op één plek: de weken in de Kalender (en bij het instellen). Tik op een dag en scrol naar de tijd die je hebt;
    zodra het wiel stilstaat, staat het opgeslagen. Een week die je niet invult, neemt de vorige over. */
 const WHEEL=[0,30,45,60,75,90,105,120,135,150,165,180,210,240,270,300],WROW=40;
 const minShort=m=>m?(m>=60?(m%60?`${Math.floor(m/60)}u${m%60}`:`${m/60}u`):`${m}m`):'–';
@@ -261,7 +260,7 @@ function dayCard(d,tk){
     const note=d.adj?`<div class="note moved">${esc(d.adj)}</div>`:d.missed?`<div class="note late">${d.movedTo!=null?miss+', verplaatst naar '+DAYS_L[d.movedTo]:d.why==='moe'?miss+'. De dagen erna zijn lichter.':miss}</div>`:d.movedFrom!=null?`<div class="note moved">Verplaatst van ${DAYS_L[d.movedFrom]}</div>`:'';
     const lukt=`<button class="btn lab" data-act="openMissed" data-iso="${d.iso}">${I.ban}Lukt niet</button>`;
     const act=d.iso>tk?'':d.missed&&d.why?`<div class="row" style="margin-top:8px"><button class="link small" data-act="undoMissed" data-iso="${d.iso}">Melding intrekken</button></div>${logBtn(d)}`
-      :d.iso===tk&&!d.missed?(canRide()?`<button class="btn pri big lab dstart" data-act="startDay" data-iso="${d.iso}">${I.play}Start training</button>`:`<p class="small muted noride">Rijden kan op je laptop, in Chrome of Edge.</p>`)+`<div class="dacts">${logBtn(d)}${swapBtn(d)}${lukt}</div>`
+      :d.iso===tk&&!d.missed?(canRide()?`<button class="btn pri big lab dstart" data-act="startDay" data-iso="${d.iso}">${I.play}Start training</button>`:'')+`<div class="dacts">${logBtn(d)}${swapBtn(d)}${lukt}</div>`
       :`<div class="dacts">${logBtn(d)}${lukt}</div>`;
     return `<button class="wcard day" data-act="openDay" data-iso="${d.iso}"><div class="t"><div><h3>${esc(d.wo.name)}</h3><div class="m">${metaOf(d.wo)}</div>${note}</div><span class="chev">${I.r}</span></div>${profileSVG(d.wo.segs)}</button>
       ${act}`;
@@ -335,22 +334,16 @@ function moreTimeTip(plan){
   if(!av||ideal-av<60||av>=ideal*.6)return '';
   return plan.days.some(d=>d.minutes>=90)?`Meer tijd helpt: ongeveer ${durTxt(ideal)} per week.`:'Meer tijd helpt: één rit van anderhalf uur.';
 }
-/* de week: fase, voortgang, de dagen en je tijd per dag; met pijlen naar andere weken */
+/* de week in het kort: fase, voortgang en waarom. De dagen en je tijd per dag staan in de Kalender */
 function weekCard(today){
-  const tk=iso(today),mon=mondayOf(today),k=iso(mon),plan=planWeek(state,mon,today),sum=weekSum(plan);
+  const mon=mondayOf(today),k=iso(mon),plan=planWeek(state,mon,today),sum=weekSum(plan);
   const planned=plan.days.filter(d=>d.wo),wk=state.rides.filter(r=>!r.sim&&r.date>=k&&r.date<=iso(addDays(mon,6))),doneM=Math.round(wk.reduce((a,r)=>a+r.dur,0)/60);
   const ev=state.event,evDate=ev&&ev.date?parseISO(ev.date):null,toEv=evDate?dayDiff(today,evDate):-1,sub=[esc(plan.label)];
   if(toEv>=0)sub.push(`${esc(ev.name)} over ${toEv} ${toEv===1?'dag':'dagen'}`);
   else if(state.block&&state.block.target)sub.push(`doel ${blockGoal(state.block)} op ${dtShort(parseISO(state.block.end))}`);
-  /* de week in één regel: de dagen zelf staan in de Kalender */
-  const strip=plan.days.map(d=>`<button class="wsd${d.iso===tk?' today':''}" ${d.event?'disabled':realOn(d.iso)?`data-act="openRide" data-id="${realOn(d.iso).id}"`:`data-act="openDay" data-iso="${d.iso}"`} aria-label="${DAYS_L[d.i]} ${d.date.getDate()}: ${realOn(d.iso)?esc(realOn(d.iso).name)+', gereden':d.event?esc(d.event):d.wo?esc(d.wo.name):'rust'}"><span>${DAYS[d.i]}</span><b>${d.date.getDate()}</b>${dotFor(d,realOn(d.iso))}</button>`).join('');
-  const open=ui.avOpen&&wkAskKey(today)!==k;
-  return `<div class="card wk"><div class="wkhead"><div>${sech('tblue',ICON.schema,`Week ${weekNo(mon)}`)}<p class="small muted">${sub.join(' · ')}</p></div>
-      <div class="wnav"><button class="ibtn${open?' on':''}" data-act="avOpen" aria-pressed="${!!open}" aria-label="Tijd per dag" title="Tijd per dag">${ICO.tijd}</button></div></div>
+  return `<div class="card wk"><div class="wkhead"><div>${sech('tblue',ICON.schema,`Week ${weekNo(mon)}`)}<p class="small muted">${sub.join(' · ')}</p></div></div>
     <div class="prog"><i style="width:${sum.m?Math.min(100,Math.round(doneM/sum.m*100)):0}%"></i></div>
     <div class="kvl"><span><b>${Math.min(wk.length,planned.length)}/${planned.length}</b> trainingen</span><span><b>${durTxt(doneM)}</b> van ${durTxt(sum.m)}</span></div>
-    ${open?`<div class="wkedit">${availEditor(k)}</div>`:''}
-    <div class="wstrip">${strip}</div>
     <div class="row spread" style="margin-top:6px;align-items:flex-start;flex-wrap:nowrap">${whyHTML(plan)}${canRide()?'<button class="btn small" data-act="zwoWeek">Zwift</button>':''}</div></div>`;
 }
 function vandaagView(){
@@ -414,7 +407,7 @@ function trainingView(){
       <div><div class="nrow"><div class="tacc"><b>${durTxt(w.minutes)}</b><span>duur</span></div><div class="tblue"><b>${w.tss}</b><span>TSS</span></div></div>
         </div>
       ${day&&day.iso<iso(new Date())&&!rideOn(day.iso)?`<div class="card">${sech('tacc',I.done,'Hoe ging deze training?')}${checkBtns(day.iso)}</div>`
-      :canRide()?`<div class="cta"><button class="btn pri big lab" data-act="startModal">${I.play}Start training</button>${swapBtn(day)}<button class="btn" data-act="zwoModal">Zwift</button></div>`:`<div class="noride"><span class="small muted">Rijden kan op je laptop, in Chrome of Edge.</span>${swapBtn(day)}</div>`}
+      :canRide()?`<div class="cta"><button class="btn pri big lab" data-act="startModal">${I.play}Start training</button>${swapBtn(day)}<button class="btn" data-act="zwoModal">Zwift</button></div>`:`<div class="noride">${swapBtn(day)}</div>`}
       <div class="card stack"><p>${esc(w.desc)}</p>${['duur','duurgolf','duuropbouw'].includes(w.type)&&state.profile.maxHr?`<p class="small muted">♥ onder ${Math.round(state.profile.maxHr*.7)} bpm</p>`:''}${why?`<details class="why"><summary>Waarom deze training?</summary><p class="small muted" style="margin-top:8px">${esc(why)}</p></details>`:''}</div>
       <details class="card fold"><summary>Specificatie</summary><div style="margin-top:8px">${segList(w)}</div></details>
       ${adjust}</div>`;
@@ -429,15 +422,19 @@ function libWo(t,min){
 /* zwaarte van een soort training: uit het gevoel dat erbij hoort (1-10) */
 const ZWAAR=[['licht','Licht'],['middel','Gemiddeld'],['zwaar','Zwaar']],zwaarOf=t=>{const e=isFtpTest(t)?10:rpeExp(t)??5;return e<=4?'licht':e<=6?'middel':'zwaar'};
 const LIB_MIN=[30,45,60,75,90,120];
+/* zonder gekozen tijd: elke training in zijn kortste vorm die nog dezelfde training is */
+const LIB_SHORT={},libShort=t=>LIB_SHORT[t]||(LIB_SHORT[t]=LIB_MIN.find(m=>{const w=buildWorkout(t,m,1);return w.type===t&&Math.abs(w.minutes-m)<=6})||60);
 function libView(){
-  const l=ui.lib,on=l.cats||[],zw=l.zw||[],n=on.length+zw.length;
+  const l=ui.lib,on=l.cats||[],zw=l.zw||[],n=on.length+zw.length+(l.min?1:0);
   const keys=Object.keys(TYPES).filter(k=>(!on.length||on.includes(CAT_OF[k]))&&(!zw.length||zw.includes(zwaarOf(k))));
   const grp=(title,items)=>`<div class="libgrp" role="group" aria-label="${title}"><span>${title}</span><div>${items}</div></div>`;
-  const cards=keys.map(k=>{const w=libWo(k,l.min);
-    return `<button class="wcard" data-act="openWo" data-type="${k}"><h3>${esc(w.name)}</h3><div class="m">${metaOf(w)}</div>${profileSVG(w.segs)}</button>`}).join('');
+  const list=keys.map(k=>{const m=l.min||libShort(k);return {k,m,w:libWo(k,m)}});
+  if(!l.min)list.sort((a,b)=>a.w.minutes-b.w.minutes||a.w.tss-b.w.tss);
+  const cards=list.map(({k,m,w})=>
+    `<button class="wcard" data-act="openWo" data-type="${k}" data-m="${m}"><h3>${esc(w.name)}</h3><div class="m">${metaOf(w)}</div>${profileSVG(w.segs)}</button>`).join('');
   return `<div class="head"><div><h1>Trainingen</h1></div>
     ${canRide()?'<div class="row"><button class="btn pri" data-act="vrij">Vrij rijden</button></div>':''}</div>
-    <div class="libbar"><button class="btn small lab" data-act="libFilter" aria-expanded="${!!l.open}">${I.filter}Filter${n?` · ${n}`:''}</button><span class="small muted">${keys.length} · ${durTxt(l.min)}</span>${n?'<button class="link small" data-act="libClear">Wissen</button>':''}</div>
+    <div class="libbar"><button class="btn small lab" data-act="libFilter" aria-expanded="${!!l.open}">${I.filter}Filter${n?` · ${n}`:''}</button><span class="small muted">${keys.length}${l.min?' · '+durTxt(l.min):''}</span>${n?'<button class="link small" data-act="libClear">Wissen</button>':''}</div>
     ${l.open?`<div class="libfil">${grp('Soort',CATS.filter(([k])=>k).map(([k,t])=>`<button class="btn small" data-act="libCat" data-c="${k}" aria-pressed="${on.includes(k)}">${t}</button>`).join(''))}
       ${grp('Zwaarte',ZWAAR.map(([k,t])=>`<button class="btn small" data-act="libZw" data-z="${k}" aria-pressed="${zw.includes(k)}">${t}</button>`).join(''))}
       ${grp('Tijd',LIB_MIN.map(m=>`<button class="btn small" data-act="libMin" data-m="${m}" aria-pressed="${l.min===m}">${durTxt(m)}</button>`).join(''))}</div>`:''}
@@ -470,32 +467,34 @@ function progressCard(){
   if(bl){FW=Math.max(1,Math.round(dayDiff(mon,mondayOf(parseISO(bl.end)))/7));for(let k=1;k<=FW;k++){const m=addDays(mon,7*k);pts.push({m,fut:blockPath(bl,addDays(m,6))})}}
   else{FW=clamp(Math.round(horizonDays(today)/7),6,16);const path=fitnessPath(today,FW*7),c0=Math.max(path.now.ctl,15),g0=gainFor(hk)*.07;let fv=head;
     for(let k=1;k<=FW;k++){const p=path.fut[Math.min(path.fut.length-1,k*7-1)],ratio=p?p.ctl/c0:1;fv=Math.min(head*1.12,fv*(1+g0*clamp((ratio-.8)/.2,-.5,1.5)));pts.push({m:addDays(mon,7*k),fut:Math.round(fv)})}}
-  const N=pts.length,vals=pts.flatMap(p=>[p.f,p.est,p.fut]).concat(goal?[goal,blockBand(bl).lo,blockBand(bl).hi]:[]).filter(v=>v),lo=Math.min(...vals)*.9,hi=Math.max(...vals)*1.05,y=v=>200-(v-lo)/(hi-lo)*200,X=i=>(i/(N-1)*1000).toFixed(1);
-  const line=k=>{let d='',pen=false;pts.forEach((p,i)=>{const v=p[k];if(!v){pen=false;return}d+=k==='f'&&pen?`H${X(i)}V${y(v).toFixed(1)}`:`${pen?'L':'M'}${X(i)},${y(v).toFixed(1)}`;pen=true});return d};
+  /* één lijn voor wat je FTP was: de schatting uit je ritten als die er is, anders wat er ingesteld stond */
+  pts.forEach((p,i)=>{if(i<N0)p.v=p.est||p.f});
+  const N=pts.length,vals=pts.flatMap(p=>[p.v,p.fut]).concat(goal?[goal]:[]).filter(v=>v),lo=Math.min(...vals)*.8,hi=Math.max(...vals)*1.06,y=v=>200-(v-lo)/(hi-lo)*200,X=i=>(i/(N-1)*1000).toFixed(1);
+  const was=pts.map((p,i)=>p.v?[i,p.v]:null).filter(Boolean),wasD=was.map(([i,v],j)=>`${j?'L':'M'}${X(i)},${y(v).toFixed(1)}`).join('');
   /* met een blok: het schema vanaf de start van het blok, ook het stuk dat al voorbij is; anders vanaf vandaag */
   const b0=bl?Math.max(0,pts.findIndex(p=>iso(addDays(p.m,6))>=bl.start)):N0-1;
   const futLine=bl?pts.slice(b0).map((p,j)=>`${j?'L':'M'}${X(b0+j)},${y(p.fut||blockPath(bl,addDays(p.m,6))).toFixed(1)}`).join(''):`M${X(N0-1)},${y(head).toFixed(1)}`+pts.slice(N0).map((p,j)=>`L${X(N0+j)},${y(p.fut).toFixed(1)}`).join('');
   const dt=m=>`${m.getDate()} ${MONTHS[m.getMonth()].slice(0,3)}`,q=(N0-1)/(N-1);
   const tk=`<span class="xl first" style="left:0">${dt(pts[0].m)}</span><span class="xl" style="left:${q*100}%">vandaag</span><span class="xl last" style="left:100%">${dt(pts[N-1].m)}</span>`;
-  /* een los punt (nog geen lijn): als stip */
-  const dots=pts.map((p,i)=>p.est&&!(pts[i-1]&&pts[i-1].est)&&!(pts[i+1]&&pts[i+1].est)?`<path d="M${X(i)},${y(p.est).toFixed(1)}h.01" stroke="var(--acc)" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`:'').join('');
   /* op schema? Alleen te zeggen na een FTP-test in dit blok: een schatting uit gewone ritten is daar te grof voor */
   const tst=bl?real.filter(r=>r.type==='ramptest'&&r.date>=bl.start&&ftpEstimate(r)).sort((a,b)=>a.date<b.date?1:-1)[0]:null,gap=tst?ftpEstimate(tst)-blockPath(bl,parseISO(tst.date)):null;
-  const goalTxt=!bl?'':blockHit(bl,now)?` · doel ${blockGoal(bl)} gehaald`:` · doel ${blockGoal(bl)} op ${dt(parseISO(bl.end))}${gap==null?'':gap>=-blockBand(bl).m?' · op schema':` · ${-gap} W achter`}`;
+  /* het doel als eigen regel: waar, wanneer, en hoe ver je nog moet */
+  const hit=bl&&blockHit(bl,head),pct=bl?clamp(Math.round((head-bl.from)/Math.max(1,goal-bl.from)*100),0,100):0;
+  const goalHTML=!bl?'':`<div class="ftpgoal"><div class="kvl"><span><b>Doel ${goal} W</b> op ${dt(parseISO(bl.end))}</span><span>${hit?'gehaald':gap!=null&&gap<-blockBand(bl).m?`${-gap} W achter`:gap!=null?'op schema':`nog ${Math.max(0,goal-head)} W`}</span></div><div class="prog"><i style="width:${hit?100:pct}%;background:var(--acc)"></i></div></div>`;
   SCRUB.ftp=f=>{
-    const i=Math.round(f*(N-1)),p=pts[i],v=p.fut||p.est||p.f;
-    return {x:i/(N-1),html:`<span>Week ${weekNo(p.m)} · ${dt(p.m)}${i===N0-1?' · nu':''}</span><span><b>${v||'–'} W</b> ${p.fut?(bl?'volgens schema':'verwacht'):p.est?'geschat':'ingesteld'}</span>${goal&&v&&goal>v?`<span>Nog ${goal-v} W tot je doel</span>`:p.est&&p.f?`<span>Ingesteld ${p.f} W</span>`:''}`};
+    const i=Math.round(f*(N-1)),p=pts[i],v=p.fut||p.v;
+    return {x:i/(N-1),html:`<span>Week ${weekNo(p.m)} · ${dt(p.m)}${i===N0-1?' · nu':''}</span><span><b>${v||'–'} W</b> ${p.fut?(bl?'volgens schema':'verwacht'):p.est?'geschat':'ingesteld'}</span>${goal&&v&&goal>v?`<span>Nog ${goal-v} W tot je doel</span>`:''}`};
   };
-  const ftpCard=`<div class="card"><div class="bignum tacc"><span>${est?'Geschatte FTP':'FTP'}</span><b>${head}<i>W ±${ftpMargin(head)}</i></b><small>${nl(hk.toFixed(1))} W/kg · ${levelOf(hk)}${grow?` · <em class="${grow>0?'up':'down'}">${grow>0?'+':''}${grow} W</em> in zes weken`:''}${goalTxt}</small></div>
+  const ftpCard=`<div class="card"><div class="bignum tacc"><span>${est?'Geschatte FTP':'FTP'}</span><b>${head}<i>W ±${ftpMargin(head)}</i></b><small>${nl(hk.toFixed(1))} W/kg${!bl&&grow?` · <em class="${grow>0?'up':'down'}">${grow>0?'+':''}${grow} W</em> in zes weken`:''}</small></div>
+    ${goalHTML}
     <div class="chart" data-scrub="ftp" style="height:170px;margin-top:14px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je FTP: was, nu en verwacht">
       <line x1="${X(N0-1)}" x2="${X(N0-1)}" y1="0" y2="200" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>
-      ${goal?`<rect x="0" width="1000" y="${y(blockBand(bl).hi).toFixed(1)}" height="${(y(blockBand(bl).lo)-y(blockBand(bl).hi)).toFixed(1)}" fill="var(--ink)" fill-opacity=".06"/>`:''}
-      ${goal?`<line x1="0" x2="1000" y1="${y(goal).toFixed(1)}" y2="${y(goal).toFixed(1)}" stroke="var(--ink)" stroke-opacity=".45" stroke-dasharray="2 4" vector-effect="non-scaling-stroke"/>`:''}
-      <path d="${line('f')}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
-      <path d="${line('est')}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>${dots}
-      <path d="${futLine}" fill="none" stroke="var(--acc)" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/></svg>
-      ${goal?`<span class="yl" style="top:${y(goal)/2}%">Doel ${goal} W</span>`:''}${tk}${scrubMarks}</div>
-    <div class="legend">${pts.some(p=>p.est)?'<span><i style="background:var(--acc)"></i>Geschat</span>':''}<span><i class="dash"></i>Ingesteld</span><span><i class="dash" style="border-color:var(--acc)"></i>${bl?'Schema naar je doel':'Verwacht'}</span></div>
+      ${goal?`<line x1="0" x2="1000" y1="${y(goal).toFixed(1)}" y2="${y(goal).toFixed(1)}" stroke="var(--ink)" stroke-opacity=".35" stroke-dasharray="2 4" vector-effect="non-scaling-stroke"/>`:''}
+      ${was.length>1?`<path d="${wasD}L${X(was[was.length-1][0])},200L${X(was[0][0])},200Z" fill="var(--acc)" fill-opacity=".14"/>`:''}
+      <path d="${futLine}" fill="none" stroke="var(--acc)" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
+      ${was.length>1?`<path d="${wasD}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>`:was.length?`<path d="M${X(was[0][0])},${y(was[0][1]).toFixed(1)}h.01" stroke="var(--acc)" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`:''}</svg>
+      ${goal?`<span class="yl" style="top:${y(goal)/2}%">Doel</span>`:''}${tk}${scrubMarks}</div>
+    <div class="legend"><span><i style="background:var(--acc)"></i>Jouw FTP</span><span><i class="dash" style="border-color:var(--acc)"></i>${bl?'Schema naar je doel':'Verwacht'}</span></div>
 </div>`;
   return {ftpCard};
 }
@@ -591,10 +590,9 @@ function profielView(){
     <div class="stack">${settingsForm(false)}
     <div class="card stack">${sech('tyellow',I.sun,'Weergave')}<div class="form"><div><label class="f" for="s-theme">Licht of donker</label>${sel('id="s-theme" data-chg="theme"',[['auto','Zoals je apparaat'],['light','Licht'],['dark','Donker']],getTheme())}</div></div></div>
     ${profileCard()}${linkCard()}
-    <div class="card stack">${sech('tgreen',I.data,'Je gegevens')}
-      <div class="row"><button class="btn" data-act="backup">Back-up downloaden</button><label class="btn" style="cursor:pointer">Back-up terugzetten<input type="file" accept=".json,application/json" data-chg="restore" style="position:absolute;opacity:0;width:1px;height:1px"></label></div></div>
-    <div class="card dzone"><h3 class="tred">Alles wissen</h3>
-      <button class="btn warn" data-act="wipe">Alles wissen</button></div></div>`;
+    <div class="card"><div style="margin-bottom:6px">${sech('tgreen',I.data,'Je gegevens')}</div><div class="list">
+      <div class="li"><span class="w"><b>Back-up</b></span><span class="row"><button class="btn small" data-act="backup">Downloaden</button><label class="btn small" style="cursor:pointer">Terugzetten<input type="file" accept=".json,application/json" data-chg="restore" style="position:absolute;opacity:0;width:1px;height:1px"></label></span></div>
+      <div class="li"><span class="w"><b>Opnieuw beginnen</b></span><button class="btn small warn" data-act="wipe">Alles wissen</button></div></div></div></div>`;
 }
 
 /* ---------- vensters ---------- */

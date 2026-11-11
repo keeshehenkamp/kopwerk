@@ -69,7 +69,6 @@ const actions={
   /* voorstel van de coach: een rit langer, of deze week niet */
   coachMore(d){setOverride(d.iso,{minutes:+d.m});toast('Je rit is langer gemaakt.')},
   coachNo(d){(state.coachNo=state.coachNo||{})[d.k]=1;save();render()},
-  avOpen(){ui.avOpen=!ui.avOpen;ui.avSel=ui.avOpen?ui.avSel:null;render()},
   avDay(d){const i=+d.i;ui.avSel=ui.avSel&&ui.avSel.k===d.k&&ui.avSel.i===i?null:{k:d.k,i};avRefresh(d.k)},
   wheelTo(d,el){const w=el.closest('.wheel');if(w)w.scrollTo({top:+d.i*WROW,behavior:'smooth'})},
   avPick(d){
@@ -102,7 +101,7 @@ const actions={
     if(y>=h.from){h.to=y;(state.healthLog=state.healthLog||[]).push(h)}
     const n=y>=h.from?dayDiff(parseISO(h.from),parseISO(y))+1:0;save();render();window.scrollTo(0,0);
     toast(n<=3?'Fijn. Eerst rustig, daarna weer volgens schema.':n<=14?'Fijn. De komende week bouw je rustig op.':'Fijn. De komende weken bouw je rustig op, met daarna een FTP-test.')},
-  openWo(d){ui.detail={kind:'wo',type:d.type,min:ui.lib.min,from:'lib'};ui.view='training';render();window.scrollTo(0,0)},
+  openWo(d){ui.detail={kind:'wo',type:d.type,min:+d.m||ui.lib.min||60,from:'lib'};ui.view='training';render();window.scrollTo(0,0)},
   closeModal(){ui.modal=null;render()},
   veil(d,el,e){if(e.target===el){ui.modal=null;render()}},
   startDay(d){ui.detail={kind:'day',iso:d.iso,from:tabOf(ui.view)};const x=modalWo();if(x&&x.wo)openPlayer(x.wo)},
@@ -116,7 +115,7 @@ const actions={
   },
   pickAlt(d){setOverride(ui.detail.iso,{type:d.t||null});window.scrollTo(0,0);toast(d.t?`${TYPES[d.t].name} staat nu op het schema.`:'Weer de training van het schema.')},
   ovType(d,el){setOverride(ui.detail.iso,{type:el.value||null})},
-  libMin(d){ui.lib.min=+d.m;render()},
+  libMin(d){ui.lib.min=ui.lib.min===+d.m?null:+d.m;render()},
   resetAdj(){state.levelAdj=0;save();render()},
   saveSettings(d,el,e,quiet){
     const g=id=>document.getElementById(id);
@@ -228,7 +227,7 @@ const actions={
   libFilter(){ui.lib.open=!ui.lib.open;render()},
   libCat(d){const c=ui.lib.cats=ui.lib.cats||[],i=c.indexOf(d.c);if(i<0)c.push(d.c);else c.splice(i,1);render()},
   libZw(d){const z=ui.lib.zw=ui.lib.zw||[],i=z.indexOf(d.z);if(i<0)z.push(d.z);else z.splice(i,1);render()},
-  libClear(){ui.lib.cats=[];ui.lib.zw=[];render()},
+  libClear(){ui.lib.cats=[];ui.lib.zw=[];ui.lib.min=null;render()},
   /* wisselen: de volgende uit het pakket; na de laatste weer de training van het schema */
   swapWo(d){
     const day=planWeek(state,mondayOf(parseISO(d.iso)),new Date()).days.find(x=>x.iso===d.iso);if(!day||!day.wo||!day.planType)return;
