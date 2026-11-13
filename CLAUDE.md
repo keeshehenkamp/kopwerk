@@ -50,7 +50,7 @@ Elk scherm moet in één blik te lezen zijn. Loop deze lijst na vóór je een sc
 - Tredes (de ladder per soort training) zijn voor de planner: niet tonen in de app.
 - Meldingen op de telefoon en een wekelijkse terugblik zijn afgewezen. Ook geen vaste teksten die je vragen je tijd na te kijken ("Klopt je tijd nog?").
 - Groepsrit: alleen echte rijders, geen groepje of fietsers langs de weg.
-- 3D-model van de fietser en de wereld: voorlopig laten zoals het is.
+- 3D-model van de fietser: voorlopig laten zoals het is. De wereld wordt sinds november 2026 route voor route opnieuw gebouwd (eerst de Mont Ventoux); de stijl is getekend en uit één stuk, geen realisme en geen korrelige texturen.
 
 ## Werkwijze
 

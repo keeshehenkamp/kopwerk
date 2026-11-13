@@ -65,10 +65,11 @@ function routeProfile(id){
 const ROUTES=[
   {id:'polder',name:'Polderronde',km:12,ontwerp:'polder'},
   {id:'heuvel',name:'Heuvelland',km:13,ontwerp:'heuvel'},
-  {id:'col',name:'De Col',km:11,ontwerp:'col'}
+  {id:'ventoux',name:'Mont Ventoux',km:55,ontwerp:'ventoux'}
 ];
 const ROUTE_KEY='kopwerk.route';
-const routeId=()=>{let v='';try{v=localStorage.getItem(ROUTE_KEY)||''}catch(e){}return ROUTES.some(r=>r.id===v)?v:'heuvel'};
+/* De Col is de Mont Ventoux geworden */
+const routeId=()=>{let v='';try{v=localStorage.getItem(ROUTE_KEY)||''}catch(e){}if(v==='col')v='ventoux';return ROUTES.some(r=>r.id===v)?v:'heuvel'};
 function setRoute(id){try{localStorage.setItem(ROUTE_KEY,id)}catch(e){}}
 /* positie binnen de ronde, ook voor afstanden voorbij één ronde of (bij de camera) net voor de start */
 const wrapD=(C,d)=>((d%C.L)+C.L)%C.L;
@@ -302,31 +303,23 @@ function propGeos(){
   G.kapel=partsGeo([[new T.BoxGeometry(2.4,2.6,3),'#efe9dd',M4(0,1.3,0)],[prism(2.4,1.6,3,.2),'#7a3b30',M4(0,2.6,0)],[new T.BoxGeometry(.9,1.6,.06),'#3b2b22',M4(0,.8,1.53)],[new T.BoxGeometry(.08,.9,.08),'#3b2b22',M4(0,4.7,1.2)],[new T.BoxGeometry(.5,.08,.08),'#3b2b22',M4(0,4.85,1.2)]]);
   /* bergen */
   G.kmsteen=partsGeo([[new T.BoxGeometry(.4,.7,.25),'#f0ede6',M4(0,.35,0)],[new T.BoxGeometry(.42,.22,.27),'#c8392e',M4(0,.78,0)]]);
-  /* rotsblok: een paar grillige brokken met platte vlakken en mos op de bovenkant; het onderste deel zit in de grond */
-  const rock=(parts,seed)=>{const r=rng(seed),out=[],c=new T.Color(),moss=new T.Color('#6f8f4a');
-    for(const [x,y,z,s] of parts){const g=new T.IcosahedronGeometry(s,1),p=g.attributes.position,ph=r()*6;
-      for(let j=0;j<p.count;j++){const vx=p.getX(j)/s,vy=p.getY(j)/s,vz=p.getZ(j)/s,k=1+.2*Math.sin(vx*3.8+ph)*Math.cos(vz*3.1-vy*2+ph)+.09*Math.sin(vy*7.3+ph);p.setXYZ(j,vx*k*s*1.15+x,vy*k*s*.72+y,vz*k*s+z)}
-      g.computeVertexNormals();const n=g.attributes.normal,cl=[];
-      for(let f=0;f<p.count;f+=3){const ny=n.getY(f);c.set('#8d8780').multiplyScalar(.85+.3*r());if(ny>.62)c.lerp(moss,.55);for(let k=0;k<3;k++)cl.push(c.r,c.g,c.b)}
-      g.setAttribute('color',new T.Float32BufferAttribute(cl,3));out.push([g,'#ffffff',null])}
-    return partsGeo(out)};
-  /* rotspartij: gelaagd gesteente dat uit een helling steekt, met richels (de lagen lopen schuin), donkere spleten en lichte bovenkanten */
-  const crag=(seed)=>{const r=rng(seed),out=[],c=new T.Color(),warm=new T.Color('#8f877b'),cold=new T.Color('#6c6b6e'),moss=new T.Color('#7b8f55');
-    for(const [x,y,z,s,sy,dt] of[[0,.5,0,1,1.25,1],[.95,.3,.35,.68,1,1],[-.85,.25,-.3,.62,.9,1],[.2,.9,-.45,.5,.8,0]]){const g=new T.IcosahedronGeometry(s,dt),p=g.attributes.position,ph=r()*6;
-      for(let j=0;j<p.count;j++){let vx=p.getX(j)/s,vy=p.getY(j)/s,vz=p.getZ(j)/s;
-        const k=1+.16*Math.sin(vx*4.1+ph)*Math.cos(vz*3.3-vy*1.7+ph)+.07*Math.sin(vz*9.1+vx*5+ph);
-        /* lagen: de hoogte valt deels terug op treden, zo ontstaan richels */
-        let yy=vy*k*sy+(vx*.18);const st=.34;yy=yy+(Math.round(yy/st)*st-yy)*.55;
-        /* breukvlakken: ook opzij deels naar vlakken trekken, zodat het hoekig gesteente wordt in plaats van een ronde kei */
-        let xx=vx*k*1.2,zz=vz*k*(1+.25*Math.sin(vx*2+ph));const sf=.42;xx+=(Math.round(xx/sf)*sf-xx)*.5;zz+=(Math.round(zz/sf)*sf-zz)*.5;
-        p.setXYZ(j,xx*s+x,yy*s+y,zz*s+z)}
-      g.computeVertexNormals();const n=g.attributes.normal,cl=[];
-      for(let f=0;f<p.count;f+=3){const ny=(n.getY(f)+n.getY(f+1)+n.getY(f+2))/3,t=r();c.copy(t<.5?warm:cold).lerp(t<.5?cold:warm,t*.6).multiplyScalar(.82+.28*r());
-        if(ny<-.1)c.multiplyScalar(.62);else if(ny>.7)c.multiplyScalar(1.12);if(ny>.9&&r()<.25)c.lerp(moss,.18);for(let k=0;k<3;k++)cl.push(c.r,c.g,c.b)}
-      g.setAttribute('color',new T.Float32BufferAttribute(cl,3));out.push([g,'#ffffff',null])}
-    return partsGeo(out)};
-  G.rotspartij=crag(17);G.rotspartij2=crag(29);
-  G.rotsblok=rock([[0,.32,0,.9],[.8,.18,.45,.6],[-.7,.12,-.4,.5]],5);G.rots=rock([[0,.25,0,.8],[.6,.1,.3,.45]],9);
+  /* hoekig gesteente: een veelvlak waarvan elke hoek een eigen afstand tot het midden krijgt, van boven afgeplat.
+     Platte vlakken met scherpe randen; bovenkanten licht (hier en daar gras), onderkanten donker. */
+  const GR=new T.Color('#7d9a55');
+  const brok=(r,s,sx,sy,sz,det,top,grass)=>{const g=new T.IcosahedronGeometry(1,det),p=g.attributes.position,H=new Map(),c=new T.Color(),cl=[];
+    for(let j=0;j<p.count;j++){const key=Math.round(p.getX(j)*40)+'/'+Math.round(p.getY(j)*40)+'/'+Math.round(p.getZ(j)*40);let k=H.get(key);if(k==null){k=.74+r()*.5;H.set(key,k)}
+      let y=p.getY(j)*k*sy;if(y>top*sy)y=top*sy+(y-top*sy)*.2;p.setXYZ(j,p.getX(j)*k*sx*s,y*s,p.getZ(j)*k*sz*s)}
+    g.computeVertexNormals();const n=g.attributes.normal,tone=.9+.2*r();
+    for(let f=0;f<p.count;f+=3){const ny=n.getY(f);c.set(r()<.5?'#a9a49c':'#98948d').multiplyScalar(tone*(.92+.16*r()));
+      if(ny>.75){c.multiplyScalar(1.12);if(grass&&r()<grass)c.lerp(GR,.7)}else if(ny<-.15)c.multiplyScalar(.84);for(let k=0;k<3;k++)cl.push(c.r,c.g,c.b)}
+    g.setAttribute('color',new T.Float32BufferAttribute(cl,3));return g};
+  /* onderdelen: [x, y, z, grootte, breed, hoog, diep, fijnheid, afplatting, draaiing] */
+  const rots=(parts,seed,grass)=>{const r=rng(seed);return partsGeo(parts.map(([x,y,z,s,sx,sy,sz,det,top,ry])=>[brok(r,s,sx,sy,sz,det,top,grass),'#ffffff',M4(x,y,z,1,1,1,ry)]))};
+  /* rotspartij: brede platen op elkaar, zoals gelaagd gesteente dat uit een helling steekt */
+  G.rotspartij=rots([[0,.35,0,1,1.35,.62,1.05,1,.55,0],[.75,.75,.2,.7,1.25,.6,1,1,.5,.7],[-.8,.2,-.35,.62,1.2,.7,1,0,.5,1.9],[.1,1.05,-.25,.45,1.2,.6,1,0,.5,2.6]],17,.3);
+  G.rotspartij2=rots([[0,.3,0,.95,1.15,.75,1.3,1,.5,.4],[-.65,.7,.25,.62,1.3,.6,.95,1,.5,2.2],[.85,.22,-.3,.55,1,.8,1.1,0,.6,1.1]],29,.3);
+  /* rotsblok, rots en keien: losse, hoekige stenen */
+  G.rotsblok=rots([[0,.3,0,.9,1.1,.8,1,1,.7,0],[.8,.16,.45,.55,1,.75,1.1,0,.7,1],[-.7,.1,-.4,.45,1.1,.7,1,0,.7,2]],5,.2);G.rots=rots([[0,.24,0,.8,1.15,.7,1,0,.75,0],[.6,.1,.3,.42,1,.75,1,0,.7,1.3]],9,.15);
   /* meer */
   G.steiger=partsGeo([[new T.BoxGeometry(2,.12,16),'#9a7a55',M4(0,.6,-8)],...[0,1,2,3,4].map(i=>[new T.CylinderGeometry(.1,.1,2.4,5),'#6b5238',M4(-.9,-.2,-i*4)]),...[0,1,2,3,4].map(i=>[new T.CylinderGeometry(.1,.1,2.4,5),'#6b5238',M4(.9,-.2,-i*4)])]);
   G.zwaan=partsGeo([[new T.IcosahedronGeometry(.3,1),'#fafafa',M4(0,.15,0,1,.6,1.6)],[new T.CylinderGeometry(.05,.06,.5,5),'#fafafa',M4(0,.45,.35)],[new T.BoxGeometry(.06,.06,.15),'#f08a24',M4(0,.68,.45)]]);
@@ -375,22 +368,27 @@ function propGeos(){
     spar1:d=>[bark(.14,.2,1.6,'#5e4129','#4a321d'),...spruce(d?7:4,1.55,2.3,1.1,'#2c6a43',d?12:6,11)],
     spar2:d=>[bark(.13,.18,1.4,'#5e4129','#4a321d'),...spruce(d?8:4,1.15,2.5,1.0,'#25603f',d?11:6,23)],
     spar3:d=>[bark(.15,.22,1.2,'#5e4129','#4a321d'),...spruce(d?6:3,1.9,2.1,.9,'#356f45',d?12:6,37)],
-    boom:d=>[bark(.15,.25,2.9,'#7a5236','#5e3f29'),...crown([[0,3.5,0,1.2],[.95,3.85,.35,1],[-.9,3.75,-.3,1],[.25,4.6,-.45,.95],[-.35,4.5,.6,.9],[.55,4.95,.15,.75],[-.6,3.25,.75,.8],[.7,3.2,-.6,.75]],'#5aa83c',d)],
+    boom:d=>[bark(.15,.25,2.9,'#7a5236','#5e3f29'),...crown([[0,3.5,0,1.2],[.95,3.85,.35,1],[-.9,3.75,-.3,1],[.25,4.6,-.45,.95],[-.35,4.5,.6,.9],[.55,4.95,.15,.75],[-.6,3.25,.75,.8],[.7,3.2,-.6,.75]],'#4f9440',d)],
     eik:d=>[bark(.3,.5,3.6,'#6b4a32','#54392a'),bark(.12,.2,2.4,'#6b4a32','#54392a',tak(0,2.8,0,.75,.4)),bark(.11,.18,2.2,'#6b4a32','#54392a',tak(0,3,0,-.7,2.2)),
-      ...crown([[0,5,0,1.7,1.15,.85,1.15],[1.7,5.4,.6,1.3],[-1.6,5.2,-.5,1.3],[.3,6.3,.2,1.2],[-.6,6.1,1.1,1],[1,6.1,-1,1],[-1.2,4.4,1.2,1],[1.3,4.4,-1.2,1],[0,4.3,1.6,.9],[2.2,4.6,-.3,.9],[-2.2,4.7,.4,.9]],'#4c9634',d)],
-    berk:d=>[bark(.11,.17,4.6,'#efeae0','#3a3a3a',null,.62),...crown([[0,4.6,0,.85,1,1.3,1],[.45,5.4,.2,.7],[-.4,5.2,-.2,.7],[.1,6.1,0,.55],[.5,4.3,-.35,.6],[-.45,4.2,.35,.6]],'#9ccc5a',d)],
+      ...crown([[0,5,0,1.7,1.15,.85,1.15],[1.7,5.4,.6,1.3],[-1.6,5.2,-.5,1.3],[.3,6.3,.2,1.2],[-.6,6.1,1.1,1],[1,6.1,-1,1],[-1.2,4.4,1.2,1],[1.3,4.4,-1.2,1],[0,4.3,1.6,.9],[2.2,4.6,-.3,.9],[-2.2,4.7,.4,.9]],'#458638',d)],
+    berk:d=>[bark(.11,.17,4.6,'#efeae0','#3a3a3a',null,.62),...crown([[0,4.6,0,.85,1,1.3,1],[.45,5.4,.2,.7],[-.4,5.2,-.2,.7],[.1,6.1,0,.55],[.5,4.3,-.35,.6],[-.45,4.2,.35,.6]],'#8fb95c',d)],
     populier:d=>[bark(.12,.17,1.7,'#7a5236','#5e3f29'),...crown(Array.from({length:7},(_,i)=>[Math.sin(i*2.1)*.15,1.9+i*.9,Math.cos(i*2.1)*.15,.78-Math.abs(i-2.5)*.06,1,1.25,1]),'#6cb245',d)],
     plataan:d=>[bark(.2,.3,5.2,'#d3cab0','#8f8a6c'),bark(.1,.16,2.6,'#d3cab0','#8f8a6c',tak(0,4.1,0,.62,.3)),bark(.1,.15,2.5,'#d3cab0','#8f8a6c',tak(0,4.3,0,-.6,2.6)),
       ...crown([[0,7,0,1.8,1.3,.75,1.3],[2,7.3,.6,1.4],[-1.9,7.1,-.5,1.4],[.4,8,.3,1.3],[-.8,7.9,1.3,1.1],[1.1,7.8,-1.3,1.1],[-1.5,6.5,1.5,1],[1.6,6.4,-1.5,1],[2.6,6.6,-.4,1],[-2.6,6.7,.5,1]],'#6f9e3c',d)],
     olijf:d=>[bark(.16,.27,1.5,'#857a66','#6b6252',tak(.1,0,0,.25,0)),bark(.1,.16,1.3,'#857a66','#6b6252',tak(-.15,1.1,0,-.55,0)),bark(.08,.13,1.1,'#857a66','#6b6252',tak(.1,1.2,.1,.4,1.6)),
       ...crown([[.3,2.4,0,.75,1.3,.7,1.2],[-.7,2.3,.4,.65,1.2,.7,1],[.9,2.7,-.4,.6,1.2,.7,1],[-.2,2.9,-.5,.6],[.1,2.6,.8,.55],[-1.1,2.6,-.3,.5],[1.2,2.2,.5,.5],[0,3.1,.2,.5]],'#97a873',d)],
     knotwilg:d=>[bark(.36,.44,2.2,'#7a6550','#5f4e3e'),...crown([[0,3,0,1.2,1.1,.9,1.1],[.7,3.5,.3,.8],[-.6,3.4,-.3,.8],[.1,3.9,-.2,.7],[-.2,3.6,.7,.65]],'#9bbd6c',d)],
-    fruitboom:d=>[bark(.11,.16,1.5,'#7a5236','#5e3f29'),...crown([[0,2.2,0,.85,1,.85,1],[.6,2.4,.2,.6],[-.55,2.35,-.2,.6],[.1,2.8,0,.55],[.2,2,.6,.5]],'#6db84a',d),...[0,1,2,3,4,5].map(i=>ball(.11,'#e8402f',Math.cos(i*1.1)*.9,2+Math.sin(i*2)*.35,Math.sin(i*1.1)*.9))],
-    struik:d=>[...crown([[0,.5,0,.65,1,.8,1],[.55,.45,.2,.5],[-.45,.42,-.2,.45],[.1,.75,-.15,.45]],'#4c9a38',d),...[0,1,2,3].map(i=>ball(.07,['#ff6fa0','#ffffff','#ffd23f'][i%3],Math.cos(i*1.6)*.6,.85,Math.sin(i*1.6)*.6))],
+    fruitboom:d=>[bark(.11,.16,1.5,'#7a5236','#5e3f29'),...crown([[0,2.2,0,.85,1,.85,1],[.6,2.4,.2,.6],[-.55,2.35,-.2,.6],[.1,2.8,0,.55],[.2,2,.6,.5]],'#62a44a',d),...[0,1,2,3,4,5].map(i=>ball(.11,'#e8402f',Math.cos(i*1.1)*.9,2+Math.sin(i*2)*.35,Math.sin(i*1.1)*.9))],
+    struik:d=>[...crown([[0,.5,0,.65,1,.8,1],[.55,.45,.2,.5],[-.45,.42,-.2,.45],[.1,.75,-.15,.45]],'#4a8c3c',d),...[0,1,2,3].map(i=>ball(.07,['#ff6fa0','#ffffff','#ffd23f'][i%3],Math.cos(i*1.6)*.6,.85,Math.sin(i*1.6)*.6))],
     cipres:()=>{const prof=[[0,.5],[.42,.9],[.72,1.8],[.78,2.9],[.66,4.3],[.42,5.6],[.18,6.5],[0,6.9]],g=new T.LatheGeometry(prof.map(([r,y])=>new T.Vector2(r,y)),10),p=g.attributes.position,cl=[],c=new T.Color(),lo=new T.Color('#24492b'),hi=new T.Color('#3f7a42');
       for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),k=1+.12*Math.sin(y*3.1+Math.atan2(z,x)*3);p.setXYZ(i,x*k,y,z*k);c.copy(lo).lerp(hi,clamp(y/7+.15*Math.sin(Math.atan2(z,x)+.5),0,1));cl.push(c.r,c.g,c.b)}
       g.computeVertexNormals();g.setAttribute('color',new T.Float32BufferAttribute(cl,3));return [bark(.1,.14,.9,'#5b4330','#46331f'),[g,'#ffffff',null]]},
     den:()=>[bark(.15,.22,1.8,'#6a4a30','#53381f'),...tiers(5,1.75,2.3,1.3,'#2f7a46')],
+    /* Provence: parasolden (kale stam, platte brede kruin), ceder (brede lagen, blauwgroen) en steeneik (laag, donker) */
+    parasolden:d=>[bark(.16,.26,4.4,'#8a5f44','#6e4a35',tak(0,0,0,.08,.6)),bark(.09,.14,1.5,'#8a5f44','#6e4a35',tak(.3,3.9,0,.8,.5)),bark(.09,.14,1.4,'#8a5f44','#6e4a35',tak(.3,3.9,0,-.75,2.4)),
+      ...crown([[.35,5.5,0,1.7,1.25,.5,1.25],[1.6,5.3,.5,1.2,1.2,.5,1.1],[-1.1,5.35,-.5,1.25,1.2,.5,1.1],[.5,5.9,-.9,1,1.1,.5,1],[.2,5.85,1,1,1.1,.5,1]],'#4c7f45',d)],
+    ceder:d=>[bark(.2,.3,2,'#6a4a36','#523a2a'),...spruce(d?6:3,2.5,2.2,1.5,'#3a6a58',d?11:6,53)],
+    steeneik:d=>[bark(.2,.32,1.9,'#5b4a3c','#46392e'),bark(.1,.16,1.3,'#5b4a3c','#46392e',tak(0,1.5,0,.7,1)),...crown([[0,3,0,1.5,1.2,.8,1.2],[1.2,3.2,.4,1],[-1.1,3.1,-.4,1],[.2,3.9,.1,.95],[-.3,2.8,1.1,.85],[.4,2.7,-1.1,.85]],'#3f6d3c',d)],
   };
   /* per soort drie versies: gewoon, ~ eenvoudig (verre bosrand), * extra rond (vlak langs de weg) */
   for(const k in SP){G[k]=partsGeo(SP[k](1));LO=true;G[k+'~']=partsGeo(SP[k](0));LO=false;if(['boom','eik','plataan','knotwilg'].includes(k))G[k+'*']=partsGeo(SP[k](2))}
@@ -448,13 +446,13 @@ function propGeos(){
   G.trapgevel=house2({w:6.5,d:9,h:7.2,wall:'#a94e35',roof:'#3f4552',trap:true,door:'#7a2f2f',pat:2,rpat:7});
   G.villa=house2({w:7.5,d:8,h:5.6,wall:'#b9603f',roof:'#3d434d',hip:true,rh:3.6,door:'#1f4f8c',shut:'#2f5d3a',pat:2,rpat:7});
   G.groen=house2({w:6,d:8,h:5.4,wall:'#fff7e8',roof:'#3f4552',door:'#2f6b3a',shut:'#2f7a4a',pat:3,rpat:9});
-  G.chalet=house2({w:8,d:9,h:5.2,wall:'#a8703f',roof:'#5a4f48',rh:2.4,frame:'#fff2dc',door:'#5a3a22',shut:'#c2442f',pat:4,rpat:9,base:{h:1.5,col:'#a19a8f'},chimPat:5});
+  G.chalet=house2({w:8,d:9,h:5.2,wall:'#a8703f',roof:'#7a6e64',rh:2.4,frame:'#fff2dc',door:'#5a3a22',shut:'#c2442f',pat:4,rpat:9,base:{h:1.5,col:'#a19a8f'},chimPat:5});
   G.boerderij=house2({w:10,d:20,h:3.6,wall:'#b25c40',roof:'#556070',rh:6.8,door:'#2f6b3a',box:false,pat:2,rpat:7});
   G.kerk=partsGeo([[rbox(8,8,14,.4),'#e9dcc4',null],[roofG(8,5,14,.4),'#4f5561',M4(0,8.1,0)],[rbox(4.4,16,4.4,.2),'#e9dcc4',M4(0,0,-8.6)],[new T.ConeGeometry(3.1,9,8),'#4f5561',M4(0,20.6,-8.6)],
     [new T.SphereGeometry(.9,16,12),'#f2f2f2',M4(0,12.6,-6.35,1,1,.2)],[new T.BoxGeometry(.06,.6,.06),'#222',M4(0,12.8,-6.15)],[new T.BoxGeometry(2,3.2,.12),'#6b3a2a',M4(0,1.6,7.08)],...[-2.4,2.4].map(x=>[new T.BoxGeometry(1.1,3.4,.1),'#8ec3e6',M4(x,4.4,7.06)])]);
   /* dorp: straten, plein, terras, fontein, voetgangers */
   G.straat=partsGeo([[new T.BoxGeometry(6,.07,34),'#b3a796',M4(0,.035,17)],[new T.BoxGeometry(.25,.15,34),'#d8d0c2',M4(-3.1,.07,17)],[new T.BoxGeometry(.25,.15,34),'#d8d0c2',M4(3.1,.07,17)]]);
-  G.plein=partsGeo([[new T.BoxGeometry(36,.07,26),'#cdbfa8',M4(0,.035,0)],...[0,1,2,3,4,5,6,7,8].map(i=>[new T.BoxGeometry(36,.075,.12),'#b7a990',M4(0,.04,-12+i*3)])]);
+  G.plein=partsGeo([[new T.BoxGeometry(36,.07,26),'#cdbfa8',M4(0,.035,0)],...[0,1,2,3,4,5,6,7,8].map(i=>[new T.BoxGeometry(36,.075,.12),'#b7a990',M4(0,.04,-12+i*3)]),...[0,1,2,3,4,5,6,7,8,9,10,11,12].map(i=>[new T.BoxGeometry(.12,.075,26),'#b7a990',M4(-18+i*3,.04,0)])]);
   const merge=(...gs)=>{const out=new T.BufferGeometry();for(const k of['position','normal','color'])out.setAttribute(k,new T.Float32BufferAttribute(gs.flatMap(g=>[...g.attributes[k].array]),3));return out};
   G.loper=person({walk:1,hair:'#2e241c',arms:[[-1,[-.24,1.1,-.13],[-.22,.88,-.26]],[1,[.24,1.1,.13],[.22,.88,.22]]]});
   G.terras=partsGeo([[new T.CylinderGeometry(.45,.45,.05,14),'#ffffff',M4(0,.75,0)],[new T.CylinderGeometry(.04,.04,.75,6),'#444',M4(0,.37,0)],...[[.75,0],[-.75,0],[0,.75],[0,-.75]].map(([x,z])=>[new T.BoxGeometry(.4,.45,.4),'#3d6f9c',M4(x,.22,z)]),
@@ -470,6 +468,20 @@ function propGeos(){
   /* Provence */
   G.lavendel=partsGeo([...[0,1,2,3,4,5,6,7,8].map(i=>ball(.42,i%2?'#8f6ad3':'#9d7be0',0,.32,-4.8+i*1.2,1,.75,1.1,0)),[new T.BoxGeometry(.7,.2,10.4),'#6f8f4a',M4(0,.1,0)]]);
   G.zonnebloem=partsGeo([...[0,1,2,3,4,5].flatMap(i=>{const z=-4.5+i*1.8;return [[new T.CylinderGeometry(.03,.04,1.7,4),'#4f8a2e',M4(0,.85,z)],[new T.CylinderGeometry(.32,.32,.08,9),'#ffcd1f',(()=>{const m=new T.Matrix4().makeRotationX(Math.PI/2-.3);m.setPosition(0,1.75,z+.05);return m})()],[new T.CylinderGeometry(.14,.14,.1,6),'#5a3a1a',(()=>{const m=new T.Matrix4().makeRotationX(Math.PI/2-.3);m.setPosition(0,1.76,z+.08);return m})()],ball(.28,'#4f8a2e',0,.9,z,1,.5,1)]})]);
+  /* sneeuwpaal: hoge geel-zwarte paal langs een bergweg */
+  G.sneeuwpaal=partsGeo([[new T.CylinderGeometry(.045,.055,2.6,6),'#f2c21c',M4(0,1.3,0)],...[.75,1.45,2.15].map(y=>[new T.CylinderGeometry(.052,.052,.3,6),'#1d1d1d',M4(0,y,0)])]);
+  /* rij wijnranken van 10 m: lage struiken aan palen met een draad */
+  G.wijnrij=partsGeo([...[-4,-2,0,2,4].map((z,i)=>[new T.IcosahedronGeometry(.5,0),i%2?'#5c8a3d':'#679646',M4(0,.78,z,.5,.6,2.05)]),...[-4.9,0,4.9].map(z=>[new T.BoxGeometry(.07,1.25,.07),'#6b5a48',M4(0,.62,z)]),[new T.BoxGeometry(.5,.12,10),'#8d7a55',M4(0,.04,0)]]);
+  /* toren op de top van de Mont Ventoux: het weerstation met de witte toren en de rood-witte mast */
+  G.ventouxtoren=partsGeo([[rbox(16,6,9,.3),'#e9e6dd',null],[new T.BoxGeometry(16.4,.5,9.4),'#b9b4a8',M4(0,6.2,0)],[rbox(7,4,7,.3),'#dedad0',M4(-9,0,1)],
+    ...[-5,-2.5,0,2.5,5].map(x=>[new T.BoxGeometry(1.1,1.3,.1),'#30455a',M4(x,3.6,4.56),6]),
+    [new T.CylinderGeometry(3.1,3.8,22,10),'#f1efe8',M4(2,17,-1)],[new T.CylinderGeometry(4.3,4.3,1.2,10),'#cfcbc0',M4(2,28.4,-1)],[new T.CylinderGeometry(4.5,4.5,.25,10),'#8f8b82',M4(2,29.2,-1)],
+    [new T.CylinderGeometry(2.3,2.8,7,10),'#f1efe8',M4(2,32.6,-1)],[new T.CylinderGeometry(2.6,2.6,1.6,10),'#c9372c',M4(2,36.6,-1)],
+    ...[0,1,2,3,4,5].map(i=>[new T.CylinderGeometry(.55-i*.06,.6-i*.06,2.6,7),i%2?'#f1efe8':'#c9372c',M4(2,38.7+i*2.6,-1)]),[new T.CylinderGeometry(.06,.1,5,5),'#8a8f96',M4(2,56.5,-1)],
+    ...[0,1,2].map(i=>[new T.CylinderGeometry(.9,.9,.35,10),'#e2e0da',(()=>{const m=new T.Matrix4().makeRotationZ(Math.PI/2);m.premultiply(new T.Matrix4().makeRotationY(i*2.1));m.setPosition(2+Math.cos(i*2.1)*3.2,30.6+i*.5,-1-Math.sin(i*2.1)*3.2);return m})()])]);
+  /* gedenksteen langs de weg: een witte stèle op drie treden */
+  G.gedenksteen=partsGeo([[new T.BoxGeometry(4.2,.25,2.6),'#d9d5ca',M4(0,.12,0)],[new T.BoxGeometry(3.4,.25,2),'#cfcbc0',M4(0,.37,-.1)],[new T.BoxGeometry(2.6,.25,1.4),'#d9d5ca',M4(0,.62,-.2)],[new T.BoxGeometry(1.5,1.5,.28),'#ecebe5',M4(0,1.5,-.3)],[new T.BoxGeometry(.95,.7,.05),'#3a3d42',M4(0,1.6,-.14)],
+    ...[-.9,-.5,.6,1].map((x,i)=>ball(.1,['#f2c21c','#e8402f','#3a6fb0','#ffffff'][i],x,.84,.25))]);
   G.mas=house2({w:9,d:8,h:4.4,wall:'#ecd2a4',roof:'#c8643c',gable:false,rh:1.8,shut:'#5b8fb0',door:'#5b8fb0',frame:'#f6ead2',chim:true,pat:3,rpat:8,chimPat:3});
   G.mas3=house2({w:5.6,d:7,h:7.6,wall:'#f0c49a',roof:'#c0603a',gable:false,rh:1.5,shut:'#6b8fb8',door:'#6b8fb8',frame:'#f6ead2',pat:3,rpat:8,chimPat:3});
   G.mas4=house2({w:8.5,d:8,h:5.2,wall:'#efe0c0',roof:'#c86a3e',hip:true,rh:2.2,shut:'#9a7ab8',door:'#9a7ab8',frame:'#f6ead2',pat:3,rpat:8,chimPat:3});
@@ -485,10 +497,10 @@ function propGeos(){
   G.mergel2=house2({w:7.5,d:9,h:4.8,wall:'#e8d6a2',roof:'#3e4650',gable:false,rh:3,door:'#6b2f2a',shut:'#2f5d3a',pat:5,rpat:9,dorm:1,chimPat:5});
   G.vakhoeve=house2({w:10,d:18,h:4,wall:'#f7f3ea',roof:'#3e4650',rh:5.5,door:'#6b2f2a',box:false,extra:beams,pat:3,rpat:9});
   /* Alpen */
-  G.chalet2=house2({w:9,d:10,h:6,wall:'#9a6a3e',roof:'#56504c',rh:2.6,frame:'#fff2dc',door:'#5a3a22',shut:'#2f6b3a',pat:4,rpat:9,base:{h:2.2,col:'#a39d93'},chimPat:5,extra:(w,d,h)=>{const P=[[new T.BoxGeometry(w+.4,.15,1.2),'#7a5232',M4(0,3,d/2+.7)],[new T.BoxGeometry(w+.4,.7,.06),'#7a5232',M4(0,3.4,d/2+1.3)]];
+  G.chalet2=house2({w:9,d:10,h:6,wall:'#9a6a3e',roof:'#756b63',rh:2.6,frame:'#fff2dc',door:'#5a3a22',shut:'#2f6b3a',pat:4,rpat:9,base:{h:2.2,col:'#a39d93'},chimPat:5,extra:(w,d,h)=>{const P=[[new T.BoxGeometry(w+.4,.15,1.2),'#7a5232',M4(0,3,d/2+.7)],[new T.BoxGeometry(w+.4,.7,.06),'#7a5232',M4(0,3.4,d/2+1.3)]];
     for(let i=0;i<9;i++)P.push(ball(.14,['#e8312f','#ff6fae','#ffffff'][i%3],-w/2+.5+i*(w-1)/8,3.85,d/2+1.32));return P}});
-  G.chalet3=house2({w:10,d:11,h:7,wall:'#8f5f36',roof:'#4f4a47',rh:3,frame:'#fff2dc',door:'#5a3a22',shut:'#c2442f',pat:4,rpat:9,base:{h:2.7,col:'#a8a197'},chimPat:5,extra:(w,d,h)=>[[new T.BoxGeometry(w+.4,.15,1.3),'#7a5232',M4(0,3.4,d/2+.75)],[new T.BoxGeometry(w+.4,.75,.06),'#7a5232',M4(0,3.85,d/2+1.4)],...[0,1,2,3,4,5,6,7,8].map(i=>[...ball(.14,['#e8312f','#ff6fae','#ffffff'][i%3],-w/2+.5+i*(w-1)/8,4.3,d/2+1.42),1])]});
-  G.alpenkerk=partsGeo([[rbox(7,7,12,.4),'#f6f1e6',null],[roofG(7,4,12,.4),'#5c5a58',M4(0,7.1,0)],[rbox(3.8,14,3.8,.2),'#f6f1e6',M4(0,0,-7.6)],ball(2,'#4f7a5a',0,15.6,-7.6,1,1.25,1),[new T.ConeGeometry(.5,2.4,10),'#4f7a5a',M4(0,18,-7.6)],[new T.BoxGeometry(.05,.9,.05),'#c9a227',M4(0,19.6,-7.6)],[new T.SphereGeometry(.8,16,12),'#ffffff',M4(0,11.5,-5.65,1,1,.2)]]);
+  G.chalet3=house2({w:10,d:11,h:7,wall:'#8f5f36',roof:'#6c645e',rh:3,frame:'#fff2dc',door:'#5a3a22',shut:'#c2442f',pat:4,rpat:9,base:{h:2.7,col:'#a8a197'},chimPat:5,extra:(w,d,h)=>[[new T.BoxGeometry(w+.4,.15,1.3),'#7a5232',M4(0,3.4,d/2+.75)],[new T.BoxGeometry(w+.4,.75,.06),'#7a5232',M4(0,3.85,d/2+1.4)],...[0,1,2,3,4,5,6,7,8].map(i=>[...ball(.14,['#e8312f','#ff6fae','#ffffff'][i%3],-w/2+.5+i*(w-1)/8,4.3,d/2+1.42),1])]});
+  G.alpenkerk=partsGeo([[rbox(7,7,12,.4),'#f6f1e6',null],[roofG(7,4,12,.4),'#6a6763',M4(0,7.1,0)],[rbox(3.8,14,3.8,.2),'#f6f1e6',M4(0,0,-7.6)],ball(2,'#4f7a5a',0,15.6,-7.6,1,1.25,1),[new T.ConeGeometry(.5,2.4,10),'#4f7a5a',M4(0,18,-7.6)],[new T.BoxGeometry(.05,.9,.05),'#c9a227',M4(0,19.6,-7.6)],[new T.SphereGeometry(.8,16,12),'#ffffff',M4(0,11.5,-5.65,1,1,.2)]]);
   G.hout=partsGeo([0,1,2,3,4,5,6,7,8].map(i=>[new T.CylinderGeometry(.17,.17,1.6,9),i%2?'#a97c4f':'#8f6540',(()=>{const m=new T.Matrix4().makeRotationZ(Math.PI/2);m.setPosition(0,.17+Math.floor(i/3)*.32,(i%3-1)*.35+(Math.floor(i/3)%2)*.17);return m})()]));
   G.piek=partsGeo([[new T.ConeGeometry(1,1,9),'#93a8c0',M4(0,.5,0)],[new T.ConeGeometry(.38,.38,9),'#f4f7fb',M4(0,.81,0)]]);
   /* finish */
@@ -501,7 +513,7 @@ function propGeos(){
     [new T.CylinderGeometry(.04,.05,.16,8),'#f4efe4',M4(.25,.08,.1)],[new T.SphereGeometry(.1,7,3,0,Math.PI*2,0,Math.PI/2),'#a0602f',M4(.25,.15,.1)]]);
   G.stam=partsGeo([[new T.CylinderGeometry(.32,.36,4.5,10),'#6b4f36',(()=>{const m=new T.Matrix4().makeRotationZ(Math.PI/2);m.setPosition(0,.3,0);return m})()],ball(.3,'#5f8f3a',-1,.55,0,1.4,.4,1.1),ball(.25,'#6a9a40',1.2,.5,.1,1.3,.4,1)]);
   G.distel=partsGeo([[new T.CylinderGeometry(.02,.03,.7,5),'#6f8f4a',M4(0,.35,0)],ball(.11,'#9b59c9',0,.74,0),[new T.CylinderGeometry(.02,.02,.5,5),'#6f8f4a',M4(.15,.25,.05)],ball(.08,'#a96ad3',.15,.52,.05)]);
-  G.keien=partsGeo([ball(.35,'#a9a39a',0,.12,0,1,.55,1.2),ball(.25,'#9b958c',.45,.08,.2,1,.5,1),ball(.2,'#b5afa6',-.4,.06,-.15,1,.5,1)]);
+  G.keien=rots([[0,.1,0,.36,1.2,.55,1,0,.7,0],[.45,.07,.2,.25,1,.6,1,0,.7,1],[-.4,.05,-.15,.2,1,.6,1,0,.7,2]],13,0);
   G.stoeprand=partsGeo([[new T.BoxGeometry(.24,.17,2.02),'#d6d1c8',M4(0,.04,0)]]);
   G.paaltje=partsGeo([[new T.CylinderGeometry(.08,.09,.8,10),'#3a3f46',M4(0,.4,0)],[new T.SphereGeometry(.085,10,6,0,Math.PI*2,0,Math.PI/2),'#3a3f46',M4(0,.8,0)],[new T.CylinderGeometry(.09,.09,.06,10),'#e6e6e6',M4(0,.66,0)]]);
   return G;
@@ -889,6 +901,8 @@ async function worldLoad(tok){
   for(const R of[W.me,W.pace,...W.npcs.map(n=>n.R)]){R.g.traverse(o=>{if(o.isMesh)o.castShadow=true});scene.add(R.g)}
   const fit=()=>{const w=innerWidth,h=innerHeight;ren.setSize(w,h);if(comp)comp.setSize(w,h);cam.aspect=w/h;cam.fov=w<h?70:55;cam.setViewOffset(w,h,0,Math.round(h*(w<h?.04:.02)),w,h);cam.updateProjectionMatrix()};
   W.fit=fit;addEventListener('resize',fit);fit();
+  /* een route met een echte hoogtekaart: die eerst ophalen */
+  {const hk=dzHoogteVan(routeId());if(hk){await dzLoadHoogte(hk);if(gone())return}}
   worldBuild();
   /* eerst een paar kilometer klaarzetten, met een laadbalk; de rest volgt tijdens het fietsen */
   const bar=()=>document.getElementById('p-load'),n=small?4:6;
@@ -983,7 +997,9 @@ function worldBuild(){
     const tintPart=v=>'attribute float pat;\n'+v.replace('#include <color_vertex>','vColor=vec3(1.);\n#ifdef USE_COLOR\nvColor*=color;\n#endif\n#ifdef USE_INSTANCING_COLOR\nvColor.xyz*=mix(vec3(1.),instanceColor.xyz,pat);\n#endif');
     crowd.onBeforeCompile=sh=>{sh.uniforms.uT=W.wind;sh.vertexShader='uniform float uT;\n'+tintPart(sh.vertexShader).replace('#include <begin_vertex>','#include <begin_vertex>\nvec4 ip=instanceMatrix*vec4(0.,0.,0.,1.);transformed.y+=max(0.,sin(uT*7.+ip.x*1.7+ip.z*.9))*.16;')};
     const walk=new T.MeshLambertMaterial({vertexColors:true});walk.onBeforeCompile=sh=>{sh.vertexShader=tintPart(sh.vertexShader)};
-    tree.onBeforeCompile=sh=>{sh.uniforms.uT=W.wind;sh.vertexShader='uniform float uT;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nfloat sw=max(0.,position.y-.8)*.035;vec4 ip=instanceMatrix*vec4(0.,0.,0.,1.);transformed.x+=sin(uT*1.6+ip.x*.15+ip.z*.1)*sw;transformed.z+=cos(uT*1.3+ip.z*.15)*sw*.6;')};
+    tree.onBeforeCompile=sh=>{sh.uniforms.uT=W.wind;sh.vertexShader='uniform float uT;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nfloat sw=max(0.,position.y-.8)*.035;vec4 ip=instanceMatrix*vec4(0.,0.,0.,1.);transformed.x+=sin(uT*1.6+ip.x*.15+ip.z*.1)*sw;transformed.z+=cos(uT*1.3+ip.z*.15)*sw*.6;');
+      /* iets minder fel, zodat bomen en struiken bij de kleuren van het land passen */
+      sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\n{float lq=dot(diffuseColor.rgb,vec3(.3,.59,.11));diffuseColor.rgb=mix(vec3(lq),diffuseColor.rgb,.76)*vec3(1.,.95,.9);}')};
     /* gevels en daken: patroon per vlak, langs de muur gemeten zodat stenen niet uitrekken als het huis gedraaid staat;
        ramen spiegelen de lucht en vangen soms de zon */
     const HSH={uTop:{value:new T.Color(W.mood.top)},uHor:{value:new T.Color(W.mood.hor)},uSun:{value:new T.Vector3(...W.mood.dir).normalize()},uSunC:{value:new T.Color(W.mood.disc_on?W.mood.sun:W.mood.hor)},uNight:{value:W.mood.name==='schemer'?1:W.mood.name==='avond'?.3:0}};
@@ -1020,7 +1036,7 @@ function worldBuild(){
     water:new T.MeshPhongMaterial({color:C.designed?(C.design.water||'#2c7d96'):'#3aa6e0',shininess:90,specular:'#cfefff',transparent:true,opacity:C.designed?.86:.9,side:T.DoubleSide}),inst:new T.MeshPhongMaterial({vertexColors:true,shininess:22,specular:'#262626'}),
     piek:new T.MeshBasicMaterial({vertexColors:true,fog:false,transparent:true}),dal:farFog(new T.MeshLambertMaterial({vertexColors:true})),
     klinker:new T.MeshLambertMaterial({map:W.tex.klinker}),steen:new T.MeshLambertMaterial({map:W.tex.steen}),
-    wolk:new T.MeshBasicMaterial({vertexColors:true,color:W.mood.cloud,transparent:true,opacity:.9,fog:false})};if(W.mood.rain)for(const k of['asf','rood','lap'])W.mat[k].color.multiplyScalar(.72)}
+    wolk:new T.MeshBasicMaterial({vertexColors:true,color:W.mood.cloud,transparent:true,opacity:.9,fog:false})};dzRoadShade(W.mat.asf);if(W.mood.rain)for(const k of['asf','rood','lap'])W.mat[k].color.multiplyScalar(.72)}
   /* start/finish van de ronde, en onderaan elke klim een bord met het gemiddelde stijgingspercentage */
   const arch=(ar,d)=>{const p=roadAt(C,d);ar.position.set(p.x,p.y,p.z);ar.rotation.y=-p.h;root.add(ar)};
   arch(makeArch('#20242c',C.route.name.toUpperCase(),true),0);
@@ -1028,9 +1044,9 @@ function worldBuild(){
   /* het geschilderde decor alleen bij de oude routes: bij een ontworpen route lopen de echte bergen door tot de horizon */
   W.ring.visible=!C.designed;
   /* ontworpen route: één doorlopend hoogteveld, het verre land als één net en de meren */
-  if(C.designed){designTerrain(C);const fm=dzFarMesh(C);root.add(fm);for(const m of dzLakes(C))root.add(m);
+  if(C.designed){designTerrain(C);const fm=dzFarMesh(C);root.add(fm);const om=dzOuterMesh(C);if(om)root.add(om);for(const m of dzLakes(C))root.add(m);
     /* het land loopt kilometers door: verder kijken, en decor en wolken achter de echte bergen */
-    W.cam.far=6500;W.cam.updateProjectionMatrix();
+    W.cam.far=om?14000:6500;W.cam.updateProjectionMatrix();
     if(!W.clouds.userData.big){W.scene.remove(W.clouds);W.clouds=makeClouds(W.mood,4800,.1);W.clouds.userData.big=true;W.scene.add(W.clouds)}}
   W.scene.add(root);
   if(W.ready){const c=Math.floor((W.lastD||0)/CH);for(let ci=Math.max(0,c-1);ci<=c+2;ci++)buildChunk(ci)}
@@ -1051,7 +1067,7 @@ function chunkStep(ci,budget){
   do{if(j.next().done){W.jobs.delete(ci);return true}}while(performance.now()-t0<budget);
   return false;
 }
-const INST={CROWD:new Set(['mens','mens2','mens3','vlag']),HOUSE:new Set(['villa','mas3','mas4','chalet3','mergel2','rood','wit','geel','rij','winkel','trapgevel','groen','boerderij','chalet','chalet2','mas','mas2','vakwerk','mergel','vakhoeve','kerk','alpenkerk','schuur','huis','kapel']),WIND:new Set(['varen','distel','boom','den','spar1','spar2','spar3','populier','struik','pol','bloem','klaproos','madelief','riet','knotwilg','berk','eik','fruitboom','plataan','olijf','cipres'])};
+const INST={CROWD:new Set(['mens','mens2','mens3','vlag']),HOUSE:new Set(['villa','mas3','mas4','chalet3','mergel2','rood','wit','geel','rij','winkel','trapgevel','groen','boerderij','chalet','chalet2','mas','mas2','vakwerk','mergel','vakhoeve','kerk','alpenkerk','schuur','huis','kapel']),WIND:new Set(['varen','distel','boom','den','spar1','spar2','spar3','populier','struik','pol','bloem','klaproos','madelief','riet','knotwilg','berk','eik','fruitboom','plataan','olijf','cipres','parasolden','ceder','steeneik','wijnrij','lavendel'])};
 /* één soort object, vaak herhaald, als één InstancedMesh */
 function instMesh(key,L){
   const T=T3,M=W.mat,{CROWD,HOUSE,WIND}=INST,Mx=new T.Matrix4(),k=key.replace('*',''),kb=k.replace('~','');
@@ -1452,7 +1468,7 @@ function worldFrame(t){
   const w=W;try{worldStep(t);w.errs=0}catch(e){console.error(e);w.errs=(w.errs||0)+1;if(w.errs>=10)worldFail(w,e)}
 }
 function worldStep(t){
-  if(W.C.route.id!==routeId())worldBuild();
+  if(W.C.route.id!==routeId()){if(!dzHoogteKlaar(routeId())){dzLoadHoogte(dzHoogteVan(routeId()));return}worldBuild()}
   const dt=Math.min(.1,(t-W.last)/1000);W.last=t;const C=W.C,T=T3;
   /* haalt de laptop geen ~42 beelden per seconde, dan iets minder scherp tekenen */
   if(!W.lite&&dt>0&&dt<.1){const f=W.perf||(W.perf={n:0,s:0});f.n++;f.s+=dt;if(f.n>=150){const pr=W.ren.getPixelRatio();if(f.s/f.n>1/42&&pr>1){const np=Math.max(1,pr-.25);W.ren.setPixelRatio(np);if(W.comp)W.comp.setPixelRatio(np);W.fit()}f.n=0;f.s=0}}
