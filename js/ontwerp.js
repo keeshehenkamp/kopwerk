@@ -171,6 +171,17 @@ function dzDemAt(R,x,y){
   for(let b=0;b<4;b++){const r=(j-1+b)*nx+i-1,w=b===0?((2-v)*v-1)*v/2:b===1?((3*v-5)*v*v+2)/2:b===2?((4-3*v)*v+1)*v/2:(v-1)*v*v/2;s+=w*(A[r]*u0+A[r+1]*u1+A[r+2]*u2+A[r+3]*u3)}
   return s/4;
 }
+/* ---------- 1d. kaart ----------
+   Een route kan echte kaartgegevens hebben (terrein.kaart, gemaakt met tools/osm_naar_kaart.py uit OpenStreetMap): watervlakken,
+   gebouwen en bomen op hun echte plek. 'Hoog' water is boezemwater met een vast peil (terrein.peil) en een kade erlangs;
+   'laag' water zijn sloten en plassen op polderpeil (terrein.vlak). */
+function dzKaart(id){
+  const K=typeof ROUTE_KAART!=='undefined'&&ROUTE_KAART[id];if(!K)return null;if(K.W)return K;
+  K.W=K.water.map(a=>{const P=[];let x=a[1],y=a[2];P.push([x/2,-y/2]);for(let i=3;i<a.length;i+=2){x+=a[i];y+=a[i+1];P.push([x/2,-y/2])}return {hoog:a[0],P}});
+  K.B=K.gebouwen.map(b=>({x:b[0]/2,z:-b[1]/2,w:b[2]/10,d:b[3]/10,ang:b[4]*Math.PI/180,srt:b[5]}));
+  K.T=K.bomen.map(t=>({x:t[0]/2,z:-t[1]/2,srt:t[2]}));
+  return K;
+}
 /* ---------- 2. het land: één hoogteveld rond de hele ronde ----------
    Raster van 8 m. Vast liggen: de weg (ook zijwegen), getekende beken en ruggen, toppen, meren en wanden langs de weg.
    De rest wordt glad ingevuld (Laplace: elk vrij punt wordt het gemiddelde van zijn buren), eerst grof en dan fijn.
@@ -239,6 +250,21 @@ function designTerrain(C){
     let bx0=1e9,bx1=-1e9,bz0=1e9,bz1=-1e9;for(const [x,z] of P){bx0=Math.min(bx0,x);bx1=Math.max(bx1,x);bz0=Math.min(bz0,z);bz1=Math.max(bz1,z)}
     for(let j=Math.max(0,Math.floor((bz0-z0)/cs));j<=Math.min(nz-1,Math.ceil((bz1-z0)/cs));j++)for(let i=Math.max(0,Math.floor((bx0-x0)/cs));i<=Math.min(nx-1,Math.ceil((bx1-x0)/cs));i++){
       const x=x0+i*cs,z=z0+j*cs,c=j*nx+i;if(!dzInPoly(P,x,z)||WR[c])continue;VS[c]=M.peil-.8-clamp(dzPolyDist(P,x,z)/3,0,9);FX[c]=2}}
+  /* kaart: watervlakken in het raster zetten (WM: 1 = boezemwater, 2 = sloot of plas) en de afstand tot het boezemwater (WD) */
+  const KR=TD.kaart?dzKaart(TD.kaart):null,WM=KR?new Uint8Array(n):null,WD=KR?new Float32Array(n).fill(1e9):null,peil=TD.peil??0;
+  if(KR){KR.per=null;
+    for(const Wp of KR.W){const P=Wp.P;let zmin=1e9,zmax=-1e9;for(const q of P){zmin=Math.min(zmin,q[1]);zmax=Math.max(zmax,q[1])}
+      for(let j=Math.max(0,Math.ceil((zmin-z0)/cs));j<=Math.min(nz-1,Math.floor((zmax-z0)/cs));j++){const z=z0+j*cs,xs=[];
+        for(let a=0,b=P.length-1;a<P.length;b=a++){const za=P[a][1],zb=P[b][1];if((za>z)!==(zb>z))xs.push(P[a][0]+(z-za)/(zb-za)*(P[b][0]-P[a][0]))}
+        xs.sort((p,q)=>p-q);
+        for(let k=0;k+1<xs.length;k+=2)for(let i=Math.max(0,Math.ceil((xs[k]-x0)/cs));i<=Math.min(nx-1,Math.floor((xs[k+1]-x0)/cs));i++){const c=j*nx+i;
+          if(Wp.hoog){if(WR[c])continue;WM[c]=1;WD[c]=0;VS[c]=peil-1.5;FX[c]=2}else if(!WM[c])WM[c]=2}}}
+    /* afstand tot het boezemwater: twee vegen over het raster */
+    const rel=(c,c2,w)=>{if(WD[c2]+w<WD[c])WD[c]=WD[c2]+w},dg=cs*Math.SQRT2;
+    for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const c=j*nx+i;if(i)rel(c,c-1,cs);if(j){rel(c,c-nx,cs);if(i)rel(c,c-nx-1,dg);if(i<nx-1)rel(c,c-nx+1,dg)}}
+    for(let j=nz-1;j>=0;j--)for(let i=nx-1;i>=0;i--){const c=j*nx+i;if(i<nx-1)rel(c,c+1,cs);if(j<nz-1){rel(c,c+nx,cs);if(i<nx-1)rel(c,c+nx+1,dg);if(i)rel(c,c+nx-1,dg)}}
+    /* de kade: het land direct langs het boezemwater ligt net boven het peil */
+    for(let c=0;c<n;c++)if(!FX[c]&&WD[c]<=cs*1.2){VS[c]=peil+(TD.kade??.5);FX[c]=1}}
   /* twee velden: afstand tot de hoofdweg (RD, RK = wegpunt) en tot de zijwegen (QD, QK = -2-zijweg) */
   const prop=(D_,K_,X_,Z_)=>{const relax=(c,c2)=>{if(D_[c2]>=1e9)return;const x=x0+(c%nx)*cs,z=z0+Math.floor(c/nx)*cs,dd=Math.hypot(X_[c2]-x,Z_[c2]-z);if(dd<D_[c]){D_[c]=dd;K_[c]=K_[c2];X_[c]=X_[c2];Z_[c]=Z_[c2]}};
     for(let pass=0;pass<2;pass++){
@@ -246,7 +272,7 @@ function designTerrain(C){
       for(let j=nz-1;j>=0;j--)for(let i=nx-1;i>=0;i--){const c=j*nx+i;if(i<nx-1)relax(c,c+1);if(j<nz-1){relax(c,c+nx);if(i<nx-1)relax(c,c+nx+1);if(i)relax(c,c+nx-1)}}}};
   prop(RD,RK,SX,SZ);prop(QD,QK,QX,QZ);
   /* vlak land (polder): verder dan vlakAf van elke weg ligt het land vast op één hoogte; ertussen ontstaat vanzelf een dijktalud */
-  if(TD.vlak!=null)for(let c=0;c<n;c++)if(!FX[c]&&Math.min(RD[c],QD[c])>(TD.vlakAf||16)){VS[c]=TD.vlak;FX[c]=1}
+  if(TD.vlak!=null)for(let c=0;c<n;c++)if(!FX[c]&&Math.min(RD[c],QD[c])>(TD.vlakAf||16)&&!(WD&&WD[c]<(TD.kadeBreed||26))){VS[c]=TD.vlak;FX[c]=1}
   /* Reliëf: ruggen en geulen op verschillende schalen, nul vlak bij de weg. Het wordt vóór het invullen van de vaste waarden
      afgetrokken en na afloop overal opgeteld: zo blijven weg, beken en ruggen precies op hun hoogte en krijgt de rest karakter. */
   const NZ=dzNoise(C.seed),A0=TD.ruis||20,NF=new Float32Array(n);
@@ -274,13 +300,16 @@ function designTerrain(C){
     for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const c=j*nx+i;if(FX[c]){H[c]=VS[c];continue}const x=x0+i*cs,z=z0+j*cs,dd=RD[c];let h=dzDemAt(DEM,x,-z)-zee;
       if(dd<FR&&RK[c]>=0){const t=clamp((dd-cs*.7)/(FR-cs*.7),0,1);h+=dY[RK[c]]*(1-t*t*(3-2*t))}H[c]=h}}
   const Hf=new Float32Array(n);for(let c=0;c<n;c++)Hf[c]=H[c]+NF[c];
-  C.lakeAt=(x,z)=>{for(const L of C.lakes)if(dzInPoly(L.P,x,z))return L;return null};
-  const T={x0,z0,cs,nx,nz,H:Hf,RD,RK,QD,QK,QX,QZ,NZ,water:waters};
+  const KL=KR?{peil,riet:true,kaart:true}:null;
+  C.lakeAt=(x,z)=>{if(WM&&WM[cell(x,z)]===1)return KL;for(const L of C.lakes)if(dzInPoly(L.P,x,z))return L;return null};
+  const T={x0,z0,cs,nx,nz,H:Hf,RD,RK,QD,QK,QX,QZ,NZ,water:waters,KR,WM,WD,peil};
   /* afstand tot de oever van het dichtstbijzijnde stromende water (negatief = in het water) */
   T.waterAt=(x,z)=>{let m=99;for(const R of waters){if(x<R.bb[0]||x>R.bb[1]||z<R.bb[2]||z>R.bb[3])continue;const P=R.P;for(let i=0;i<P.length-1;i++){const ax=P[i][0],az=P[i][1],dx=P[i+1][0]-ax,dz=P[i+1][1]-az,t=clamp(((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz||1),0,1);m=Math.min(m,Math.hypot(ax+dx*t-x,az+dz*t-z)-R.w/2)}}return m};
   const cell=(x,z)=>clamp(Math.round((z-z0)/cs),0,nz-1)*nx+clamp(Math.round((x-x0)/cs),0,nx-1);
   T.distMain=(x,z)=>RD[cell(x,z)];T.distSide=(x,z)=>QD[cell(x,z)];T.dist=(x,z)=>{const c=cell(x,z);return Math.min(RD[c],QD[c])};
   T.near=(x,z)=>RK[cell(x,z)];
+  /* afstand tot het boezemwater van de kaart (of heel ver), en of hier een sloot ligt */
+  T.oeverAt=(x,z)=>WD?WD[cell(x,z)]:1e9;T.slootAt=(x,z)=>!!WM&&WM[cell(x,z)]===2;
   /* precieze afstand tot de weg (het raster is 8 m grof): rond het dichtstbijzijnde wegpunt zoeken */
   T.exact=(x,z)=>{const c=cell(x,z);let best=Math.min(RD[c],QD[c]);
     if(RD[c]<40){const k0=RK[c];for(let k=k0-10;k<=k0+10;k++){const kk=((k%C.N)+C.N)%C.N;best=Math.min(best,Math.hypot(C.X[kk]-x,C.Z[kk]-z))}}
@@ -335,7 +364,8 @@ function dzGround(C,x,z,y,out0,sp,land,fmul=1){
   const sn=C.design.nl||TD0.sneeuw===false?0:Math.max(clamp((y-(600+n*80))/40,0,1)*clamp((1.25-sl)/.4,0,1),plek*.95);
   /* oever van een meer: een rand van grijs grind en natte stenen net boven het peil */
   for(const L of C.lakes||[]){if(y>L.peil+3||y<L.peil-2)continue;const dd=dzPolyDist(L.P,x,z);if(dd<16){out.lerp(DZC.oever||(DZC.oever=new TH.Color('#9a958a')),clamp((16-dd)/10,0,1)*clamp((L.peil+3-y)/2,0,1)*.85)}}
-  {const wd=T.waterAt(x,z);if(wd<7){out.lerp(DZC.oever||(DZC.oever=new TH.Color('#9a958a')),clamp((7-wd)/4,0,1)*.85);f*=clamp(wd/7,0,1)}}
+  if(T.WD){const dd=T.oeverAt(x,z);if(dd<12&&dd>0)out.lerp(DC.oever||DZC.oever||(DZC.oever=new TH.Color('#9a958a')),clamp((12-dd)/8,0,1)*.6)}
+  {const wd=T.waterAt(x,z);if(wd<7){out.lerp(DC.oever||DZC.oever||(DZC.oever=new TH.Color('#9a958a')),clamp((7-wd)/4,0,1)*.85);f*=clamp(wd/7,0,1)}}
   out.offsetHSL(0,0,n*.035+n2*.02);
   if(sp){sp[0]=rock;sp[1]=land?0:f;sp[2]=sn>.001?sn:-fw*.55}
   return out;
@@ -497,6 +527,13 @@ function dzOuterMesh(C){
 function dzLakes(C){
   const TH=T3,out=[];/* elke route zijn eigen waterkleur: bergmeer blauwgroen, vaart en slotgracht donkerder */W.mat.water.color.set(C.design.water||'#2c7d96');for(const L of C.lakes||[]){const sh=new TH.Shape(L.P.map(([x,z])=>new TH.Vector2(x,-z)));
     const g=new TH.ShapeGeometry(sh,8);g.rotateX(-Math.PI/2);g.translate(0,L.peil,0);const m=new TH.Mesh(g,W.mat.water);m.userData.far2=true;out.push(m)}
+  /* water van de kaart: alle vlakken van één soort als één net (boezemwater op het peil, sloten en plassen net boven het polderland) */
+  if(C.T.KR){const TD=C.design.terrein,SM=W.mat.sloot||(W.mat.sloot=Object.assign(W.mat.water.clone(),{polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));SM.color.copy(W.mat.water.color);
+    for(const hoog of[1,0]){const pos=[],idx=[],y=hoog?C.T.peil:(TD.vlak||0)+.07;
+      for(const Wp of C.T.KR.W){if(!!Wp.hoog!==!!hoog)continue;const pts=Wp.P.map(([x,z])=>new TH.Vector2(x,z));if(pts.length>3&&pts[0].distanceTo(pts[pts.length-1])<.01)pts.pop();if(pts.length<3)continue;
+        const b=pos.length/3;for(const t of TH.ShapeUtils.triangulateShape(pts,[]))idx.push(b+t[0],b+t[1],b+t[2]);for(const p of pts)pos.push(p.x,y,p.y)}
+      if(!idx.length)continue;const g=new TH.BufferGeometry();g.setAttribute('position',new TH.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();
+      const m=new TH.Mesh(g,hoog?W.mat.water:SM);m.userData.far2=true;m.frustumCulled=false;out.push(m)}}
   /* beken en rivieren: een lint water dat de bedding volgt, iets lichter dan het meer */
   const RM=W.mat.rivier||(W.mat.rivier=Object.assign(W.mat.water.clone(),{polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));RM.color.copy(W.mat.water.color).lerp(new TH.Color('#dff2f4'),.3);
   for(const R of C.T.water||[]){const pts=[];for(let i=0;i<R.P.length-1;i++){const A=R.P[i],B=R.P[i+1],n=Math.max(1,Math.ceil(Math.hypot(B[0]-A[0],B[1]-A[1])/10));for(let k=0;k<n;k++)pts.push(A.map((v,q)=>v+(B[q]-v)*k/n))}pts.push(R.P[R.P.length-1]);
@@ -627,6 +664,8 @@ function* dzChunkJob(ci){
   for(const [x,z] of PT){if(++cnt%400===0)yield;
     if(!owns(x,z))continue;const dm=T.distMain(x,z),ds=T.distSide(x,z);if(dm>57)continue;
     const k=T.near(x,z),d=k*STEP,P=C.secP(d),hw=C.hwAt(d);if(dm<30&&T.exact(x,z)<hw+2.6)continue;if(ds<12&&T.exact(x,z)<hw+2.6)continue;if(C.lakeAt&&C.lakeAt(x,z))continue;if(T.waterAt(x,z)<1.5)continue;
+    /* langs het boezemwater van de kaart: riet op de kade */
+    if(T.WD&&T.oeverAt(x,z)<10&&dm>hw+3.5){if(r()<.45)for(let j=1+Math.floor(r()*3);j>0;j--)put('riet',x+(r()-.5)*2.4,T.h(x,z)-.1,z+(r()-.5)*2.4,.45+r()*.35,r()*6,tint(.15,.06),.5+r()*.4);continue}
     const pp=roadAt(C,d),y=dm<hw+4?yAt(pp,hw,dm,x,z):T.h(x,z),sl=T.slope(x,z),V=(D0.groen&&D0.groen[P.land])||VEG[P.land]||VEG.dal,u=r(),KL=P.land==='kaal',WEI=ALPWEI.has(P.land)||(D0.weiland||[]).includes(P.land);
     let F=T.forest(x,z,y);if(P.land==='bos'||LOOFBOS.has(P.land))F=Math.max(F,.9);
     const ptree=F*V[0]*(.55+.45*(P.dicht??.5))*1.15+V[1];
@@ -867,6 +906,28 @@ function* dzExtras(X){
   for(const q of D.punten||[])if(q.soort==='klimbord'){const d=C.at(q.at)-15;if(!inChunk(d))continue;const e=C.at(q.tot),len=e-d-15,pct=(roadAt(C,e).y-roadAt(C,d+15).y)/len*100;
     place(dzClimbSign(q.naam,len,pct),d,C.hwAt(d)+1.3).rotation.y+=.3}
   for(const R0 of C.rounds)if(inChunk(R0.at-70))place(dzTriSign('rotonde'),R0.at-70,C.hwAt(R0.at)+1.3);
+  yield;
+  /* --- kaart: echte gebouwen en bomen op hun plek --- */
+  if(T.KR){const KR=T.KR;
+    /* één keer verdelen over de kilometers: elk gebouw en elke boom hoort bij het dichtstbijzijnde stuk weg */
+    if(!KR.per){KR.per=new Map();const add=(ty,o)=>{const k=T.near(o.x,o.z);if(k<0)return;const ci=Math.floor(k*STEP/CH);let Lc=KR.per.get(ci);if(!Lc)KR.per.set(ci,Lc={B:[],T:[]});Lc[ty].push(o)};for(const b of KR.B)add('B',b);for(const t of KR.T)add('T',t)}
+    const Lc=KR.per.get(Math.floor(a/CH)),HUIS=[['rood',6],['wit',5.4],['trapgevel',6.5],['groen',6],['villa',7.5],['huis',5],['geel',8]];
+    if(Lc){let nn=0;
+      for(const b of Lc.B){if(++nn%200===0)yield;const k=T.near(b.x,b.z),p=roadAt(C,k*STEP),dist=T.exact(b.x,b.z),hw=C.hwAt(k*STEP);
+        if(dist<hw+b.w/2+1.2||(C.lakeAt&&C.lakeAt(b.x,b.z)))continue;
+        /* de lange zijde volgt de kaart; de voorgevel kijkt naar de weg */
+        let ry=Math.atan2(Math.cos(b.ang),-Math.sin(b.ang));if(Math.sin(ry)*(p.x-b.x)+Math.cos(ry)*(p.z-b.z)<0)ry+=Math.PI;
+        const y=T.h(b.x,b.z)-.3,hs=Math.abs(Math.sin(b.x*12.9898+b.z*78.233)*43758.5453)%1;
+        if(b.srt===3)put('kerk',b.x,y,b.z,clamp(b.w/8,.8,1.7),ry,tint(.06,.02));
+        else if(b.srt===1)put('boerderij',b.x,y,b.z,clamp(b.w/10,.7,1.35),ry,tint(.12,.04));
+        /* grote schuren en loodsen: een laag, breed blok in gedekt groen, grijs of bruin */
+        else if(b.srt===2)put(b.d/b.w>1.9?'blokschuur':'blokhuis',b.x,y+.3,b.z,b.w,ry,new TH.Color().setHSL(hs<.4?.3:hs<.7?.08:.6,.16,.3+hs*.2),clamp(b.w*.4,5,9));
+        else if(dist>90)put(b.d/b.w>1.9?'blokschuur':'blokhuis',b.x,y+.3,b.z,b.w,ry,new TH.Color().setHSL(hs<.6?.03:.1,hs<.6?.45:.2,hs<.6?.45:.8),b.w*(.9+hs*.5));
+        else{const [m,mw]=HUIS[Math.floor(hs*HUIS.length)%HUIS.length];put(m,b.x,y,b.z,clamp(b.w/mw,.7,1.5),ry,tint(.14,.05))}}
+      for(const t of Lc.T){if(++nn%300===0)yield;const k=T.near(t.x,t.z),dist=T.exact(t.x,t.z),hw=C.hwAt(k*STEP);if(dist<hw+2.4||(C.lakeAt&&C.lakeAt(t.x,t.z))||T.slootAt(t.x,t.z))continue;
+        const y=T.h(t.x,t.z),rij=(Math.floor(t.x/70)+Math.floor(t.z/70))%2;
+        if(t.srt===2)put('struik',t.x,y,t.z,.8+r()*.8,r()*6,tint());
+        else tree(t.srt===3?'fruitboom':t.srt===1?(rij?'populier':'knotwilg'):['boom','eik','boom','berk','knotwilg','boom'][Math.floor(r()*6)],t.x,y,t.z,.85+r()*.4,dist<16)}}}
   yield;
   /* --- herkenningspunten --- */
   for(const q of P0){if(q.d==null)continue;

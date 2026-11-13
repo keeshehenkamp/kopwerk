@@ -63,13 +63,13 @@ function routeProfile(id){
    zones: landschappen in km. klim: [begin km, lengte km, gemiddeld %]; na elke klim volgt een afdaling, zodat de ronde op dezelfde hoogte sluit.
    hp: reeksen haarspeldbochten [begin km, aantal bochten (oneven)]. */
 const ROUTES=[
-  {id:'polder',name:'Polderronde',km:12,ontwerp:'polder'},
+  {id:'hoep',name:'Ronde Hoep',km:17,ontwerp:'hoep'},
   {id:'heuvel',name:'Heuvelland',km:13,ontwerp:'heuvel'},
   {id:'ventoux',name:'Mont Ventoux',km:55,ontwerp:'ventoux'}
 ];
 const ROUTE_KEY='kopwerk.route';
-/* De Col is de Mont Ventoux geworden */
-const routeId=()=>{let v='';try{v=localStorage.getItem(ROUTE_KEY)||''}catch(e){}if(v==='col')v='ventoux';return ROUTES.some(r=>r.id===v)?v:'heuvel'};
+/* De Col is de Mont Ventoux geworden, de Polderronde de Ronde Hoep */
+const routeId=()=>{let v='';try{v=localStorage.getItem(ROUTE_KEY)||''}catch(e){}if(v==='col')v='ventoux';if(v==='polder')v='hoep';return ROUTES.some(r=>r.id===v)?v:'heuvel'};
 function setRoute(id){try{localStorage.setItem(ROUTE_KEY,id)}catch(e){}}
 /* positie binnen de ronde, ook voor afstanden voorbij één ronde of (bij de camera) net voor de start */
 const wrapD=(C,d)=>((d%C.L)+C.L)%C.L;
@@ -468,6 +468,9 @@ function propGeos(){
   /* Provence */
   G.lavendel=partsGeo([...[0,1,2,3,4,5,6,7,8].map(i=>ball(.42,i%2?'#8f6ad3':'#9d7be0',0,.32,-4.8+i*1.2,1,.75,1.1,0)),[new T.BoxGeometry(.7,.2,10.4),'#6f8f4a',M4(0,.1,0)]]);
   G.zonnebloem=partsGeo([...[0,1,2,3,4,5].flatMap(i=>{const z=-4.5+i*1.8;return [[new T.CylinderGeometry(.03,.04,1.7,4),'#4f8a2e',M4(0,.85,z)],[new T.CylinderGeometry(.32,.32,.08,9),'#ffcd1f',(()=>{const m=new T.Matrix4().makeRotationX(Math.PI/2-.3);m.setPosition(0,1.75,z+.05);return m})()],[new T.CylinderGeometry(.14,.14,.1,6),'#5a3a1a',(()=>{const m=new T.Matrix4().makeRotationX(Math.PI/2-.3);m.setPosition(0,1.76,z+.08);return m})()],ball(.28,'#4f8a2e',0,.9,z,1,.5,1)]})]);
+  /* huis in de verte: alleen muren en een zadeldak, één breed en 1,4 diep; krijgt zijn maat en kleur per stuk */
+  G.blokhuis=partsGeo([[new T.BoxGeometry(1,.55,1.4),'#ffffff',M4(0,.275,0)],[roofG(1,.4,1.4,.04),'#6b6260',M4(0,.55,0)]]);
+  G.blokschuur=partsGeo([[new T.BoxGeometry(1,.55,2.5),'#ffffff',M4(0,.275,0)],[roofG(1,.4,2.5,.04),'#6b6260',M4(0,.55,0)]]);
   /* sneeuwpaal: hoge geel-zwarte paal langs een bergweg */
   G.sneeuwpaal=partsGeo([[new T.CylinderGeometry(.045,.055,2.6,6),'#f2c21c',M4(0,1.3,0)],...[.75,1.45,2.15].map(y=>[new T.CylinderGeometry(.052,.052,.3,6),'#1d1d1d',M4(0,y,0)])]);
   /* rij wijnranken van 10 m: lage struiken aan palen met een draad */

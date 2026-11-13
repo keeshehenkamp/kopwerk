@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Maakt van een GPX-bestand het wegverloop voor een ontworpen route (js/routes/<id>-spoor.js).
 
-Gebruik:  python3 tools/gpx_naar_spoor.py <bestand.gpx> <id> [--km 55] [--top 1909] [--tegels <map>]
+Gebruik:  python3 tools/gpx_naar_spoor.py <bestand.gpx> <id> [--km 55] [--top 1909] [--tegels <map>] [--plat 0.15]
 
 Wat er gebeurt:
 - het spoor wordt naar meters omgerekend (x = oost, y = noord, vanaf het eerste punt) en gesloten tot een ronde;
+- een uitstapje heen en terug over dezelfde weg wordt weggelaten, zodat de ronde nergens omkeert;
 - knikken tussen de GPX-punten worden afgerond en bochten krapper dan --straal (standaard 9 m) iets verruimd,
   zodat camera en fietser niet schokken;
 - de lengte wordt een heel aantal kilometers (--km, standaard afgerond): de wereld wordt per kilometer opgebouwd;
@@ -12,6 +13,7 @@ Wat er gebeurt:
   stukken steiler dan --steil (standaard 12,5%) zijn meestal meetfouten: het teveel wordt over de omgeving verdeeld;
 - met --tegels komt de hoogte niet uit het GPX-bestand maar uit hoogtetegels (zie tools/hoogtetegels.py): dan ligt de weg
   precies op het land van tools/hoogte_naar_bin.py;
+- met --plat 0.15 worden hoogteverschillen kleiner gemaakt (voor vlak land, waar GPX-hoogtes vooral ruis zijn);
 - het resultaat is één punt per 8 m, opgeslagen als verschillen in centimeters (klein bestand, exact terug te rekenen).
 
 De waypoints uit het GPX-bestand komen mee als 'punten' (naam -> km langs de route): handig voor markeringen in het ontwerp.
@@ -23,7 +25,7 @@ import numpy as np
 ap = argparse.ArgumentParser()
 ap.add_argument('gpx'); ap.add_argument('id')
 ap.add_argument('--km', type=float, default=0); ap.add_argument('--top', type=float, default=0)
-ap.add_argument('--straal', type=float, default=9.0); ap.add_argument('--steil', type=float, default=12.5); ap.add_argument('--uit', default=''); ap.add_argument('--tegels', default='')
+ap.add_argument('--straal', type=float, default=9.0); ap.add_argument('--steil', type=float, default=12.5); ap.add_argument('--uit', default=''); ap.add_argument('--tegels', default=''); ap.add_argument('--plat', type=float, default=1.0)
 A = ap.parse_args()
 
 t = open(A.gpx, encoding='utf-8').read()
@@ -37,6 +39,17 @@ keep = np.r_[True, np.hypot(np.diff(x), np.diff(y)) > .5]; x, y, e = x[keep], y[
 gat = math.hypot(x[-1] - x[0], y[-1] - y[0])
 if gat > 60: sys.exit(f'het spoor is geen ronde: begin en eind liggen {gat:.0f} m uit elkaar')
 if gat < .5: x, y, e = x[:-1], y[:-1], e[:-1]
+
+# heen-en-weer-stukjes weg (een uitstapje naar een bezienswaardigheid en over dezelfde weg terug): de ronde gaat rechtdoor
+i = 0
+while i < len(x) - 2:
+    cut = 0; lang = 0.0
+    for j in range(i + 1, min(len(x), i + 80)):
+        lang += math.hypot(x[j] - x[j - 1], y[j] - y[j - 1])
+        if lang > 900: break
+        if j > i + 1 and math.hypot(x[j] - x[i], y[j] - y[i]) < 4: cut = j
+    if cut: print(f'heen en weer weggelaten bij km {i and float(np.hypot(np.diff(x[:i + 1]), np.diff(y[:i + 1])).sum()) / 1000:.2f}'); x = np.delete(x, range(i + 1, cut + 1)); y = np.delete(y, range(i + 1, cut + 1)); e = np.delete(e, range(i + 1, cut + 1))
+    i += 1
 
 def dicht(x, y, e, stap=1.0):
     """gesloten lijn opnieuw bemonsteren op gelijke afstanden"""
@@ -73,7 +86,7 @@ f = L / Ls
 xs = (xs - xs[0]) * f; ys = (ys - ys[0]) * f
 es = glad(e1, (60 if A.tegels else 35) / (Ls / len(e1)))
 h0 = float(es[0]); fh = (A.top - h0) / (es.max() - h0) if A.top else 1.0
-hs = (es - h0) * fh
+hs = (es - h0) * fh * A.plat
 # te steile stukken: de helling aftoppen en het teveel over de omgeving (een paar honderd meter) verdelen
 ds = L / len(hs); g = np.diff(np.r_[hs, hs[0]]) / ds; gm = A.steil / 100
 for it in range(60):
