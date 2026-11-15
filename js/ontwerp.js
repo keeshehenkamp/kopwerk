@@ -398,31 +398,53 @@ function dzNoiseTex(){
 /* fijne tekening als grijswaarden rond 1: k = 1/gemiddelde, zodat de textuur de kleur niet lichter of donkerder maakt */
 function dzDetailTex(n,draw){let k=1;const TH=T3,t=canvasTex(n,n,(c,w,h)=>{draw(c,w,h);const px=c.getImageData(0,0,w,h).data;let s=0;for(let i=0;i<px.length;i+=16)s+=Math.pow(px[i+1]/255,2.2);k=1/(s/(px.length/16))});
   t.wrapS=t.wrapT=TH.RepeatWrapping;t.colorSpace=TH.SRGBColorSpace;t.anisotropy=ANISO;t.userData.k=k;return t}
+/* drie tekeningen in één textuur (rood, groen, blauw), elk met een eigen k */
+function dzDetail3(n,draws){const TH=T3,ks=[],t=canvasTex(n,n,(c,w,h)=>{const out=c.createImageData(w,h);
+    draws.forEach((dr,ch)=>{const cv=document.createElement('canvas');cv.width=w;cv.height=h;const x=cv.getContext('2d');dr(x,w,h);const px=x.getImageData(0,0,w,h).data;let s=0;
+      for(let i=0;i<px.length;i+=4){out.data[i+ch]=px[i+1];if(i%16===0)s+=Math.pow(px[i+1]/255,2.2)}ks.push(1/Math.max(1e-3,s/(px.length/16)))});
+    for(let i=3;i<out.data.length;i+=4)out.data[i]=255;c.putImageData(out,0,0)});
+  t.wrapS=t.wrapT=TH.RepeatWrapping;t.colorSpace=TH.SRGBColorSpace;t.anisotropy=ANISO;t.userData.k=ks;return t}
 /* tekenen over de rand heen, zodat de textuur naadloos herhaalt */
 const dzRep=(w,h,x,y,m,f)=>{for(const dx of x<m?[0,w]:x>w-m?[0,-w]:[0])for(const dy of y<m?[0,h]:y>h-m?[0,-h]:[0])f(x+dx,y+dy)};
+function dzGrond3(){
+  if(W.tex.grond3)return W.tex.grond3;const rep=dzRep;
+  return W.tex.grond3=dzDetail3(512,[
+    /* grind: ronde steentjes, elk met een lichte kant en een donker randje rechtsonder */
+    (c,w,h)=>{c.fillStyle='#b4b4b4';c.fillRect(0,0,w,h);for(let i=0;i<1500;i++){const x=Math.random()*w,y=Math.random()*h,a=3+Math.random()*Math.random()*11,b=a*(.6+Math.random()*.4),an=Math.random()*3.14,v=Math.round(150+Math.random()*100);
+      rep(w,h,x,y,16,(X,Y)=>{c.fillStyle='rgba(70,70,70,.5)';c.beginPath();c.ellipse(X+1.2,Y+1.5,a,b,an,0,7);c.fill();c.fillStyle=`rgb(${v},${v},${v})`;c.beginPath();c.ellipse(X,Y,a,b,an,0,7);c.fill()})}},
+    /* puin: hoekige brokken kalksteen die tegen elkaar liggen */
+    (c,w,h)=>{c.fillStyle='#b9b9b9';c.fillRect(0,0,w,h);for(let i=0;i<1500;i++){const x=Math.random()*w,y=Math.random()*h,R=6+Math.random()*Math.random()*20,n=4+Math.floor(Math.random()*3),a0=Math.random()*6.28,v=Math.round(200+Math.random()*52),P=[];
+      for(let j=0;j<n;j++){const a=a0+j/n*6.283+(Math.random()-.5)*.5,q=R*(.7+Math.random()*.45);P.push([Math.cos(a)*q,Math.sin(a)*q*.8])}
+      rep(w,h,x,y,40,(X,Y)=>{const pad=(ox,oy)=>{c.beginPath();P.forEach(([px,py],j)=>j?c.lineTo(X+px+ox,Y+py+oy):c.moveTo(X+px+ox,Y+py+oy));c.closePath();c.fill()};c.fillStyle='rgba(96,96,96,.55)';pad(1.3,1.9);c.fillStyle=`rgb(${v},${v},${v})`;pad(0,0)})}},
+    /* bloemen: losse ronde stipjes in groepjes */
+    (c,w,h)=>{c.fillStyle='#000';c.fillRect(0,0,w,h);c.fillStyle='#fff';for(let i=0;i<46;i++){const x=Math.random()*w,y=Math.random()*h,n=2+Math.floor(Math.random()*7);for(let j=0;j<n;j++){const X0=x+(Math.random()-.5)*46,Y0=y+(Math.random()-.5)*46,rr=1.5+Math.random()*1.3;rep(w,h,(X0+w)%w,(Y0+h)%h,4,(X,Y)=>{c.beginPath();c.arc(X,Y,rr,0,7);c.fill()})}}}]);
+}
 function dzSplatMat(){
   const TH=T3;if(W.mat.splat)return W.mat.splat;
   const detail=dzDetailTex,rep=dzRep;
   if(!W.tex.gras2){
-    W.tex.gras2=detail(256,(c,w,h)=>{c.fillStyle='#d2d2d2';c.fillRect(0,0,w,h);c.lineCap='round';
-      for(let i=0;i<4200;i++){const v=Math.round(165+Math.random()*90),x=Math.random()*w,y=Math.random()*h,l=3+Math.random()*6,dx=(Math.random()-.5)*3;c.strokeStyle=`rgba(${v},${v},${v},.4)`;c.lineWidth=1+Math.random()*.8;
-        rep(w,h,x,y,10,(X,Y)=>{c.beginPath();c.moveTo(X,Y);c.quadraticCurveTo(X+dx*.3,Y-l*.6,X+dx,Y-l);c.stroke()})}});
+    /* gras: korte streken in alle richtingen, licht en donker door elkaar; zacht genoeg om van dichtbij rustig te blijven */
+    W.tex.gras2=detail(512,(c,w,h)=>{c.fillStyle='#cdcdcd';c.fillRect(0,0,w,h);c.lineCap='round';
+      for(let i=0;i<70;i++){const x=Math.random()*w,y=Math.random()*h,r=30+Math.random()*60,v=Math.random()<.5?150:235;rep(w,h,x,y,r,(X,Y)=>{const g=c.createRadialGradient(X,Y,0,X,Y,r);g.addColorStop(0,`rgba(${v},${v},${v},.22)`);g.addColorStop(1,`rgba(${v},${v},${v},0)`);c.fillStyle=g;c.beginPath();c.arc(X,Y,r,0,7);c.fill()})}
+      for(let i=0;i<3600;i++){const v=Math.round(Math.random()<.45?140+Math.random()*40:215+Math.random()*40),x=Math.random()*w,y=Math.random()*h,l=7+Math.random()*13,an=-Math.PI/2+(Math.random()-.5)*2.4,dx=Math.cos(an)*l,dy=Math.sin(an)*l,bd=(Math.random()-.5)*l*.5;c.strokeStyle=`rgba(${v},${v},${v},.3)`;c.lineWidth=1.6+Math.random()*1.6;
+        rep(w,h,x,y,22,(X,Y)=>{c.beginPath();c.moveTo(X,Y);c.quadraticCurveTo(X+dx*.5-dy/l*bd,Y+dy*.5+dx/l*bd,X+dx,Y+dy);c.stroke()})}});
     /* bos van ver: ronde kruinen met het licht van linksboven */
     W.tex.kruin=detail(256,(c,w,h)=>{c.fillStyle='#868686';c.fillRect(0,0,w,h);
       for(let i=0;i<420;i++){const x=Math.random()*w,y=Math.random()*h,r=8+Math.random()*9;rep(w,h,x,y,18,(X,Y)=>{const g=c.createRadialGradient(X-r*.35,Y-r*.35,1,X,Y,r);g.addColorStop(0,'rgba(232,232,232,1)');g.addColorStop(.55,'rgba(168,168,168,1)');g.addColorStop(1,'rgba(100,100,100,0)');c.fillStyle=g;c.beginPath();c.arc(X,Y,r,0,7);c.fill()})}})}
-  const U=W.splatU={tN:{value:dzNoiseTex()},tCan:{value:W.tex.kruin},uK:{value:new TH.Vector3(W.tex.gras2.userData.k,1,W.tex.kruin.userData.k)},
-    uHaze:{value:new TH.Color(W.mood.hor)},uRock:{value:new TH.Color('#7f7b76')},uScree:{value:new TH.Color('#a39c90')},uSnow:{value:new TH.Color('#eef2f7')},uFor:{value:new TH.Color('#3a5f2e')},uLaag:{value:1},uBloem:{value:.6},uBerm:{value:new TH.Color('#a39c90')}};
+  dzGrond3();
+  const U=W.splatU={tN:{value:dzNoiseTex()},tCan:{value:W.tex.kruin},tD:{value:W.tex.grond3},uKD:{value:new TH.Vector3(...W.tex.grond3.userData.k)},uK:{value:new TH.Vector3(W.tex.gras2.userData.k,1,W.tex.kruin.userData.k)},
+    uHaze:{value:new TH.Color(W.mood.hor)},uRock:{value:new TH.Color('#7f7b76')},uScree:{value:new TH.Color('#a39c90')},uSnow:{value:new TH.Color('#eef2f7')},uFor:{value:new TH.Color('#3a5f2e')},uLaag:{value:1},uBloem:{value:.6},uBermW:{value:.5},uBerm:{value:new TH.Color('#a39c90')}};
   const m=new TH.MeshLambertMaterial({vertexColors:true,map:W.tex.gras2});
   m.onBeforeCompile=sh=>{Object.assign(sh.uniforms,U);
     sh.vertexShader='attribute vec3 sp;attribute float bm;\nvarying vec3 vSp,vWq,vNw;varying float vBm;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\nvSp=sp;vBm=bm;vWq=(modelMatrix*vec4(transformed,1.)).xyz;vNw=normalize(mat3(modelMatrix)*objectNormal);');
-    sh.fragmentShader=`uniform sampler2D tN,tCan;uniform vec3 uHaze,uRock,uScree,uSnow,uFor,uK,uBerm;uniform float uLaag,uBloem;
+    sh.fragmentShader=`uniform sampler2D tN,tCan,tD;uniform vec3 uHaze,uRock,uScree,uSnow,uFor,uK,uBerm,uKD;uniform float uLaag,uBloem,uBermW;
 varying vec3 vSp,vWq,vNw;varying float vBm;
 float dzH(float i){return fract(sin(i*12.9898)*43758.5453);}
 /* gesteente in lagen: elke laag een eigen tint; van ver vloeien de lagen in elkaar over in plaats van te flikkeren */
 float dzLagen(float s){float i=floor(s),t=fract(s),w=clamp(fwidth(s)*1.5,.04,1.);return mix(dzH(i),dzH(i+1.),smoothstep(1.-w,1.,t));}
 `+sh.fragmentShader
       /* luchtperspectief: hoe verder weg, hoe lichter en blauwer het land */
-      .replace('#include <fog_fragment>','gl_FragColor.rgb=mix(gl_FragColor.rgb,uHaze,smoothstep(120.,5200.,length(vWq-cameraPosition))*.5);\n#include <fog_fragment>')
+      .replace('#include <fog_fragment>','gl_FragColor.rgb=mix(gl_FragColor.rgb,uHaze,smoothstep(200.,9000.,length(vWq-cameraPosition))*.42);\n#include <fog_fragment>')
       .replace('#include <map_fragment>','')
       .replace('#include <color_fragment>',`
       float dq=length(vWq-cameraPosition),fNear=1.-smoothstep(12.,75.,dq),fMid=1.-smoothstep(250.,1400.,dq),fR=1.-smoothstep(40.,320.,dq);
@@ -431,37 +453,39 @@ float dzLagen(float s){float i=floor(s),t=fract(s),w=clamp(fwidth(s)*1.5,.04,1.)
       vec3 na=texture2D(tN,vWq.xz/397.).rgb,nb=texture2D(tN,vWq.xz/71.+.37).rgb,nc=texture2D(tN,vWq.xz/13.7+.11).rgb;
       float fine=(nc.r-.5)*fMid;
       /* gras: sprieten dichtbij, daarbuiten alleen grote vlekken warmer en koeler groen; akkers (sp.z < 0) zonder sprieten */
-      vec3 gd=texture2D(map,vWq.xz/3.3).rgb*texture2D(map,vWq.xz/12.7).rgb*uK.x*uK.x;
-      float gF=fNear*.42*(1.-clamp(-vSp.z,0.,1.));
+      vec3 gd=mix(vec3(1.),texture2D(map,vWq.xz/5.1).rgb*uK.x,.75)*mix(vec3(1.),texture2D(map,vWq.zx/19.3+.4).rgb*uK.x,.6);
+      float gF=(1.-smoothstep(10.,90.,dq))*.5*(1.-clamp(-vSp.z,0.,1.));
       vec3 col=vColor.rgb*mix(vec3(1.),gd,gF)*mix(vec3(1.13,1.06,.78),vec3(.82,.95,.9),smoothstep(.28,.72,na.r*.55+nb.g*.45))*(.9+.2*nb.r);
       /* bloemen in het gras: kleine lichte stipjes in plekken, alleen dichtbij en alleen waar de grond groen is */
-      {float bl=texture2D(tN,vWq.xz/.83+.3).r,bz=texture2D(tN,vWq.xz/23.+.6).b,gr=step(vColor.r*1.04,vColor.g);
-       float stp=smoothstep(.79,.85,bl)*smoothstep(.45,.7,bz)*fNear*uBloem*gr*(1.-clamp(-vSp.z,0.,1.));
-       col=mix(col,mix(vec3(.97,.9,.5),vec3(.96,.96,.93),step(.5,nc.b)),stp*.85);}
+      {float bl=texture2D(tD,vWq.xz/6.7+.3).b,bz=texture2D(tN,vWq.xz/31.+.6).b,gr=step(vColor.r*1.04,vColor.g);
+       float stp=bl*smoothstep(.42,.6,bz)*(1.-smoothstep(25.,60.,dq))*min(1.,uBloem*1.4)*gr*(1.-clamp(-vSp.z,0.,1.));
+       col=mix(col,mix(vec3(.98,.86,.3),vec3(.97,.97,.94),step(.5,texture2D(tN,vWq.xz/9.+.2).g)),stp);}
       /* bos van ver: kruinen, met een grillige bosrand */
       float fo=smoothstep(.3,.55,vSp.y+(nb.g-.5)*.35+fine*.25);
       col=mix(col,uFor*mix(vec3(.9+.26*nb.r),texture2D(tCan,vWq.xz/85.).rgb*uK.z,fMid)*(.9+.2*na.g),fo);
       /* rots: grillige rand, tint per laag (de lagen volgen de hoogte en golven mee met de ruis) */
-      float rk=smoothstep(.36,.6,vSp.x+(nb.b-.5)*.42+fine*.3);
+      float rk=smoothstep(.44,.54,vSp.x+(nb.b-.5)*.42+fine*.3);
       float sy=vWq.y/6.5+(nb.r-.5)*.9+(na.g-.5)*3.;
       float l1=dzLagen(sy),l2=dzLagen(sy*.19+7.3);
       vec3 rc=mix(uScree,uRock,clamp(.2+.75*nb.g+(l1-.5)*.5*uLaag,0.,1.))*mix(1.,.8+.22*l2+.14*l1,uLaag);
       /* puinhelling zonder lagen: losse stenen, lichter en donkerder door elkaar */
-      rc*=1.+(1.-uLaag)*((nc.g-.5)*.2+(texture2D(tN,vWq.xz/2.3+.4).g-.5)*.22*fNear);
+      {float p1=texture2D(tD,vWq.xz/4.6).g*uKD.y,p2=texture2D(tD,vWq.zx/16.3+.3).g*uKD.y,f1=1.-smoothstep(20.,90.,dq),f2=1.-smoothstep(60.,420.,dq);
+       rc*=mix(1.,mix(1.,p1,f1*.6)*mix(1.,p2,f2*.28)*(.96+.1*nb.g),1.-uLaag);}
       {float st=smoothstep(.25,.6,1.-nW.y),hx=abs(nW.x)/(abs(nW.x)+abs(nW.z)+1e-4);vec3 rb=mix(texture2D(tN,vec2(vWq.x/260.,vWq.y/900.)).rgb,texture2D(tN,vec2(vWq.z/260.,vWq.y/900.)).rgb,smoothstep(.3,.7,hx));rc*=1.+st*((rb.b-.45)*.5+(rb.r-.5)*.2);}
       /* dunne lagen met een donkere naad ertussen: alleen dichtbij te zien, van ver vloeien ze weg */
       float s3=sy*4.1+(nc.b-.5)*.5,f3=fwidth(s3),a3=1.-smoothstep(.15,.6,f3),l3=dzLagen(s3),seam=(1.-smoothstep(0.,.07+f3,min(fract(s3),1.-fract(s3))))*step(.42,dzH(floor(s3+.5)*1.7));
       rc*=1.+a3*uLaag*((l3-.5)*.3-seam*.2);
-      col=mix(col,rc,rk);
+      /* waar gras overgaat in steen: een donker randje, zodat een plek puin als steen leest en niet als mist */
+      col=mix(col*(1.-.3*rk),rc*(1.-.22*(1.-smoothstep(.5,1.,rk))*step(.001,rk)),rk);
       /* sneeuw: scherpe, grillige rand */
       float sn=smoothstep(.42,.58,max(vSp.z,0.)+(nb.r-.5)*.3+fine*.2);
       col=mix(col,uSnow,sn);
       /* berm: een strook grind langs het asfalt, hier breed en daar smal */
-      vec3 nd=texture2D(tN,vWq.xz/1.7+.6).rgb;
-      float gv=smoothstep(.5,.62,vBm+(nd.r-.5)*.5+(nc.g-.5)*.25);
-      col=mix(col,uBerm*(.84+.26*nd.g)*mix(1.,gd.g*1.03,fNear*.5),gv);
+      float gw=vBm+(texture2D(tN,vWq.xz/6.1+.6).r-.5)*.5+(nc.g-.5)*.12,ga=.03+fwidth(gw);
+      float gv=smoothstep(uBermW-ga,uBermW+ga,gw);
+      col=mix(col,uBerm*mix(1.,texture2D(tD,vWq.xz/2.3).r*uKD.x,(1.-smoothstep(8.,60.,dq))*.8)*(.95+.1*nb.g),gv);
       diffuseColor.rgb*=col;
-      float hBump=mix(dot(gd,vec3(.33))*gF*.5,((l3*.2-seam*.15)*a3+l1*.3*(1.-smoothstep(.2,.7,fwidth(sy))))*uLaag,rk)*(1.-sn);`)
+      float hBump=mix(dot(gd,vec3(.33))*gF*.22*(1.-gv),((l3*.2-seam*.15)*a3+l1*.3*(1.-smoothstep(.2,.7,fwidth(sy))))*uLaag,rk)*(1.-sn);`)
       /* reliëf in het licht: de tekening als hoogte gebruiken en de normaal per pixel kantelen */
       .replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
       {vec3 vp=-vViewPosition,dpx=dFdx(vp),dpy=dFdy(vp);float dhx=dFdx(hBump),dhy=dFdy(hBump);
@@ -491,7 +515,7 @@ function dzFarMesh(C){
   const idx=[];for(let j=0;j<nz-1;j++)for(let i=0;i<nx-1;i++){const a=j*nx+i,b=a+1,d=a+nx,e=d+1;idx.push(a,d,b,b,d,e)}
   const g=new TH.BufferGeometry();g.setAttribute('position',new TH.BufferAttribute(pos,3));g.setAttribute('color',new TH.BufferAttribute(col,3));g.setAttribute('uv',new TH.BufferAttribute(uvs,2));g.setAttribute('sp',new TH.BufferAttribute(spa,3));g.setIndex(idx);g.computeVertexNormals();
   const m=new TH.Mesh(g,dzSplatMat());m.receiveShadow=true;m.userData.far2=true;m.frustumCulled=false;
-  {const DC=DZC[C.route.id],U=W.splatU;U.uRock.value.copy(DC.rots);U.uScree.value.copy(DC.puin);U.uSnow.value.copy(DC.sneeuw);U.uFor.value.copy(DC.bos);U.uLaag.value=C.design.lagen??1;U.uBloem.value=C.design.bloemen??.6;U.uBerm.value.copy(DC.berm||DC.puin)}
+  {const DC=DZC[C.route.id],U=W.splatU;U.uRock.value.copy(DC.rots);U.uScree.value.copy(DC.puin);U.uSnow.value.copy(DC.sneeuw);U.uFor.value.copy(DC.bos);U.uLaag.value=C.design.lagen??1;U.uBloem.value=C.design.bloemen??.6;U.uBermW.value=1-.5*(C.design.berm??1);U.uBerm.value.copy(DC.berm||DC.puin)}
   return m;
 }
 /* ---------- 4b. het land buiten het raster ----------
@@ -532,14 +556,16 @@ function dzLakes(C){
   const TH=T3,out=[];/* elke route zijn eigen waterkleur: bergmeer blauwgroen, vaart en slotgracht donkerder */W.mat.water.color.set(C.design.water||'#2c7d96');for(const L of C.lakes||[]){const sh=new TH.Shape(L.P.map(([x,z])=>new TH.Vector2(x,-z)));
     const g=new TH.ShapeGeometry(sh,8);g.rotateX(-Math.PI/2);g.translate(0,L.peil,0);const m=new TH.Mesh(g,W.mat.water);m.userData.far2=true;out.push(m)}
   /* water van de kaart: alle vlakken van één soort als één net (boezemwater op het peil, sloten en plassen net boven het polderland) */
-  if(C.T.KR){const TD=C.design.terrein,SM=W.mat.sloot||(W.mat.sloot=Object.assign(W.mat.water.clone(),{polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));SM.color.copy(W.mat.water.color);
+  if(C.T.KR){const TD=C.design.terrein,SM=W.mat.sloot||(W.mat.sloot=dzWaterShade(Object.assign(W.mat.water.clone(),{polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2})));SM.color.copy(W.mat.water.color);
     for(const hoog of[1,0]){const pos=[],idx=[],y=hoog?C.T.peil:(TD.vlak||0)+.07;
       for(const Wp of C.T.KR.W){if(!!Wp.hoog!==!!hoog)continue;const pts=Wp.P.map(([x,z])=>new TH.Vector2(x,z));if(pts.length>3&&pts[0].distanceTo(pts[pts.length-1])<.01)pts.pop();if(pts.length<3)continue;
+        /* een plas of sloot met weinig punten: de hoeken afsnijden, zodat het geen zeshoek blijft */
+        if(pts.length<=24)for(let ps=0;ps<2;ps++){const q=[];for(let i=0;i<pts.length;i++){const A=pts[i],B=pts[(i+1)%pts.length];q.push(new TH.Vector2(A.x*.75+B.x*.25,A.y*.75+B.y*.25),new TH.Vector2(A.x*.25+B.x*.75,A.y*.25+B.y*.75))}pts.length=0;pts.push(...q)}
         const b=pos.length/3;for(const t of TH.ShapeUtils.triangulateShape(pts,[]))idx.push(b+t[0],b+t[1],b+t[2]);for(const p of pts)pos.push(p.x,y,p.y)}
       if(!idx.length)continue;const g=new TH.BufferGeometry();g.setAttribute('position',new TH.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();
       const m=new TH.Mesh(g,hoog?W.mat.water:SM);m.userData.far2=true;m.frustumCulled=false;out.push(m)}}
   /* beken en rivieren: een lint water dat de bedding volgt, iets lichter dan het meer */
-  const RM=W.mat.rivier||(W.mat.rivier=Object.assign(W.mat.water.clone(),{polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));RM.color.copy(W.mat.water.color).lerp(new TH.Color('#dff2f4'),.3);
+  const RM=W.mat.rivier||(W.mat.rivier=dzWaterShade(Object.assign(W.mat.water.clone(),{polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2})));RM.color.copy(W.mat.water.color).lerp(new TH.Color('#dff2f4'),.3);
   for(const R of C.T.water||[]){const pts=[];for(let i=0;i<R.P.length-1;i++){const A=R.P[i],B=R.P[i+1],n=Math.max(1,Math.ceil(Math.hypot(B[0]-A[0],B[1]-A[1])/10));for(let k=0;k<n;k++)pts.push(A.map((v,q)=>v+(B[q]-v)*k/n))}pts.push(R.P[R.P.length-1]);
     const pos=[],idx=[];pts.forEach(([x,z,y],i)=>{const a=pts[Math.max(0,i-1)],b=pts[Math.min(pts.length-1,i+1)],dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz)||1,nx=-dz/l*R.w/2,nz=dx/l*R.w/2;
       pos.push(x-nx,y+.35,z-nz,x+nx,y+.35,z+nz);if(i)idx.push(i*2-2,i*2,i*2-1,i*2-1,i*2,i*2+1)});
@@ -549,21 +575,42 @@ function dzLakes(C){
 /* ---------- het wegdek ----------
    Egaal asfalt met grote zachte vlekken, een fractie lichtere rijsporen en korrel die je alleen dichtbij ziet.
    Langs de rand ligt grind over het asfalt, met een grillige grens, zodat de weg niet als een strak lint op het gras ligt. */
+/* water: van dichtbij diep van kleur, scherend bekeken licht als de lucht; grote vlekken licht en donker en dunne rimpels die langzaam meeschuiven met de wind */
+function dzWaterShade(m){
+  const TH=T3;m.onBeforeCompile=sh=>{sh.uniforms.tN={value:dzNoiseTex()};sh.uniforms.uT=W.wind;sh.uniforms.uLucht={value:new TH.Color(W.mood.hor).lerp(new TH.Color(W.mood.top),.35)};
+    sh.vertexShader='varying vec3 vWw;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\nvWw=(modelMatrix*vec4(transformed,1.)).xyz;');
+    sh.fragmentShader='uniform sampler2D tN;uniform float uT;uniform vec3 uLucht;\nvarying vec3 vWw;\n'+sh.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+      {vec3 vd=normalize(cameraPosition-vWw);float dq=length(cameraPosition-vWw),fr=pow(1.-clamp(vd.y,0.,1.),4.);vec2 p=vWw.xz;
+       float n1=texture2D(tN,p/41.+vec2(uT*.004,uT*.003)).r,rp=texture2D(tN,vec2(p.x/23.+uT*.01,p.y/2.1+uT*.03)).b,rw=fwidth(rp)+.01;
+       float rl=smoothstep(.74-rw,.74+rw,rp)*(1.-smoothstep(20.,150.,dq));
+       diffuseColor.rgb=mix(diffuseColor.rgb*(.86+.26*n1),uLucht,fr*.3)+rl*.055;diffuseColor.a=mix(diffuseColor.a,1.,fr*.6);}`)};
+  m.needsUpdate=true;return m;
+}
 function dzRoadShade(m){
   const TH=T3;
   if(!W.tex.korrel)W.tex.korrel=dzDetailTex(256,(c,w,h)=>{c.fillStyle='#b9b9b9';c.fillRect(0,0,w,h);
     for(let i=0;i<9000;i++){const v=Math.random(),s=1+Math.random()*1.6;c.fillStyle=v<.5?`rgba(60,60,64,${.18+v*.3})`:`rgba(236,236,240,${(v-.5)*.5})`;c.fillRect(Math.random()*w,Math.random()*h,s,s)}});
   m.map=W.tex.korrel;
-  m.onBeforeCompile=sh=>{sh.uniforms.tN={value:dzNoiseTex()};sh.uniforms.uK={value:W.tex.korrel.userData.k};sh.uniforms.uGrav=W.splatU?W.splatU.uBerm:{value:new TH.Color('#a39c90')};sh.uniforms.uAsf={value:new TH.Color('#6d6f75')};
+  m.onBeforeCompile=sh=>{sh.uniforms.tN={value:dzNoiseTex()};sh.uniforms.uK={value:W.tex.korrel.userData.k};sh.uniforms.uGrav=W.splatU?W.splatU.uBerm:{value:new TH.Color('#a39c90')};sh.uniforms.uAsf={value:new TH.Color('#6d6f75')};sh.uniforms.tD={value:dzGrond3()};sh.uniforms.uKD={value:dzGrond3().userData.k[0]};
     sh.vertexShader='varying vec3 vWr;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\nvWr=(modelMatrix*vec4(transformed,1.)).xyz;');
-    sh.fragmentShader='uniform sampler2D tN;uniform float uK;uniform vec3 uGrav,uAsf;\nvarying vec3 vWr;\n'+sh.fragmentShader.replace('#include <map_fragment>',`
+    sh.fragmentShader='uniform sampler2D tN,tD;uniform float uK,uKD;uniform vec3 uGrav,uAsf;\nvarying vec3 vWr;\n'+sh.fragmentShader.replace('#include <map_fragment>',`
       float dq=length(vWr-cameraPosition),fN=1.-smoothstep(6.,45.,dq);
       vec3 nA=texture2D(tN,vWr.xz/47.).rgb,nB=texture2D(tN,vWr.xz/8.3+.21).rgb,nC=texture2D(tN,vWr.xz/1.3).rgb;
       vec3 ac=uAsf*(.93+.12*nA.r)*(.96+.08*nB.g)*mix(1.,texture2D(map,vWr.xz/1.9).r*uK,fN*.5);
       float u=vMapUv.x,tr=max(max(1.-abs(u-.2)/.07,1.-abs(u-.42)/.07),max(1.-abs(u-.58)/.07,1.-abs(u-.8)/.07));
       ac*=1.+.035*clamp(tr,0.,1.);
-      float eg=smoothstep(.9,.99,abs(u-.5)*2.+(nC.r-.5)*.1+(nB.b-.5)*.06);
-      diffuseColor.rgb*=mix(ac,uGrav*(.8+.35*nC.g),eg*.8);`)};
+      /* lappen nieuw asfalt (donkerder, met een teerrand) en dichtgegoten scheuren: hier en daar, op vaste plekken langs de weg */
+      {float al=vMapUv.y*48.,ci=floor(al/57.),h1=fract(sin(ci*91.7)*43758.5),h2=fract(sin(ci*47.3)*24634.6),h3=fract(sin(ci*13.1)*9631.2);
+       float sd=max(abs(al-(ci*57.+12.+h3*30.))-(2.+h2*7.),(abs(u-(h2<.5?.27:.73))-(.13+h1*.1))*6.),aa=fwidth(sd)+.012,on=step(.6,h1);
+       ac*=1.-on*(.07*(1.-smoothstep(-aa,aa,sd))+.1*(1.-smoothstep(.015,.015+aa*2.,abs(sd))));
+       float cj=floor(al/83.),g1=fract(sin(cj*37.9)*15731.7),g2=fract(sin(cj*71.3)*8191.3);
+       float cu=.18+.64*g2+.035*sin(al*.31+cj*2.)+(nB.r-.5)*.07,dc=abs(u-cu)*6.,ce=1.-smoothstep(9.+g1*16.,13.+g1*16.,abs(al-(cj*83.+40.))),ca=fwidth(dc)+.008;
+       ac*=1.-step(.6,g1)*ce*.15*(1.-smoothstep(.012,.012+ca*2.,dc));}
+      float ee=abs(u-.5)*2.+(texture2D(tN,vWr.xz/5.3+.4).r-.5)*.045+(nC.r-.5)*.012,ea=fwidth(ee)*1.2;
+      float eg=smoothstep(.962-ea,.962+ea,ee);
+      /* een smalle, iets lichtere sleetrand vlak voor het einde van het asfalt */
+      ac*=1.+.06*smoothstep(.86,.95,ee)*(1.-eg);
+      diffuseColor.rgb*=mix(ac,uGrav*mix(1.,texture2D(tD,vWr.xz/2.3).r*uKD,(1.-smoothstep(8.,60.,dq))*.8),eg);`)};
 }
 /* ---------- 5. per kilometer: fijn land, weg, belijning, randen en begroeiing ---------- */
 /* Poisson-schijf in het platte vlak: punten die minstens r uit elkaar liggen, zonder vast patroon */
@@ -586,7 +633,7 @@ function* dzChunkJob(ci){
   const geo=(pos,idx,col,uv)=>{const q=new TH.BufferGeometry();q.setAttribute('position',new TH.Float32BufferAttribute(pos,3));if(col)q.setAttribute('color',new TH.Float32BufferAttribute(col,3));if(uv)q.setAttribute('uv',new TH.Float32BufferAttribute(uv,2));q.setIndex(idx);q.computeVertexNormals();return q};
   const tmp=new TH.Color(),berm=new TH.Color('#a8a070'),pave=new TH.Color('#a59f94');
   /* --- fijn land langs de weg, tot 56 m opzij; in een haarspeldbocht afgekapt halverwege het andere been --- */
-  {const REL=[-.25,.6,1.7,3.2],ABS=[7.5,10.5,14,19,25,32,40,48,56],rows=Math.ceil((end-a)/DS)+1,pos=[],col=[],uv=[],idx=[],spl=[],bml=[],sp=[0,0,0];let nc=0;
+  {const REL=[-.25,.6,1.7,3.2],ABS=[7.5,10.5,14,19,25,32,40,48,56],DS=4,rows=Math.ceil((end-a)/DS)+1,pos=[],col=[],uv=[],idx=[],spl=[],bml=[],sp=[0,0,0];let nc=0;
     for(let j=0;j<rows;j++){if(j%30===29)yield;
       const d=Math.min(C.L-.01,a+j*DS),p=roadAt(C,d),hw=C.hwAt(d),nx=Math.cos(p.h),nzv=Math.sin(p.h),land=C.secP(d).land,onBr=(C.bridges||[]).some(([b0,b1])=>d>b0+2&&d<b1-2);
       const bnd={'-1':clipOff(C,d,p,innerOff(-60,p.k)),'1':clipOff(C,d,p,innerOff(60,p.k))},OFF=[];
@@ -605,20 +652,23 @@ function* dzChunkJob(ci){
   yield;
   /* --- de weg: breedte en tint per sectie --- */
   const TINT={dorp:[1.02,1,.98],dal:[1,1,1.02],bosrand:[.97,.98,1],rots:[1.04,1.04,1.06],bos:[.95,.96,.98],boomgrens:[1.03,1.03,1.05],alpen:[1.05,1.05,1.07],pas:[1.08,1.07,1.08],alm:[1.02,1.02,1.04],loofbos:[.96,.97,.98],westdal:[1,1,1.02],weide:[1,1,1.02],akker:[1.03,1.02,1.01],boomgaard:[1,1,1.01],hellingbos:[.95,.96,.97],holleweg:[.92,.93,.94],polder:[1.03,1.03,1.05],dijk:[1.05,1.05,1.06]};
-  {const ap=[],au=[],ac=[],ai=[],RS=4,rr=Math.ceil((end-a)/RS)+1;
+  {const ap=[],au=[],ac=[],ai=[],RS=2,rr=Math.ceil((end-a)/RS)+1;
     for(let j=0;j<rr;j++){const d=Math.min(C.L-.01,a+j*RS),p=roadAt(C,d),hw=C.hwAt(d),nx=Math.cos(p.h),nzv=Math.sin(p.h);let tr=0,tg=0,tb=0;
       for(const [i,w] of C.secMix(d)){const t=TINT[C.sec[i].p.land]||[1,1,1];tr+=t[0]*w;tg+=t[1]*w;tb+=t[2]*w}
       for(const o of[-hw,-hw+1.4,hw-1.4,hw]){ap.push(p.x+nx*o,p.y+(Math.abs(o)>hw-.1?-.06:0),p.z+nzv*o);au.push((o/hw+1)/2,d/48);ac.push(tr,tg,tb)}
       if(j<rr-1){const q=j*4;for(let i=0;i<3;i++)ai.push(q+i,q+i+1,q+i+4,q+i+1,q+i+5,q+i+4)}}
     const am=new TH.Mesh(geo(ap,ai,ac,au),M.asf);am.receiveShadow=true;g.add(am)}
   /* --- belijning --- */
-  {const lp=[],li=[],strip=(d0,d1,o0,o1,yy)=>{const b0=lp.length/3,n=Math.max(1,Math.ceil((d1-d0)/2));for(let i=0;i<=n;i++){const dd=d0+(d1-d0)*i/n,q=roadAt(C,dd),cx=Math.cos(q.h),cz=Math.sin(q.h),hw=C.hwAt(dd);
+  {const lp=[],li=[],strip=(d0,d1,o0,o1,yy)=>{const b0=lp.length/3,n=Math.max(1,Math.ceil((d1-d0)/(Math.abs(roadAt(C,(d0+d1)/2).k)>.02?.8:2)));for(let i=0;i<=n;i++){const dd=d0+(d1-d0)*i/n,q=roadAt(C,dd),cx=Math.cos(q.h),cz=Math.sin(q.h),hw=C.hwAt(dd);
       for(const o of[o0,o1]){const oo=o>0?Math.min(o,hw):Math.max(o,-hw),ry=Math.abs(oo)>hw-1.4?-.06*(Math.abs(oo)-(hw-1.4))/1.4:0;lp.push(q.x+cx*oo,q.y+ry+yy,q.z+cz*oo)}
       if(i)li.push(b0+i*2-2,b0+i*2-1,b0+i*2,b0+i*2-1,b0+i*2+1,b0+i*2)}};
     for(let d=a;d<end;d+=4){const L=C.secP(d).lijn,d1=Math.min(end,d+4),hw=C.hwAt(d);
-      if(L==='kant'||L==='beide')for(const s of[-1,1])strip(d,d1,s*(hw-.32),s*(hw-.2),.022)}
+      if(L==='kant'||L==='beide')for(const s of[-1,1])strip(d,d1,s>0?hw-.32:-hw+.2,s>0?hw-.2:-hw+.32,.022)}
+    /* onderbroken kantstreep: 3 m streep, 3 m gat ('rive' = met middenstreep, 'kantstreep' = zonder) */
+    for(let d=Math.ceil(a/6)*6;d<end;d+=6){const L=C.secP(d).lijn,hw=C.hwAt(d);if(L==='rive'||L==='kantstreep')for(const s of[-1,1])strip(d,Math.min(d+3,C.L-.01),s>0?hw-.3:-hw+.2,s>0?hw-.2:-hw+.3,.022)}
     /* middenstreep: 3 m streep, 9 m gat (Frans), in een vast ritme langs de hele ronde */
-    for(let d=Math.ceil(a/12)*12;d<end;d+=12){const L=C.secP(d).lijn;if(L==='midden'||L==='beide')strip(d,Math.min(d+3,C.L-.01),-.06,.06,.022)}
+    /* in een krappe bocht zie je niet ver genoeg om in te halen: daar is de streep doorgetrokken */
+    for(let d=Math.ceil(a/12)*12;d<end;d+=12){const L=C.secP(d).lijn;if(L==='midden'||L==='beide'||L==='rive')strip(d,Math.min(d+(Math.abs(roadAt(C,d+6).k)>.014?12:3),C.L-.01,end),-.06,.06,.022)}
     if(li.length){const lm=new TH.Mesh(geo(lp,li),M.line);lm.receiveShadow=true;g.add(lm)}}
   /* --- namen en kreten op het wegdek van een klim, zoals bij een koers: verf:{van, tot, elke} (of een lijst daarvan) --- */
   for(const VF of [].concat(C.design.verf||[])){const v0=C.at(VF.van),v1=C.at(VF.tot),e=VF.elke||180,pp=[],pu=[],pi=[],hs=(i,k)=>{const x=Math.sin(i*127.1+k*311.7+C.seed*.0173+e)*43758.5453;return x-Math.floor(x)};
@@ -735,7 +785,8 @@ function* dzChunkJob(ci){
     for(const s of[-1,1]){const o=s*(hw+.55),x=p.x+Math.cos(p.h)*o,z=p.z+Math.sin(p.h)*o;if(T.distSide(x,z)<6)continue;put(P.rand==='sneeuw'?'sneeuwpaal':'paal',x,yAt(p,hw,hw+.55,x,z),z,1,-p.h+(s<0?Math.PI:0))}}
   yield* dzExtras({g,C,T,a,end,put,tree,tint,r,yAt});
   yield;
-  let nk=0;for(const key in lists){if(!W.G[key]&&!W.G[key.replace(/[~*]$/,'')])continue;const im=instMesh(key,lists[key]);im.castShadow=key.endsWith('*')||key==='paal';g.add(im);if(++nk%6===0)yield}
+  let nk=0;for(const key in lists){if(!W.G[key]&&!W.G[key.replace(/[~*]$/,'')])continue;const im=instMesh(key,lists[key]);/* echte schaduw van alles wat dicht bij de weg staat: bomen vlakbij (*), palen, en op de laptop ook mensen, huizen, auto's en hekken */
+    {const kb=key.replace(/[~*]$/,'');im.castShadow=key.endsWith('*')||key==='paal'||(!W.lite&&!key.endsWith('~')&&!INST.WIND.has(kb)&&!(W.KCAT&&W.KCAT[kb])&&!/^(blob|wolk|piek|erf|plein|straat|eend|zwaan|bloem|keien|paddenstoel|tulp)/.test(kb))}g.add(im);if(++nk%6===0)yield}
   W.root.add(g);W.chunks.set(ci,g);
 }
 
@@ -922,7 +973,7 @@ function* dzExtras(X){
      elke: gemiddelde afstand in meters (vast:true = precies om de zoveel meter); kant: 1 rechts, -1 links, weglaten = willekeurig;
      af:[van, tot]: meters vanaf de wegrand; draai: 'weg' (langs de weg), 'naarweg', 'vanweg' of niets (willekeurig);
      schaal:[van, tot]; groep:[aantal, spreiding in meters]; rij:[aantal, tussenruimte] = achter elkaar langs de weg;
-     op:'water' = drijft op het water; zoek:'oever' = vanaf de weg naar buiten tot het water begint; boom:true = als boom (met schaduw dichtbij);
+     op:'water' = drijft op het water; zoek:'oever' = vanaf de weg naar buiten tot het water begint (terug: zoveel meter daarvoor, op de kant); boom:true = als boom (met schaduw dichtbij);
      kleur: lijst kleuren; helling: steilste grond waar het mag staan */
   {const hsD=(i,k)=>{const x=Math.sin(i*127.1+k*311.7+C.seed*.0191)*43758.5453;return x-Math.floor(x)};let nd=0;
     for(let ri=0;ri<(D.details||[]).length;ri++){const R=D.details[ri],e=R.elke||100,v0=R.van!=null?C.at(R.van):-1,v1=R.tot!=null?C.at(R.tot):L+1,ms=[].concat(R.m),af=R.af||[3,8],sc=R.schaal||[1,1],n=R.rij?R.rij[0]:R.groep?R.groep[0]:1;
@@ -930,13 +981,36 @@ function* dzExtras(X){
         const s=R.kant||(hsD(i,ri*9+2)<.5?-1:1),o0=af[0]+hsD(i,ri*9+4)*(af[1]-af[0]);
         for(let j=0;j<n;j++){if(++nd%400===0)yield;const dd=d+(R.rij?j*R.rij[1]:R.groep?(hsD(i*13+j,ri*9+3)-.5)*R.groep[1]:0),hw=C.hwAt(dd);
           let A=at(dd,s*(hw+(R.rij?o0:af[0]+hsD(i*13+j,ri*9+4)*(af[1]-af[0]))));
-          if(R.zoek==='oever'){let o=hw+2,ok=false;for(;o<45;o+=1){A=at(dd,s*o);if(C.lakeAt&&C.lakeAt(A.x,A.z)){ok=true;break}}if(!ok)continue}
-          const Lk=C.lakeAt&&C.lakeAt(A.x,A.z),nat=R.op==='water'||R.zoek==='oever';if(nat?!Lk:Lk)continue;
+          if(R.zoek==='oever'){let o=hw+2,ok=false;for(;o<45;o+=1){A=at(dd,s*o);if(C.lakeAt&&C.lakeAt(A.x,A.z)){ok=true;break}}if(!ok)continue;if(R.terug)A=at(dd,s*(o-R.terug))}
+          const Lk=C.lakeAt&&C.lakeAt(A.x,A.z),nat=R.op==='water'||(R.zoek==='oever'&&!R.terug);if(nat?!Lk:Lk)continue;
           if(!nat&&(T.slope(A.x,A.z)>(R.helling??.5)||T.slootAt(A.x,A.z)||T.distSide(A.x,A.z)<5||T.exact(A.x,A.z)<hw+Math.min(af[0],1.5)-.3))continue;
           const m=ms[Math.floor(hsD(i*13+j,ri*9+5)*ms.length)%ms.length],y=nat?Lk.peil:A.y,sz=sc[0]+hsD(i*13+j,ri*9+8)*(sc[1]-sc[0]);
           const ry=R.draai==='weg'?-A.q.h+(R.rij||hsD(i,ri*9+6)<.5?0:Math.PI):R.draai==='naarweg'?face(A.q.h,s):R.draai==='vanweg'?face(A.q.h,-s):hsD(i*13+j,ri*9+6)*6.283;
           if(R.boom)tree(m,A.x,y,A.z,sz,T.exact(A.x,A.z)<16);
           else put(m,A.x,y+(R.dy||0),A.z,sz,ry,R.kleur?new TH.Color(R.kleur[Math.floor(hsD(i*13+j,ri*9+7)*R.kleur.length)%R.kleur.length]):R.tint===false?null:tint(.1,.03))}}}}
+  yield;
+  /* --- publiek: groepjes toeschouwers langs de weg, volgens regels uit het ontwerp (publiek:[...]) ---
+     van, tot: stuk van de route; elke: gemiddelde afstand tussen groepjes; n:[van, tot] mensen per groepje; kant; af:[van, tot] meters van de wegrand;
+     zit: deel dat op een stoel zit; vlag: lijst vlagdragers ('fan7' Frankrijk, 'fan8' Nederland, 'fan9' België); camper, parasol: kans per groepje;
+     land: alleen in deze landschappen (zonder land: overal behalve in een dorp); helling: steilste grond waar ze mogen staan; op: meters boven de grond (stoep) */
+  {const hsP=(i,k)=>{const x=Math.sin(i*91.3+k*217.9+C.seed*.0137)*43758.5453;return x-Math.floor(x)},STA=['mens','mens','mens2','mens3','fan4','fan4','fan5','fan6','fan10','fan11'],ZIT=['zit1','zit2','zit3'],
+      KL=['#d94b3d','#e8b53a','#3d7fbf','#3f9a5a','#f2f2f2','#e07a2f','#7b5ea7','#2f3640','#e86a92','#56b6c2','#f4d03f','#c0392b','#ffffff','#1f4f8c'].map(c=>new TH.Color(c));let np=0;
+    for(let ri=0;ri<(D.publiek||[]).length;ri++){const R=D.publiek[ri],e=R.elke||200,v0=R.van!=null?C.at(R.van):-1,v1=R.tot!=null?C.at(R.tot):L+1,af=R.af||[1.3,3.2],nn=R.n||[2,5];
+      for(let i=Math.floor(a/e);i<=Math.floor(end/e);i++){const d=(i+hsP(i,ri*11+1)*.9)*e;if(d<a||d>=end||d<v0||d>v1)continue;const land=C.secP(d).land;if(R.land?!R.land.includes(land):land==='dorp')continue;
+        const s=R.kant||(hsP(i,ri*11+2)<.5?-1:1),n=Math.round(nn[0]+hsP(i,ri*11+3)*(nn[1]-nn[0])),sp=Math.max(2.5,n*.75);let ok=0;
+        for(let j=0;j<n;j++){if(++np%200===0)yield;const h1=hsP(i*17+j,ri*11+4),h2=hsP(i*17+j,ri*11+5),h3=hsP(i*17+j,ri*11+6),h4=hsP(i*17+j,ri*11+7);
+          const zit=h3<(R.zit??.12),dd=d+(h1-.5)*sp,hw=C.hwAt(dd),A=at(dd,s*(hw+af[0]+h2*(af[1]-af[0])+(zit?.9:0)));
+          if((C.lakeAt&&C.lakeAt(A.x,A.z))||T.slope(A.x,A.z)>(R.helling??.9)||T.slootAt(A.x,A.z)||T.distSide(A.x,A.z)<5||T.exact(A.x,A.z)<hw+.9)continue;
+          const vl=R.vlag&&!zit&&h3>.9,m=zit?ZIT[Math.floor(h4*3)%3]:vl?R.vlag[Math.floor(h4*R.vlag.length)%R.vlag.length]:STA[Math.floor(h4*STA.length)%STA.length];
+          const kind=!zit&&!vl&&h1>.86,sz=kind?.6+h2*.16:.93+h2*.14;
+          /* ze kijken naar de weg, half gedraaid naar waar de fietsers vandaan komen */
+          const tw=.25+h3*.6,dx=-Math.cos(A.q.h)*s-Math.sin(A.q.h)*tw,dz=-Math.sin(A.q.h)*s+Math.cos(A.q.h)*tw;
+          put(m,A.x,A.y+(R.op||0),A.z,sz,Math.atan2(dx,dz),KL[Math.floor(hsP(i*17+j,ri*11+8)*KL.length)%KL.length]);if(W.lite)put('blob',A.x,A.y+.04,A.z,.8,0);ok++}
+        if(!ok)continue;
+        /* achter het groepje: een camper of een parasol */
+        const hx=hsP(i,ri*11+9);
+        if(hx<(R.camper||0)){const A=at(d,s*(C.hwAt(d)+af[1]+3.6));if(!(C.lakeAt&&C.lakeAt(A.x,A.z))&&T.slope(A.x,A.z)<.4&&!T.slootAt(A.x,A.z)&&T.distSide(A.x,A.z)>7&&T.exact(A.x,A.z)>C.hwAt(d)+3.2)put('camper',A.x,A.y-.05,A.z,1,-A.q.h+(s<0?Math.PI:0),KL[Math.floor(hsP(i,ri*11+10)*8)])}
+        else if(hx<(R.camper||0)+(R.parasol||0)){const A=at(d+1,s*(C.hwAt(d)+af[1]+.8));if(T.slope(A.x,A.z)<.6)put('parasol',A.x,A.y,A.z,1,0)}}}}
   yield;
   /* --- kaart: echte gebouwen en bomen op hun plek --- */
   if(T.KR){const KR=T.KR;
@@ -944,7 +1018,28 @@ function* dzExtras(X){
     if(!KR.per){KR.per=new Map();const add=(ty,o)=>{const k=T.near(o.x,o.z);if(k<0)return;const ci=Math.floor(k*STEP/CH);let Lc=KR.per.get(ci);if(!Lc)KR.per.set(ci,Lc={B:[],T:[]});Lc[ty].push(o)};for(const b of KR.B)add('B',b);for(const t of KR.T)add('T',t)}
     const Lc=KR.per.get(Math.floor(a/CH)),HUIS=[['rood',6],['wit',5.4],['trapgevel',6.5],['groen',6],['villa',7.5],['huis',5],['geel',8]];
     if(Lc){let nn=0;
-      for(const b of Lc.B){if(++nn%200===0)yield;const k=T.near(b.x,b.z),p=roadAt(C,k*STEP),dist=T.exact(b.x,b.z),hw=C.hwAt(k*STEP);
+      /* schuren, loodsen en huizen verder van de weg: op maat van de kaart, met een zadeldak langs de lange zijde en een deur in de kopgevel */
+      const bp=[],bc=[],cW=new TH.Color(),cR=new TH.Color(),cD=new TH.Color(),
+        tri=(A,B,Cc,c,k)=>{bp.push(...A,...B,...Cc);for(const P of[A,B,Cc]){const f=k??(.8+.2*clamp((P[1]-A.base)/3,0,1));bc.push(c.r*f,c.g*f,c.b*f)}},quad=(A,B,Cc,Dd,c,k)=>{tri(A,B,Cc,c,k);tri(A,Cc,Dd,c,k)},
+        bouw=(b,y,schuur,hs)=>{const ux=Math.cos(b.ang),uz=-Math.sin(b.ang),vx=Math.sin(b.ang),vz=Math.cos(b.ang),hl=b.d/2,hw2=b.w/2,wh=schuur?clamp(b.w*.32,2.8,5):clamp(b.w*.45,3,6.4),rh=b.w/2*(schuur?.55:b.w>11?.6:.9),ov=.35;
+          const hs2=(hs*7.13)%1,hs3=(hs*13.7)%1;
+          cW.set(schuur?['#71857a','#80756b','#a08064','#d6cfbd','#8a998e','#8f8478'][Math.floor(hs*6)%6]:['#a5583f','#b0694a','#e9e2d0','#8d4f3c','#b87354'][Math.floor(hs*5)%5]);
+          cR.set(schuur?['#b5553c','#6f7479','#8b4a3a','#4a4d52','#7f8a80'][Math.floor(hs2*5)%5]:['#c0603c','#4a4d52','#a04a36','#c0603c'][Math.floor(hs2*4)%4]);cD.set(schuur?(hs3<.5?'#e8e4d8':'#59493a'):'#f1eee6');const cG=new TH.Color(schuur?'#cdd5d8':'#c3d2dc'),cT=new TH.Color('#ece8dc');
+          const P=(u,v,h)=>{const q=[b.x+ux*u+vx*v,y+h,b.z+uz*u+vz*v];q.base=y;return q};
+          /* muren en kopgevels */
+          for(const s of[-1,1]){const A=P(-hl,s*hw2,0),B=P(hl,s*hw2,0),B1=P(hl,s*hw2,wh),A1=P(-hl,s*hw2,wh);s>0?quad(A,B,B1,A1,cW):quad(B,A,A1,B1,cW);
+            const E=P(s*hl,-hw2,0),G2=P(s*hl,hw2,0),G1=P(s*hl,hw2,wh),E1=P(s*hl,-hw2,wh),R=P(s*hl,0,wh+rh);if(s>0){quad(G2,E,E1,G1,cW);tri(G1,E1,R,cW)}else{quad(E,G2,G1,E1,cW);tri(E1,G1,R,cW)}
+            /* deur of poort in de kopgevel, net voor de muur */
+            const dw=schuur?Math.min(hw2*.55,2.2):.55,dh=schuur?Math.min(wh*.85,3.6):2.1,o2=s*(hl+.04),D0=P(o2,-dw,0),D1=P(o2,dw,0),D2=P(o2,dw,dh),D3=P(o2,-dw,dh);s>0?quad(D1,D0,D3,D2,cD,1):quad(D0,D1,D2,D3,cD,1)}
+          /* ramen in de lange gevels: een schuur een rij kleine hoog in de muur, een huis een of twee rijen; en een lichte lijst onder de dakrand */
+          for(const s of[-1,1]){const v=s*(hw2+.04),st=schuur?5:2.7,n=Math.max(1,Math.floor((b.d-2)/st)),rows=schuur?[[wh-1.25,.6,.9]]:wh>5?[[1,1.3,.9],[3.6,1.2,.9]]:[[1,1.3,.9]];
+            for(const [h0,hh,ww] of rows)for(let i=0;i<n;i++){const u=(i-(n-1)/2)*st,A=P(u-ww/2,v,h0),B=P(u+ww/2,v,h0),B1=P(u+ww/2,v,h0+hh),A1=P(u-ww/2,v,h0+hh);s>0?quad(A,B,B1,A1,cG,1):quad(B,A,A1,B1,cG,1)}
+            {const A=P(-hl,v,wh-.28),B=P(hl,v,wh-.28),B1=P(hl,v,wh),A1=P(-hl,v,wh);s>0?quad(A,B,B1,A1,cT,1):quad(B,A,A1,B1,cT,1)}}
+          /* dak met een kleine overstek; de kant naar de zon iets lichter */
+          for(const s of[-1,1]){const A=P(-hl-ov,s*(hw2+ov),wh-ov*rh/hw2),B=P(hl+ov,s*(hw2+ov),wh-ov*rh/hw2),R1=P(hl+ov,0,wh+rh),R0=P(-hl-ov,0,wh+rh);s>0?quad(A,B,R1,R0,cR,1):quad(B,A,R0,R1,cR,1)}};
+      for(const b0 of Lc.B){if(++nn%200===0)yield;let b=b0,dist=T.exact(b.x,b.z);const k=T.near(b.x,b.z),p=roadAt(C,k*STEP),hw=C.hwAt(k*STEP);
+        /* in het dorp: een huis dat op de stoep zou staan schuift een paar meter achteruit */
+        {const te=hw+b.w/2+4.6-dist;if(te>0&&te<7&&C.secP(k*STEP).land==='dorp'){const dx=b.x-p.x,dz=b.z-p.z,l=Math.hypot(dx,dz)||1;b=Object.assign({},b0,{x:b.x+dx/l*te,z:b.z+dz/l*te});dist=T.exact(b.x,b.z)}}
         if(dist<hw+b.w/2+1.2||(C.lakeAt&&C.lakeAt(b.x,b.z)))continue;
         /* de lange zijde volgt de kaart; de voorgevel kijkt naar de weg */
         let ry=Math.atan2(Math.cos(b.ang),-Math.sin(b.ang));if(Math.sin(ry)*(p.x-b.x)+Math.cos(ry)*(p.z-b.z)<0)ry+=Math.PI;
@@ -952,9 +1047,10 @@ function* dzExtras(X){
         if(b.srt===3)put('kerk',b.x,y,b.z,clamp(b.w/8,.8,1.7),ry,tint(.06,.02));
         else if(b.srt===1)put('boerderij',b.x,y,b.z,clamp(b.w/10,.7,1.35),ry,tint(.12,.04));
         /* grote schuren en loodsen: een laag, breed blok in gedekt groen, grijs of bruin */
-        else if(b.srt===2)put(b.d/b.w>1.9?'blokschuur':'blokhuis',b.x,y+.3,b.z,b.w,ry,new TH.Color().setHSL(hs<.4?.3:hs<.7?.08:.6,.14,.5+hs*.2),clamp(b.w*.4,5,9));
-        else if(dist>90)put(b.d/b.w>1.9?'blokschuur':'blokhuis',b.x,y+.3,b.z,b.w,ry,new TH.Color().setHSL(hs<.6?.03:.1,hs<.6?.45:.2,hs<.6?.45:.8),b.w*(.9+hs*.5));
+        else if(b.srt===2||dist>90||b.w>11)bouw(b,y+.1,b.srt===2||(b.w>11&&C.secP(k*STEP).land!=='dorp'),hs);
         else{const [m,mw]=HUIS[Math.floor(hs*HUIS.length)%HUIS.length];put(m,b.x,y,b.z,clamp(b.w/mw,.7,1.5),ry,tint(.14,.05))}}
+      if(bp.length){const q=new TH.BufferGeometry();q.setAttribute('position',new TH.Float32BufferAttribute(bp,3));q.setAttribute('color',new TH.Float32BufferAttribute(bc,3));q.computeVertexNormals();
+        if(!M.bouw)M.bouw=new TH.MeshLambertMaterial({vertexColors:true,side:TH.DoubleSide});const m=new TH.Mesh(q,M.bouw);m.castShadow=!W.lite;m.receiveShadow=true;g.add(m)}
       for(const t of Lc.T){if(++nn%300===0)yield;const k=T.near(t.x,t.z),dist=T.exact(t.x,t.z),hw=C.hwAt(k*STEP);if(dist<hw+2.4||(C.lakeAt&&C.lakeAt(t.x,t.z))||T.slootAt(t.x,t.z))continue;
         const y=T.h(t.x,t.z),rij=(Math.floor(t.x/70)+Math.floor(t.z/70))%2;
         if(t.srt===2)put('struik',t.x,y,t.z,.8+r()*.8,r()*6,tint());
@@ -1037,6 +1133,18 @@ function* dzExtras(X){
       const p=roadAt(C,q.d),dk=new TH.Mesh(new TH.BoxGeometry(hw*2+1,.6,q.lengte||28),M.beton||(M.beton=new TH.MeshLambertMaterial({color:'#b9b5ad',side:TH.DoubleSide})));dk.position.set(p.x,p.y-.42,p.z);dk.rotation.y=-p.h;dk.castShadow=dk.receiveShadow=true;g.add(dk)}
   }
   yield;
+  /* --- slingers: lijnen met vlaggetjes over de dorpsstraat (dorp met slingers: afstand in meters) --- */
+  {const sp=[],sc=[],cc=new TH.Color(),KS=['#d94b3d','#f4d03f','#3d7fbf','#f4f4f4','#3f9a5a','#e07a2f'];
+    for(const v of D.dorpen||[]){if(!v.slingers)continue;let v0=C.at(v.van),v1=C.at(v.tot);v0=((v0%L)+L)%L;v1=((v1%L)+L)%L;if(v1<v0)v1+=L;
+      for(const sh of[0,-L])for(let d=Math.ceil((v0+sh+15)/v.slingers)*v.slingers;d<v1+sh-15;d+=v.slingers){if(d<a||d>=end)continue;
+        const q=roadAt(C,d),hw=C.hwAt(d)+1.7,nx=Math.cos(q.h),nz=Math.sin(q.h),fx=Math.sin(q.h),fz=-Math.cos(q.h),n=Math.round(hw*2/.62),pt=t=>{const o2=-hw+2*hw*t;return [q.x+nx*o2,q.y+5.3-1*Math.sin(t*Math.PI),q.z+nz*o2]};
+        for(const s of[-1,1])put('mast',q.x+nx*hw*s,q.y+.1,q.z+nz*hw*s,1,0);
+        for(let i=0;i<n;i++){const A=pt(i/n),B=pt((i+1)/n),Mi=pt((i+.5)/n);cc.set(KS[(i+Math.floor(d/7))%KS.length]);
+          sp.push(A[0],A[1],A[2],B[0],B[1],B[2],Mi[0]+fx*.05,Mi[1]-.58,Mi[2]+fz*.05);for(let k=0;k<3;k++)sc.push(cc.r,cc.g,cc.b);
+          /* het koord */
+          sp.push(A[0],A[1]+.02,A[2],B[0],B[1]+.02,B[2],B[0],B[1]-.02,B[2]);for(let k=0;k<3;k++)sc.push(.25,.25,.27)}}}
+    if(sp.length){const q=new TH.BufferGeometry();q.setAttribute('position',new TH.Float32BufferAttribute(sp,3));q.setAttribute('color',new TH.Float32BufferAttribute(sc,3));q.computeVertexNormals();
+      if(!M.bouw)M.bouw=new TH.MeshLambertMaterial({vertexColors:true,side:TH.DoubleSide});const m=new TH.Mesh(q,M.bouw);m.castShadow=!W.lite;g.add(m)}}
   /* --- dorpen: huizen langs de straat, stoepen met tegels, een plein met kerk, lantaarns en mensen --- */
   for(const v of D.dorpen||[]){let v0=C.at(v.van),v1=C.at(v.tot);v0=((v0%L)+L)%L;v1=((v1%L)+L)%L;if(v1<v0)v1+=L;
     for(const sh of[0,-L]){const s0=Math.max(v0+sh,a),s1=Math.min(v1+sh,end);if(s1<=s0)continue;yield;
@@ -1059,7 +1167,7 @@ function* dzExtras(X){
           if(run)idx.push(n0-2,n0-1,n0,n0-1,n0+1,n0);run=true;for(const dd of[d,d+2]){const q2=roadAt(C,dd),h2=C.hwAt(dd);put('stoeprand',q2.x+Math.cos(q2.h)*side*(h2+.05),q2.y,q2.z+Math.sin(q2.h)*side*(h2+.05),1,-q2.h)}}}
         if(idx.length){M.tegel2=M.tegel2||Object.assign(M.tegel.clone(),{side:TH.DoubleSide});const m=new TH.Mesh(geo(pos,idx,null,uv),M.tegel2);m.receiveShadow=true;g.add(m)}
         for(let d=s0+5;d<s1;d+=7+r()*12){const side=r()<.5?-1:1,A=at(d,side*(C.hwAt(d)+1.2+r()*1));put('loper',A.x,A.q.y+.13,A.z,.95+r()*.1,-A.q.h+(r()<.5?0:Math.PI),new TH.Color().setHSL(r(),.55,.45))}
-        for(let d=s0+12;d<s1;d+=30+r()*40){const side=r()<.5?-1:1,A=at(d,side*(C.hwAt(d)-1.1));put('auto',A.x,A.q.y+.02,A.z,1,-A.q.h+(side>0?0:Math.PI),new TH.Color(['#d9d9d9','#1d1f22','#8a8f96','#b3262d','#1f4f8c','#f2f2f2'][Math.floor(r()*6)]))}
+        for(let d=s0+12;d<s1;d+=30+r()*40){const side=r()<.5?-1:1,A=at(d,side*(C.hwAt(d)+1.25));put('auto',A.x,A.q.y+.13,A.z,1,-A.q.h+(side>0?0:Math.PI),new TH.Color(['#d9d9d9','#30343a','#8a8f96','#b3262d','#1f4f8c','#f2f2f2'][Math.floor(r()*6)]))}
         /* plein met kerk, fontein, terras en bomen */
         if(pl>=s0&&pl<s1){const hw=C.hwAt(pl),A=at(pl,ks*(hw+13));/* op het laagste punt onder het plein, anders zweeft de rand boven een helling */put('plein',A.x,A.q.y+.03,A.z,.9,face(A.q.h,ks));
           const K=at(pl,ks*(hw+38));put(v.kerk||'alpenkerk',K.x,T.h(K.x,K.z)-.4,K.z,1,face(K.q.h,ks));put('blob',K.x,K.y+.06,K.z,11,0);

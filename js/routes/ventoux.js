@@ -23,20 +23,20 @@
     /* landschappen langs de weg. rand 'sneeuw' = de geel-zwarte sneeuwpalen van de kale top */
     secties:[
       ['terug',{land:'dorp',breedte:6.6,lijn:'geen',rand:'stoep',sfeer:'besloten',dicht:.4}],
-      ['bedoin+0.3',{land:'wijn',breedte:6.4,lijn:'midden',rand:'paal',sfeer:'open',dicht:.3}],
-      ['esteve-0.15',{land:'bosrand',breedte:6.2,lijn:'midden',rand:'paal',sfeer:'half',dicht:.7}],
-      ['bos',{land:'bos',breedte:6,lijn:'midden',rand:'paal',sfeer:'besloten',dicht:1}],
+      ['bedoin+0.3',{land:'wijn',breedte:6.4,lijn:'rive',rand:'paal',sfeer:'open',dicht:.3}],
+      ['esteve-0.15',{land:'bosrand',breedte:6.2,lijn:'rive',rand:'paal',sfeer:'half',dicht:.7}],
+      ['bos',{land:'bos',breedte:6,lijn:'rive',rand:'paal',sfeer:'besloten',dicht:1}],
       ['reynard-0.3',{land:'boomgrens',breedte:6.6,lijn:'midden',rand:'paal',sfeer:'open',dicht:.3}],
       ['kaal',{land:'kaal',breedte:6,lijn:'midden',rand:'sneeuw',sfeer:'open',dicht:0}],
       ['noord+0.9',{land:'boomgrens',breedte:6,lijn:'midden',rand:'rail',sfeer:'open',dicht:.4}],
       ['serein-2.4',{land:'bos',breedte:6,lijn:'midden',rand:'rail',sfeer:'besloten',dicht:.9}],
       ['serein-0.5',{land:'alm',breedte:6.2,lijn:'midden',rand:'paal',sfeer:'open',dicht:.35}],
       ['serein+0.9',{land:'bos',breedte:6,lijn:'midden',rand:'rail',sfeer:'besloten',dicht:.95}],
-      ['garrigue',{land:'garrigue',breedte:6.2,lijn:'midden',rand:'muur',sfeer:'half',dicht:.55}],
+      ['garrigue',{land:'garrigue',breedte:6.2,lijn:'rive',rand:'muur',sfeer:'half',dicht:.55}],
       ['malaucene-0.7',{land:'dorp',breedte:6.6,lijn:'geen',rand:'stoep',sfeer:'besloten',dicht:.4}],
-      ['malaucene+0.6',{land:'wijn',breedte:6.2,lijn:'midden',rand:'paal',sfeer:'open',dicht:.35}],
+      ['malaucene+0.6',{land:'wijn',breedte:6.2,lijn:'rive',rand:'paal',sfeer:'open',dicht:.35}],
       ['madeleine-1.2',{land:'garrigue',breedte:6,lijn:'midden',rand:'paal',sfeer:'half',dicht:.55}],
-      ['madeleine+1.3',{land:'wijn',breedte:6.2,lijn:'midden',rand:'paal',sfeer:'open',dicht:.3}]
+      ['madeleine+1.3',{land:'wijn',breedte:6.2,lijn:'rive',rand:'paal',sfeer:'open',dicht:.3}]
     ],
     /* wat er groeit, per landschap: [kans op boom in bos, kans op boom in open land, soorten] */
     groen:{dorp:[.2,.06,['plataan','cipres','plataan','olijf']],wijn:[.35,.012,['cipres','olijf','steeneik','parasolden','eik','cipres']],
@@ -50,15 +50,33 @@
     velden:{hoek:20,b:60,l:170,kans:.8,rijen:.12,rijboom:['cipres','cipres','steeneik'],tot:330,
       kleuren:['#b49a68','#b9a06c','#9aa55c','#a89a86','#a9a765','#93a35b'],gewas:['wijn','wijn',null,'lavendel','olijf','kers']},
     dorpen:[
-      {van:'terug+0.1',tot:'bedoin+0.2',naam:'Bédoin',plein:'bedoin-0.15',kant:-1,kerk:'kerk',huizen:['mas','mas2','mas3','mas4','mas3','winkel']},
+      {van:'terug+0.1',tot:'bedoin+0.2',naam:'Bédoin',slingers:38,plein:'bedoin-0.15',kant:-1,kerk:'kerk',huizen:['mas','mas2','mas3','mas4','mas3','winkel']},
       {van:'colombe-0.12',tot:'colombe+0.14',naam:'Sainte-Colombe',klein:true,huizen:['mas','mas2','mas4']},
       {van:'bruns-0.1',tot:'bruns+0.1',naam:'Les Bruns',klein:true,huizen:['mas2','mas','mas4']},
       {van:'esteve-0.3',tot:'esteve-0.1',naam:'Saint-Estève',klein:true,huizen:['mas','mas4','mas2']},
-      {van:'malaucene-0.55',tot:'malaucene+0.45',naam:'Malaucène',plein:'malaucene+0.05',kant:1,kerk:'kerk',huizen:['mas3','mas','mas2','mas4','mas3','winkel']}
+      {van:'malaucene-0.55',tot:'malaucene+0.45',naam:'Malaucène',slingers:44,plein:'malaucene+0.05',kant:1,kerk:'kerk',huizen:['mas3','mas','mas2','mas4','mas3','winkel']}
     ],
     /* namen en kreten op het wegdek: in het bos af en toe, op de kale top steeds vaker */
     verf:[{van:'bos',tot:'kaal',elke:420},{van:'kaal',tot:'top-1',elke:190},{van:'top-1',tot:'top',elke:55}],
     bloemen:.5,
+    /* publiek (zie dzExtras in js/ontwerp.js): rustig in de vlakte, groepjes met campers in het bos, drukker bij Chalet Reynard
+       en op de kale top steeds voller tot aan de dranghekken */
+    publiek:[
+      {land:['dorp'],elke:42,n:[2,4],af:[.7,1.7],op:.13,zit:.15,vlag:['fan7']},
+      {van:'bedoin+0.3',tot:'esteve',elke:520,n:[2,4],zit:.3,parasol:.3,helling:.5},
+      {van:'esteve-0.05',tot:'esteve+0.12',elke:14,n:[2,5],vlag:['fan7','fan9']},
+      {van:'bos',tot:'reynard-0.3',elke:300,n:[2,6],zit:.2,vlag:['fan7','fan8','fan9'],camper:.35,parasol:.15},
+      {van:'reynard-0.3',tot:'reynard+0.2',elke:13,n:[2,6],zit:.1,vlag:['fan7','fan8','fan9']},
+      {van:'kaal',tot:'simpson',elke:150,n:[2,6],zit:.15,vlag:['fan7','fan8','fan9'],camper:.3,parasol:.1,helling:.7},
+      {van:'simpson-0.04',tot:'simpson+0.04',elke:9,n:[2,4]},
+      {van:'simpson',tot:'top-0.5',elke:55,n:[2,6],zit:.1,vlag:['fan7','fan8','fan9'],camper:.2,helling:.8},
+      {van:'top-0.5',tot:'top-0.22',elke:7,n:[2,5],vlag:['fan7','fan8','fan9'],helling:1.2},
+      {van:'top-0.22',tot:'top+0.03',elke:1.3,n:[2,4],af:[1.1,3.6],vlag:['fan7','fan8','fan9'],zit:0,helling:2.5},
+      {van:'serein-0.2',tot:'serein+0.3',elke:120,n:[2,4],zit:.3,parasol:.3},
+      {van:'malaucene+0.6',tot:'madeleine-0.3',elke:700,n:[2,3],zit:.4,parasol:.3,helling:.5},
+      {van:'madeleine-0.3',tot:'madeleine+0.05',elke:40,n:[2,5],vlag:['fan7']},
+      {van:'madeleine+0.3',tot:'terug',elke:800,n:[2,3],zit:.4,helling:.5}
+    ],
     /* details langs de weg (zie dzExtras in js/ontwerp.js) */
     details:[
       /* de vlakte: palen langs de weg, gestapelde muurtjes, veldhuisjes, cipressen en olijfbomen, een wegkruis */
@@ -90,11 +108,13 @@
       {m:['rotspartij','rotspartij2'],land:['kaal'],elke:160,af:[11,34],schaal:[1.2,2.8],helling:1.2},
       {m:['rotsblok','rots','keien'],land:['kaal'],elke:38,af:[4.5,26],schaal:[.5,1.5],helling:1.2},
       /* Chalet Reynard: geparkeerde auto's en een terras; de top: dranghekken langs de laatste meters en auto's op de parkeerplaats */
-      {m:'auto',van:'reynard-0.06',tot:'reynard+0.1',elke:5.6,vast:true,kant:1,af:[4.6,4.6],draai:'weg',kleur:['#d9d9d9','#1d1f22','#8a8f96','#b3262d','#1f4f8c','#f2f2f2']},
+      {m:'auto',van:'reynard-0.06',tot:'reynard+0.1',elke:5.6,vast:true,kant:1,af:[4.6,4.6],draai:'weg',kleur:['#d9d9d9','#2a2d33','#8a8f96','#b3262d','#1f4f8c','#f2f2f2','#3f6a4a','#c9a227','#5a7fa8']},
       {m:'terras',van:'reynard-0.03',tot:'reynard+0.03',elke:4.5,kant:1,af:[8.5,12],kleur:['#c94f3d','#e0b23c','#3d6f9c']},
       {m:'dranghek',van:'top-0.22',tot:'top+0.03',elke:2.6,vast:true,kant:1,af:[.5,.5],draai:'weg',tint:false,helling:2},
       {m:'dranghek',van:'top-0.22',tot:'top+0.03',elke:2.6,vast:true,kant:-1,af:[.5,.5],draai:'weg',tint:false,helling:2},
-      {m:'auto',van:'top+0.04',tot:'top+0.16',elke:5.6,vast:true,kant:-1,af:[3.6,3.6],draai:'weg',kleur:['#d9d9d9','#1d1f22','#8a8f96','#b3262d','#1f4f8c','#f2f2f2'],helling:2}
+      {m:'kraam',van:'top-0.2',tot:'top-0.02',elke:16,vast:true,kant:-1,af:[5.5,6.5],draai:'naarweg',kleur:['#d94b3d','#3d7fbf','#f4d03f','#3f9a5a'],helling:.8},
+      {m:'kraam',van:'reynard-0.1',tot:'reynard-0.07',elke:9,vast:true,kant:1,af:[5,5.5],draai:'naarweg',kleur:['#d94b3d','#3d7fbf','#f4d03f']},
+      {m:'auto',van:'top+0.04',tot:'top+0.16',elke:5.6,vast:true,kant:-1,af:[3.6,3.6],draai:'weg',kleur:['#d9d9d9','#2a2d33','#8a8f96','#b3262d','#1f4f8c','#f2f2f2','#3f6a4a','#c9a227','#5a7fa8'],helling:2}
     ],
     /* herkenningspunten */
     punten:[
@@ -114,6 +134,6 @@
       bosVan:140,boomgrens:1130,kaalVan:1150,kaalDicht:1.3,weiTot:[450,1000]
     },
     /* vaste sfeer: een heldere zomerochtend in de Provence */
-    sfeer:{name:'ochtend',top:'#1c5fd0',hor:'#cfe0ee',sun:'#fff1da',si:3,hemi:2.3,sky:'#d8e6f6',gr:'#958f78',dir:[150,90,60],disc:'#fff4dc',exp:1.3,fog:[900,14000],fogAbs:true,cloud:'#ffffff'}
+    sfeer:{name:'ochtend',top:'#1c5fd0',hor:'#cfe0ee',sun:'#fff1da',si:3,hemi:2.3,sky:'#d8e6f6',gr:'#958f78',dir:[150,90,60],disc:'#fff4dc',exp:1.3,fog:[1500,24000],fogAbs:true,cloud:'#ffffff'}
   };
 })();

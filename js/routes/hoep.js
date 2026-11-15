@@ -11,17 +11,27 @@
   /* markeringen: km langs de route */
   marks:{botshol:2.05,stokkelaar:4.6,ouderkerk:9.0,amstel:10.2,nes:14.3,fort:15.8},
   secties:[
-    ['start',{land:'polder',breedte:4.8,lijn:'kant',rand:'paal',hek:'draad',sfeer:'open',dicht:.1}],
+    ['start',{land:'polder',breedte:4.8,lijn:'kantstreep',rand:'paal',hek:'draad',sfeer:'open',dicht:.1}],
     ['ouderkerk-0.45',{land:'dorp',breedte:5.6,lijn:'geen',rand:'stoep',sfeer:'besloten',dicht:.3}],
-    ['ouderkerk+0.55',{land:'polder',breedte:4.8,lijn:'kant',rand:'paal',hek:'draad',sfeer:'open',dicht:.1}]
+    ['ouderkerk+0.55',{land:'polder',breedte:4.8,lijn:'kantstreep',rand:'paal',hek:'draad',sfeer:'open',dicht:.1}]
   ],
   /* bomen en struiken komen van de kaart, niet uit het toeval; in het open land wel graspollen en bloemen */
   groen:{polder:[0,0,['boom']],dorp:[0,0,['boom']]},bosDeel:{polder:0,dorp:0},
   /* lange, smalle kavels grasland, om en om iets anders van kleur */
   velden:{hoek:25,b:48,l:700,kans:.9,rijen:0,kleuren:['#86b452','#7dab4c','#93bb58','#79a84a','#8cb655']},
   /* Ouderkerk: de huizen komen van de kaart (echt:true), stoepen, mensen en auto's van het dorp */
-  dorpen:[{van:'ouderkerk-0.4',tot:'ouderkerk+0.5',naam:'Ouderkerk aan de Amstel',echt:true}],
+  dorpen:[{van:'ouderkerk-0.4',tot:'ouderkerk+0.5',naam:'Ouderkerk aan de Amstel',echt:true,slingers:46}],
   bloemen:1,
+  /* het gras loopt bijna tot aan het asfalt: alleen een smalle strook grind */
+  berm:.3,
+  /* publiek: hier en daar een gezin aan de polderkant bij een erf, mensen op een stoel aan het water, en wat meer volk bij de start in Nes */
+  publiek:[
+    {land:['dorp'],elke:60,n:[2,4],af:[.7,1.7],op:.13,zit:.15,vlag:['fan8']},
+    {elke:650,n:[2,4],kant:-1,af:[1.4,2.6],zit:.2,vlag:['fan8'],helling:1.2},
+    {elke:900,n:[1,2],kant:1,af:[1.2,1.8],zit:.8,helling:1.2},
+    {van:'start',tot:'start+0.12',elke:12,n:[2,5],af:[1.3,2.8],vlag:['fan8'],helling:1.2},
+    {van:'nes-0.1',tot:'nes+0.15',elke:30,n:[2,4],af:[1.3,2.6],vlag:['fan8'],helling:1.2}
+  ],
   /* details langs de weg (zie dzExtras in js/ontwerp.js) */
   details:[
     /* aan de polderkant: landhekken bij de dammen, rijen knotwilgen langs de ringsloot, hooibalen en een trekker in het land */
@@ -35,6 +45,7 @@
     {m:'steiger',land:['polder'],elke:900,kant:1,zoek:'oever',draai:'naarweg',dy:-.35,tint:false},
     {m:'zwaan',elke:330,kant:1,af:[8,30],op:'water',groep:[2,7],tint:false},
     {m:'eend',elke:140,kant:1,af:[5,22],op:'water',groep:[4,5],tint:false},
+    {m:'visser',land:['polder'],elke:1300,kant:1,zoek:'oever',terug:1.6,draai:'vanweg',helling:1.5,kleur:['#4a6a8a','#6b7a4a','#8a5a4a']},
     /* Ouderkerk: lantaarns, bankjes, terrassen en fietsen */
     {m:'lamp',land:['dorp'],elke:36,vast:true,kant:1,af:[1.3,1.3],draai:'naarweg',tint:false},
     {m:'bank',land:['dorp'],elke:80,af:[1.9,2.1],draai:'naarweg',tint:false},
