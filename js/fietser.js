@@ -71,7 +71,7 @@ function drawLijf(c,k,kaart,atlas,ao,uv){
 }
 
 /* ---------- model laden (één keer) en per renner een kopie met eigen tenue ---------- */
-const RIDER_V='20261115d';
+const RIDER_V='20261115e';
 let RIDER=null;
 async function loadRider(){
   if(RIDER)return RIDER;
