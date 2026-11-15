@@ -1562,7 +1562,7 @@ function worldStep(t){
   {const st=(want-W.gap)*Math.min(1,dt*.5*tsG);W.gap+=clamp(st,-1.6*dt*tsG,.85*dt*tsG)}
   const slope=dd=>(roadAt(C,dd+6).y-roadAt(C,dd).y)/6*100;
   const lane=(R,dd,off,cad,spd,stand)=>{const q=roadAt(C,dd);R.g.position.set(q.x+Math.cos(q.h)*off,q.y,q.z+Math.sin(q.h)*off);R.g.rotation.y=-q.h;
-    const q2=roadAt(C,dd+3);R.g.rotation.x=Math.atan2(q2.y-q.y,3);R.g.rotation.z=clamp(-q.k*spd*spd*.012,-.25,.25);poseRider(R,dt,cad,spd,stand)};
+    const q2=roadAt(C,dd+3);R.g.rotation.x=Math.atan2(q2.y-q.y,3);R.g.rotation.z=clamp(-q.k*spd*spd*.012,-.25,.25);poseRider(R,dt,cad,spd,stand,clamp(-roadAt(C,dd+14).k*14,-.45,.45),spd/(P.sim?Math.max(1,Math.min(P.speed,3)):1)*3.6)};
   const spd=W.v*(P.sim?Math.min(P.speed,3):1);
   /* in een versnelde demo (10x, 60x) moet alles wat 'met traagheid volgt' even zoveel sneller volgen, anders blijft het achter */
   const tS=P.sim&&run?Math.max(1,P.speed):1,step=W.lastD!=null&&Math.abs(d-W.lastD)<80?d-W.lastD:0;
@@ -1573,7 +1573,8 @@ function worldStep(t){
   if(P.vrij&&run&&P.wo.laps&&d-12>=P.wo.laps*C.L){finishRide();return}
   const cad=now()-live.tP<3000&&live.cad?live.cad:0,seg=P.wo.segs[segAt(pos)];
   /* uit het zadel bij steile stukken en harde inspanningen */
-  const hard=!P.free&&seg&&(seg.a+seg.b)/2>1.25,stand=run&&(slope(d)>7.5||hard);
+  /* op een lange klim niet aan één stuk: af en toe een kwart minuut staan, alleen op het steilste (boven 11,5%) blijft hij staan */
+  const hard=!P.free&&seg&&(seg.a+seg.b)/2>1.25,sl=slope(d),stand=run&&(sl>11.5||hard||(sl>7.5&&(t/1000)%70<16));
   const vr=P.vrij&&vrijStep(C,d,dt,rate,run,lane,slope);
   lane(W.me,d,P.vrij&&W.myOff!=null?W.myOff:.85,run?cad:0,spd,stand);
   W.pace.g.visible=!P.free;lane(W.pace,d+W.gap,-.85,run?(seg&&seg.cad||90):0,spd,stand);
@@ -1583,7 +1584,7 @@ function worldStep(t){
     if(n.d==null||Math.abs(n.d-d)>230){n.f=.82+Math.random()*.36;n.d=n.f<1?d+150+Math.random()*70:d-60-Math.random()*40;n.off=Math.random()<.5?-2.25:2.25}
     /* meeschuiven met jouw stap (ook bij 60x), plus hun eigen voor- of achterstand op gewone snelheid */
     n.d+=run?step+W.vs*(n.f-1)*dt:0;
-    lane(n.R,n.d,n.off,run?n.cad:0,W.vs*n.f,run&&slope(n.d)>8&&n.f>1);
+    lane(n.R,n.d,n.off,run?n.cad:0,W.vs*n.f,run&&n.f>1&&(slope(n.d)>11.5||(slope(n.d)>8&&(t/1000+n.cad*7)%60<18)));
   }
   finishWatch(C,d);
   /* camera achter de fietser */
