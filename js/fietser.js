@@ -44,12 +44,26 @@ function drawAtlas(c,k){
    models/lijfao.png is de gebakken schaduw in plooien en holtes (neus, ogen, lippen); die maakt de kleuren daar donkerder. */
 const SHIRT_R=200;
 function mixHex(a,b,t){const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)),A=p(a),B=p(b);return '#'+A.map((x,i)=>Math.round(x+(B[i]-x)*t).toString(16).padStart(2,'0')).join('')}
-function drawLijf(c,k,kaart,atlas,ao){
-  const W=kaart.width,H=kaart.height,src=kaart.data,out=c.createImageData(W,H),o=out.data,pat=atlas.data,pc=patchColors(k),sh=ao&&ao.data;
+/* De kaart kent de plek op het shirt maar in 256 stappen; daardoor kreeg de opdruk een kartelrand. shirtUV maakt die plek vloeiend:
+   per pixel het gemiddelde van de buren die op hetzelfde stuk shirt liggen (rondom telt door over de naad, van 255 naar 0). */
+function shirtUV(kaart){
+  const W=kaart.width,H=kaart.height,s=kaart.data,U=new Float32Array(W*H),V=new Float32Array(W*H),R=3;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x,j=i*4;if(s[j]!==SHIRT_R)continue;const g=s[j+1],b=s[j+2];let su=0,sv=0,n=0;
+    for(let dy=-R;dy<=R;dy++){const yy=y+dy;if(yy<0||yy>=H)continue;for(let dx=-R;dx<=R;dx++){const xx=x+dx;if(xx<0||xx>=W)continue;const q=(yy*W+xx)*4;if(s[q]!==SHIRT_R)continue;
+      let du=s[q+1]-g;if(du>128)du-=256;else if(du<-128)du+=256;const dv=s[q+2]-b;if(du>7||du<-7||dv>7||dv<-7)continue;su+=du;sv+=dv;n++}}
+    U[i]=g+su/n;V[i]=b+sv/n}
+  return {U,V};
+}
+function drawLijf(c,k,kaart,atlas,ao,uv){
+  const W=kaart.width,H=kaart.height,src=kaart.data,out=c.createImageData(W,H),o=out.data,pat=atlas.data,AW=atlas.width,AS=AW/512,pc=patchColors(k),sh=ao&&ao.data;
   pc.lip=mixHex(pc.huid,'#9c4a45',.45);
   const rgb=PATCH.map(n=>{const h=pc[n]||'#ff00ff';return [1,3,5].map(i=>parseInt(h.slice(i,i+2),16))});
   for(let i=0;i<W*H;i++){const j=i*4,r=src[j];let R,G,B;
-    if(r===SHIRT_R){const x=Math.min(511,Math.round(src[j+1]/255*512))%512,y=Math.max(0,Math.min(255,Math.round((1-src[j+2]/255)*512))),q=(y*512+x)*4;R=pat[q];G=pat[q+1];B=pat[q+2]}
+    if(r===SHIRT_R){
+      /* plek op het shirt, vloeiend (uv) en tussen vier beeldpunten van het patroon in gemengd: strakke randen aan strepen en letters */
+      const fu=((uv?uv.U[i]:src[j+1])/255*512*AS%AW+AW)%AW,fv=Math.max(0,Math.min(256*AS-1.001,(1-(uv?uv.V[i]:src[j+2])/255)*512*AS)),x0=Math.floor(fu),y0=Math.floor(fv),tx=fu-x0,ty=fv-y0,x1=(x0+1)%AW,
+        a=(y0*AW+x0)*4,b=(y0*AW+x1)*4,cq=((y0+1)*AW+x0)*4,d=((y0+1)*AW+x1)*4,mx=(n)=>(pat[a+n]*(1-tx)+pat[b+n]*tx)*(1-ty)+(pat[cq+n]*(1-tx)+pat[d+n]*tx)*ty;
+      R=mx(0);G=mx(1);B=mx(2)}
     else{const cc=rgb[r]||rgb[0];R=cc[0];G=cc[1];B=cc[2]}
     /* gebakken schaduw: op de huid voluit (neus, ogen, lippen), op kleding veel lichter, anders tekenen de spieren zich af in het shirt */
     const kl=r===SHIRT_R||(r>=2&&r<=8),f=sh?(kl?0.8+0.2*sh[j]/255:0.4+0.6*sh[j]/255):1;o[j]=R*f;o[j+1]=G*f;o[j+2]=B*f;o[j+3]=255}
@@ -57,7 +71,7 @@ function drawLijf(c,k,kaart,atlas,ao){
 }
 
 /* ---------- model laden (één keer) en per renner een kopie met eigen tenue ---------- */
-const RIDER_V='20261115c';
+const RIDER_V='20261115d';
 let RIDER=null;
 async function loadRider(){
   if(RIDER)return RIDER;
@@ -74,7 +88,7 @@ async function loadRider(){
     for(let i=0;i<p.length;i+=4){const r=kd[i];if((r>=2&&r<=8)||r>150){const w=.82;p[i]+=(128-p[i])*w;p[i+1]+=(128-p[i+1])*w;p[i+2]+=(255-p[i+2])*w}}
     x.putImageData(nd,0,0)}
   const normal=new T.CanvasTexture(nc);normal.flipY=false;normal.colorSpace=T.NoColorSpace;normal.needsUpdate=true;
-  RIDER={scene:g.scene,SKU,Q:[new T.Quaternion(),new T.Quaternion(),new T.Quaternion()],UP:new T.Vector3(0,1,0),clips:{zit:sub('zit',0,25),staan:sub('staan',30,55),laag:sub('laag',60,85)},kaart:pix(kaart,kaart.width,kaart.height),ao:pix(ao,kaart.width,kaart.height),normal,tex:new Map()};
+  RIDER={scene:g.scene,SKU,uv:null,Q:[new T.Quaternion(),new T.Quaternion(),new T.Quaternion()],UP:new T.Vector3(0,1,0),clips:{zit:sub('zit',0,25),staan:sub('staan',30,55),laag:sub('laag',60,85)},kaart:pix(kaart,kaart.width,kaart.height),ao:pix(ao,kaart.width,kaart.height),normal,tex:new Map()};
   return RIDER;
 }
 /* plaatjes per tenue (gedeeld door renners met hetzelfde tenue) */
@@ -82,8 +96,10 @@ function kitTextures(k){
   const key=JSON.stringify(k);let t=RIDER.tex.get(key);if(t)return t;
   const T=T3,mk=(w,h,draw)=>{const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d',{willReadFrequently:true}),c);
     const x=new T.CanvasTexture(c);x.flipY=false;x.colorSpace=T.SRGBColorSpace;x.anisotropy=ANISO;x.wrapS=T.RepeatWrapping;return x};
-  const atlas=mk(512,512,c=>drawAtlas(c,k));
-  const lijf=mk(RIDER.kaart.width,RIDER.kaart.height,c=>drawLijf(c,k,RIDER.kaart,atlas.image.getContext('2d').getImageData(0,0,512,512),RIDER.ao));
+  /* het kleurenplaatje twee keer zo groot getekend: scherpere letters op shirt en onderbuis */
+  const atlas=mk(1024,1024,c=>{c.scale(2,2);drawAtlas(c,k)});
+  if(!RIDER.uv)RIDER.uv=shirtUV(RIDER.kaart);
+  const lijf=mk(RIDER.kaart.width,RIDER.kaart.height,c=>drawLijf(c,k,RIDER.kaart,atlas.image.getContext('2d').getImageData(0,0,1024,1024),RIDER.ao,RIDER.uv));
   t={atlas,lijf};RIDER.tex.set(key,t);return t;
 }
 function riderMats(k,ghost){
@@ -116,7 +132,12 @@ function poseRider(R,dt,cad,spd,stand,bocht=0,kmh=0){
   R.zit.setEffectiveWeight((1-st)*(1-lg));R.aLaag.setEffectiveWeight((1-st)*lg);R.staan.setEffectiveWeight(st);R.mixer.update(0);
   /* het hoofd kijkt de bocht in: nek en hoofd draaien samen om de as recht omhoog, na de animatie */
   R.look+=(bocht-R.look)*Math.min(1,dt*2.5);
-  if(R.hoofd&&Math.abs(R.look)>.004){const [q1,q2,q3]=RIDER.Q;for(const [b,w] of[[R.nek,.4],[R.hoofd,.6]]){b.parent.getWorldQuaternion(q1);q2.setFromAxisAngle(RIDER.UP,R.look*w);b.quaternion.premultiply(q3.copy(q1).invert().multiply(q2).multiply(q1))}}
+  /* de mixer schrijft een bot alleen opnieuw als de animatie verandert (stilstaande pedalen: niet). Daarom onthouden we per bot de stand
+     uit de animatie (b0) en wat wij er zelf van maakten (b1): staat b1 er nog, dan beginnen we weer bij b0, anders is b0 de nieuwe stand */
+  if(R.hoofd){const [q1,q2,q3]=RIDER.Q;for(const [b,w] of[[R.nek,.4],[R.hoofd,.6]]){const u=b.userData;if(!u.b0){u.b0=b.quaternion.clone();u.b1=b.quaternion.clone()}
+    if(b.quaternion.equals(u.b1))b.quaternion.copy(u.b0);else u.b0.copy(b.quaternion);
+    if(Math.abs(R.look)>.004){b.parent.getWorldQuaternion(q1);q2.setFromAxisAngle(RIDER.UP,R.look*w);b.quaternion.premultiply(q3.copy(q1).invert().multiply(q2).multiply(q1))}
+    u.b1.copy(b.quaternion)}}
   /* de fiets wiegt mee met de trapbeweging: licht als hij zit, duidelijk als hij staat */
   R.g.rotation.z+=Math.sin(R.a)*(st*.1+(1-st)*.012*Math.min(1,cad/80));
 }
