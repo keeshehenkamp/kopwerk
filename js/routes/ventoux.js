@@ -56,6 +56,46 @@
       {van:'esteve-0.3',tot:'esteve-0.1',naam:'Saint-Estève',klein:true,huizen:['mas','mas4','mas2']},
       {van:'malaucene-0.55',tot:'malaucene+0.45',naam:'Malaucène',plein:'malaucene+0.05',kant:1,kerk:'kerk',huizen:['mas3','mas','mas2','mas4','mas3','winkel']}
     ],
+    /* namen en kreten op het wegdek: in het bos af en toe, op de kale top steeds vaker */
+    verf:[{van:'bos',tot:'kaal',elke:420},{van:'kaal',tot:'top-1',elke:190},{van:'top-1',tot:'top',elke:55}],
+    bloemen:.5,
+    /* details langs de weg (zie dzExtras in js/ontwerp.js) */
+    details:[
+      /* de vlakte: palen langs de weg, gestapelde muurtjes, veldhuisjes, cipressen en olijfbomen, een wegkruis */
+      {m:'elektrapaal',land:['wijn'],van:'bedoin+0.3',tot:'esteve',elke:58,vast:true,kant:1,af:[2.3,2.3],draai:'weg',tint:false},
+      {m:'elektrapaal',land:['wijn'],van:'malaucene+0.6',tot:'terug',elke:58,vast:true,kant:-1,af:[2.3,2.3],draai:'weg',tint:false},
+      {m:'stapelmuur',land:['wijn','garrigue'],elke:150,af:[4.2,7],draai:'weg',rij:[5,5.9]},
+      {m:'cabanon',land:['wijn'],elke:650,af:[16,38],draai:'naarweg'},
+      {m:'wegkruis',land:['wijn'],elke:2600,af:[3,3.6],draai:'naarweg',tint:false},
+      {m:'cipres',boom:true,land:['wijn','garrigue'],elke:70,af:[5,16],schaal:[.9,1.3]},
+      {m:'olijf',boom:true,land:['wijn','garrigue'],elke:55,af:[5,20],schaal:[.9,1.2]},
+      {m:['struik','struik','keien'],land:['wijn','garrigue'],elke:16,af:[3.5,14],schaal:[.6,1.2]},
+      {m:'bank',land:['wijn','garrigue'],elke:1900,af:[2.6,3.2],draai:'naarweg',tint:false},
+      /* de dorpen: platanen langs de straat, bankjes, terrassen, fietsen */
+      {m:'plataan',boom:true,land:['dorp'],elke:17,vast:true,kant:1,af:[1.7,1.7],schaal:[.85,1]},
+      {m:'plataan',boom:true,land:['dorp'],elke:17,vast:true,kant:-1,af:[1.7,1.7],schaal:[.85,1]},
+      {m:'bank',land:['dorp'],elke:60,af:[1.9,2.1],draai:'naarweg',tint:false},
+      {m:'terras',land:['dorp'],elke:75,af:[2.7,3.1],groep:[3,6],kleur:['#c94f3d','#3d6f9c','#e0b23c','#3f8a5a']},
+      {m:'fiets',land:['dorp'],elke:55,af:[2.2,2.4],draai:'weg',kleur:['#b3262d','#1f4f8c','#2f6b3a','#d9d9d9']},
+      /* het bos: varens, struiken, omgevallen stammen, houtstapels, rotsblokken, paddenstoelen, een picknickplek */
+      {m:'varen',land:['bos','bosrand'],elke:11,af:[3.4,13],groep:[3,5],schaal:[.6,1.2]},
+      {m:'struik',land:['bos','bosrand','boomgrens','alm'],elke:22,af:[3.6,12],schaal:[.6,1.3]},
+      {m:'stam',land:['bos','bosrand'],elke:170,af:[5,15]},
+      {m:'hout',land:['bos'],elke:520,af:[4,6],draai:'weg',tint:false},
+      {m:['rotsblok','rots'],land:['bos','bosrand','boomgrens'],elke:95,af:[4,16],schaal:[.6,1.5]},
+      {m:'paddenstoel',land:['bos'],elke:70,af:[3.4,7],groep:[3,2]},
+      {m:'picknick',land:['bos','boomgrens'],elke:2300,af:[6,9],draai:'naarweg',tint:false},
+      /* de kale top: steenmannetjes, rotspartijen en losse blokken in het puin */
+      {m:'steenman',land:['kaal'],elke:420,af:[5,14],schaal:[.7,1.1]},
+      {m:['rotspartij','rotspartij2'],land:['kaal'],elke:160,af:[11,34],schaal:[1.2,2.8],helling:1.2},
+      {m:['rotsblok','rots','keien'],land:['kaal'],elke:38,af:[4.5,26],schaal:[.5,1.5],helling:1.2},
+      /* Chalet Reynard: geparkeerde auto's en een terras; de top: dranghekken langs de laatste meters en auto's op de parkeerplaats */
+      {m:'auto',van:'reynard-0.06',tot:'reynard+0.1',elke:5.6,vast:true,kant:1,af:[4.6,4.6],draai:'weg',kleur:['#d9d9d9','#1d1f22','#8a8f96','#b3262d','#1f4f8c','#f2f2f2']},
+      {m:'terras',van:'reynard-0.03',tot:'reynard+0.03',elke:4.5,kant:1,af:[8.5,12],kleur:['#c94f3d','#e0b23c','#3d6f9c']},
+      {m:'dranghek',van:'top-0.22',tot:'top+0.03',elke:2.6,vast:true,kant:1,af:[.5,.5],draai:'weg',tint:false,helling:2},
+      {m:'dranghek',van:'top-0.22',tot:'top+0.03',elke:2.6,vast:true,kant:-1,af:[.5,.5],draai:'weg',tint:false,helling:2},
+      {m:'auto',van:'top+0.04',tot:'top+0.16',elke:5.6,vast:true,kant:-1,af:[3.6,3.6],draai:'weg',kleur:['#d9d9d9','#1d1f22','#8a8f96','#b3262d','#1f4f8c','#f2f2f2'],helling:2}
+    ],
     /* herkenningspunten */
     punten:[
       {soort:'gebouw',model:'herberg',at:'reynard',kant:1,af:16},
@@ -64,6 +104,7 @@
       {soort:'pas',at:'top',hoogte:1910},
       {soort:'gebouw',model:'chalet2',at:'serein-0.2',kant:1,af:20},
       {soort:'gebouw',model:'chalet',at:'serein+0.15',kant:-1,af:18},
+      {soort:'koeien',van:'serein-0.45',tot:'serein+0.8',af:14},
       {soort:'pas',at:'madeleine',naam:'Col de la Madeleine',hoogte:448}
     ],
     /* Het land komt uit de echte hoogtekaart (js/routes/ventoux-hoogte.js); de weg ligt er precies op.

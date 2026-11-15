@@ -11,14 +11,36 @@
   /* markeringen: km langs de route */
   marks:{botshol:2.05,stokkelaar:4.6,ouderkerk:9.0,amstel:10.2,nes:14.3,fort:15.8},
   secties:[
-    ['start',{land:'polder',breedte:4.8,lijn:'kant',rand:'paal',sfeer:'open',dicht:.1}],
-    ['ouderkerk-0.45',{land:'dorp',breedte:5.6,lijn:'geen',rand:'paal',sfeer:'besloten',dicht:.3}],
-    ['ouderkerk+0.55',{land:'polder',breedte:4.8,lijn:'kant',rand:'paal',sfeer:'open',dicht:.1}]
+    ['start',{land:'polder',breedte:4.8,lijn:'kant',rand:'paal',hek:'draad',sfeer:'open',dicht:.1}],
+    ['ouderkerk-0.45',{land:'dorp',breedte:5.6,lijn:'geen',rand:'stoep',sfeer:'besloten',dicht:.3}],
+    ['ouderkerk+0.55',{land:'polder',breedte:4.8,lijn:'kant',rand:'paal',hek:'draad',sfeer:'open',dicht:.1}]
   ],
   /* bomen en struiken komen van de kaart, niet uit het toeval; in het open land wel graspollen en bloemen */
   groen:{polder:[0,0,['boom']],dorp:[0,0,['boom']]},bosDeel:{polder:0,dorp:0},
   /* lange, smalle kavels grasland, om en om iets anders van kleur */
   velden:{hoek:25,b:48,l:700,kans:.9,rijen:0,kleuren:['#86b452','#7dab4c','#93bb58','#79a84a','#8cb655']},
+  /* Ouderkerk: de huizen komen van de kaart (echt:true), stoepen, mensen en auto's van het dorp */
+  dorpen:[{van:'ouderkerk-0.4',tot:'ouderkerk+0.5',naam:'Ouderkerk aan de Amstel',echt:true}],
+  bloemen:1,
+  /* details langs de weg (zie dzExtras in js/ontwerp.js) */
+  details:[
+    /* aan de polderkant: landhekken bij de dammen, rijen knotwilgen langs de ringsloot, hooibalen en een trekker in het land */
+    {m:'landhek',land:['polder'],elke:170,kant:-1,af:[5.5,7.5],draai:'weg',helling:1.2,tint:false},
+    {m:'knotwilg',boom:true,land:['polder'],elke:380,kant:-1,af:[13.5,13.5],rij:[6,9],schaal:[.9,1.15],helling:1.2},
+    {m:'baal',land:['polder'],elke:1100,kant:-1,af:[28,60],groep:[6,34],tint:false},
+    {m:'trekker',land:['polder'],elke:3400,kant:-1,af:[30,55],tint:false},
+    {m:['struik','struik','pol'],land:['polder'],elke:14,af:[3,10],schaal:[.6,1.2],helling:1.2},
+    /* aan de waterkant: bankjes met uitzicht, steigers, zwanen en eenden */
+    {m:'bank',land:['polder'],elke:850,kant:1,af:[1.7,2.1],draai:'vanweg',tint:false,helling:1.2},
+    {m:'steiger',land:['polder'],elke:900,kant:1,zoek:'oever',draai:'naarweg',dy:-.35,tint:false},
+    {m:'zwaan',elke:330,kant:1,af:[8,30],op:'water',groep:[2,7],tint:false},
+    {m:'eend',elke:140,kant:1,af:[5,22],op:'water',groep:[4,5],tint:false},
+    /* Ouderkerk: lantaarns, bankjes, terrassen en fietsen */
+    {m:'lamp',land:['dorp'],elke:36,vast:true,kant:1,af:[1.3,1.3],draai:'naarweg',tint:false},
+    {m:'bank',land:['dorp'],elke:80,af:[1.9,2.1],draai:'naarweg',tint:false},
+    {m:'terras',land:['dorp'],elke:110,af:[2.7,3.1],groep:[3,6],kleur:['#c94f3d','#3d6f9c','#e0b23c','#3f8a5a']},
+    {m:'fiets',land:['dorp'],elke:40,af:[2.2,2.4],draai:'weg',kleur:['#b3262d','#1f4f8c','#2f6b3a','#d9d9d9','#1d1f22']}
+  ],
   punten:[
     {soort:'molen',at:9.11,kant:1,af:1020,schaal:1.7},
     {soort:'koeien',van:.8,tot:1.8,kant:-1,af:26,bont:true},

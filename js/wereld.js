@@ -468,6 +468,14 @@ function propGeos(){
   /* Provence */
   G.lavendel=partsGeo([...[0,1,2,3,4,5,6,7,8].map(i=>ball(.42,i%2?'#8f6ad3':'#9d7be0',0,.32,-4.8+i*1.2,1,.75,1.1,0)),[new T.BoxGeometry(.7,.2,10.4),'#6f8f4a',M4(0,.1,0)]]);
   G.zonnebloem=partsGeo([...[0,1,2,3,4,5].flatMap(i=>{const z=-4.5+i*1.8;return [[new T.CylinderGeometry(.03,.04,1.7,4),'#4f8a2e',M4(0,.85,z)],[new T.CylinderGeometry(.32,.32,.08,9),'#ffcd1f',(()=>{const m=new T.Matrix4().makeRotationX(Math.PI/2-.3);m.setPosition(0,1.75,z+.05);return m})()],[new T.CylinderGeometry(.14,.14,.1,6),'#5a3a1a',(()=>{const m=new T.Matrix4().makeRotationX(Math.PI/2-.3);m.setPosition(0,1.76,z+.08);return m})()],ball(.28,'#4f8a2e',0,.9,z,1,.5,1)]})]);
+  /* details langs de weg: elektriciteitspaal, landhek, gestapeld muurtje, veldhuisje (cabanon), picknicktafel, eend */
+  G.elektrapaal=partsGeo([[new T.CylinderGeometry(.09,.13,7.2,6),'#6b5540',M4(0,3.6,0)],[new T.BoxGeometry(1.5,.1,.1),'#5a4634',M4(0,6.7,0)],...[-.6,0,.6].map(x=>[new T.CylinderGeometry(.04,.05,.16,5),'#d8d4c8',M4(x,6.83,0)])]);
+  G.landhek=partsGeo([...[-1.7,1.7].map(z=>[new T.BoxGeometry(.14,1.35,.14),'#7a6248',M4(0,.67,z)]),...[.35,.62,.89,1.16].map(y=>[new T.BoxGeometry(.05,.09,3.4),'#9a8162',M4(0,y,0)]),
+    [new T.BoxGeometry(.05,.08,3.5),'#8a7256',(()=>{const m=new T.Matrix4().makeRotationX(.25);m.setPosition(0,.76,0);return m})()]]);
+  G.stapelmuur=partsGeo([0,1,2,3,4,5].map(i=>[new T.BoxGeometry(.5+((i*7)%3)*.04,.72+((i*5)%4)*.07,1.02),i%2?'#cfc8b6':'#bdb5a2',M4(((i*3)%2)*.03,.36+((i*5)%4)*.035,-2.5+i)]));
+  G.cabanon=partsGeo([[new T.BoxGeometry(3.4,2.5,4.4),'#d9cdb4',M4(0,1.25,0)],[roofG(3.4,.9,4.4,.3),'#c0603a',M4(0,2.5,0)],[new T.BoxGeometry(.9,1.8,.1),'#6a5a48',M4(0,.9,2.22)],[new T.BoxGeometry(.6,.6,.1),'#3a4a55',M4(1,1.6,2.22)]]);
+  G.picknick=partsGeo([[new T.BoxGeometry(1.8,.07,.8),'#9a7a55',M4(0,.75,0)],...[-.55,.55].map(z=>[new T.BoxGeometry(1.8,.06,.28),'#9a7a55',M4(0,.45,z)]),...[-.7,.7].map(x=>[new T.BoxGeometry(.08,.75,1.3),'#7a5f42',M4(x,.37,0)])]);
+  G.eend=partsGeo([[new T.IcosahedronGeometry(.16,0),'#7a6248',M4(0,.08,0,1,.6,1.5)],[new T.IcosahedronGeometry(.08,0),'#2f6b3a',M4(0,.22,.2)],[new T.BoxGeometry(.04,.03,.09),'#e0a020',M4(0,.21,.31)]]);
   /* huis in de verte: alleen muren en een zadeldak, één breed en 1,4 diep; krijgt zijn maat en kleur per stuk */
   G.blokhuis=partsGeo([[new T.BoxGeometry(1,.55,1.4),'#ffffff',M4(0,.275,0)],[roofG(1,.4,1.4,.04),'#6b6260',M4(0,.55,0)]]);
   G.blokschuur=partsGeo([[new T.BoxGeometry(1,.55,2.5),'#ffffff',M4(0,.275,0)],[roofG(1,.4,2.5,.04),'#6b6260',M4(0,.55,0)]]);
