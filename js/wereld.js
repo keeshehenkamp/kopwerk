@@ -1069,11 +1069,17 @@ function worldBuild(){
     const tintPart=v=>'attribute float pat;\n'+v.replace('#include <color_vertex>','vColor=vec3(1.);\n#ifdef USE_COLOR\nvColor*=color;\n#endif\n#ifdef USE_INSTANCING_COLOR\nvColor.xyz*=mix(vec3(1.),instanceColor.xyz,pat);\n#endif');
     /* publiek: een op de drie springt, de rest wipt licht mee; opgestoken armen zwaaien, handen klappen (mov: x = arm, y = springen) */
     crowd.onBeforeCompile=sh=>{sh.uniforms.uT=W.wind;sh.vertexShader='uniform float uT;attribute vec2 mov;\n'+tintPart(sh.vertexShader).replace('#include <begin_vertex>',`#include <begin_vertex>
-      vec4 ip=instanceMatrix*vec4(0.,0.,0.,1.);float hh=fract(sin(dot(ip.xz,vec2(12.9898,78.233)))*43758.5453),ph=hh*6.283,jp=max(0.,sin(uT*(6.+hh*3.)+ph));
+      
+#ifdef USE_INSTANCING
+vec4 ip=instanceMatrix*vec4(0.,0.,0.,1.);
+#else
+vec4 ip=vec4(0.,0.,0.,1.);
+#endif
+float hh=fract(sin(dot(ip.xz,vec2(12.9898,78.233)))*43758.5453),ph=hh*6.283,jp=max(0.,sin(uT*(6.+hh*3.)+ph));
       transformed.y+=mov.y*(hh>.66?jp*.13:jp*.02);
       transformed.x+=sin(uT*(6.+hh*4.)+ph)*max(mov.x,0.)*.14-sign(position.x)*abs(sin(uT*8.+ph))*max(-mov.x,0.)*.075;`)};
     const walk=new T.MeshLambertMaterial({vertexColors:true});walk.onBeforeCompile=sh=>{sh.vertexShader=tintPart(sh.vertexShader)};
-    tree.onBeforeCompile=sh=>{sh.uniforms.uT=W.wind;sh.vertexShader='uniform float uT;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nfloat sw=max(0.,position.y-.8)*.035;vec4 ip=instanceMatrix*vec4(0.,0.,0.,1.);transformed.x+=sin(uT*1.6+ip.x*.15+ip.z*.1)*sw;transformed.z+=cos(uT*1.3+ip.z*.15)*sw*.6;');
+    tree.onBeforeCompile=sh=>{sh.uniforms.uT=W.wind;sh.vertexShader='uniform float uT;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nfloat sw=max(0.,position.y-.8)*.035;\n#ifdef USE_INSTANCING\nvec4 ip=instanceMatrix*vec4(0.,0.,0.,1.);\n#else\nvec4 ip=vec4(0.,0.,0.,1.);\n#endif\ntransformed.x+=sin(uT*1.6+ip.x*.15+ip.z*.1)*sw;transformed.z+=cos(uT*1.3+ip.z*.15)*sw*.6;');
       /* iets minder fel, zodat bomen en struiken bij de kleuren van het land passen */
       sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\n{float lq=dot(diffuseColor.rgb,vec3(.3,.59,.11));diffuseColor.rgb=mix(vec3(lq),diffuseColor.rgb,.76)*vec3(1.,.95,.9);}')};
     /* gevels en daken: patroon per vlak, langs de muur gemeten zodat stenen niet uitrekken als het huis gedraaid staat;
@@ -1551,12 +1557,12 @@ function worldFrame(t){
 }
 function worldStep(t){
   if(W.C.route.id!==routeId()){if(!dzHoogteKlaar(routeId())){dzLoadHoogte(dzHoogteVan(routeId()));return}worldBuild()}
-  const dt=Math.min(.1,(t-W.last)/1000);W.last=t;const C=W.C,T=T3;
+  const dt=clamp((t-W.last)/1000,0,.1);W.last=t;const C=W.C,T=T3;
   /* haalt de laptop geen ~42 beelden per seconde, dan iets minder scherp tekenen */
   if(!W.lite&&dt>0&&dt<.1){const f=W.perf||(W.perf={n:0,s:0});f.n++;f.s+=dt;if(f.n>=150){const pr=W.ren.getPixelRatio();if(f.s/f.n>1/42&&pr>1){const np=Math.max(1,pr-.25);W.ren.setPixelRatio(np);if(W.comp)W.comp.setPixelRatio(np);W.fit()}f.n=0;f.s=0}}
   const run=P.mode==='run'&&!P.auto,rate=run?(P.sim?P.speed:1):0;
   /* de route ligt vast: je snelheid volgt uit je vermogen, je gewicht en de helling (met wat traagheid, zoals op een echte fiets) */
-  {const d0=W.dist||0,sl0=(roadAt(C,d0+8).y-roadAt(C,d0).y)/8*100,vt=run?speedFor(dispPower()||0,sl0,P.vrij?W.draft||0:0):0;
+  {const d0=W.dist||0,sl0=(roadAt(C,d0+8).y-roadAt(C,d0).y)/8*100,vt=run?speedFor(dispPower()||0,sl0,W.draft||0):0;
     W.v=(W.v||0)+(vt-(W.v||0))*Math.min(1,dt*(vt<(W.v||0)?.5:.8));W.dist=d0+W.v*dt*(P.sim?P.speed:1)}
   const d=W.dist,p=roadAt(C,d);
   const pos=Math.min(P.pos,P.total-1),tgt=P.free?0:tgtAt(pos),pw=dispPower();
@@ -1574,7 +1580,7 @@ function worldStep(t){
   const tS=P.sim&&run?Math.max(1,P.speed):1,step=W.lastD!=null&&Math.abs(d-W.lastD)<80?d-W.lastD:0;
   /* zonder ERG, of vrij rijden na de training, voelt de trainer de helling van de route */
   /* in windschaduw krijgt de trainer ook minder windweerstand */
-  if(ble.cp&&!P.sim&&run&&(P.free||!P.erg)){const g=clamp(Math.round(slope(d)*2)/2,-10,20),cw=Math.round(51*(1-(P.vrij?W.draft||0:0))/3)*3;
+  if(ble.cp&&!P.sim&&run&&(P.free||!P.erg)){const g=clamp(Math.round(slope(d)*2)/2,-10,20),cw=Math.round(51*(1-(W.draft||0))/3)*3;
     if((g!==W.gs||cw!==W.gcw||P.gear!==W.gg)&&now()-(W.gt||0)>1000){setGrade(g,cw,P.gear);W.gs=g;W.gcw=cw;W.gg=P.gear;W.gt=now()}}
   if(P.vrij&&run&&P.wo.laps&&d-12>=P.wo.laps*C.L){finishRide();return}
   const cad=now()-live.tP<3000&&live.cad?live.cad:0,seg=P.wo.segs[segAt(pos)];
@@ -1584,14 +1590,28 @@ function worldStep(t){
   const vr=P.vrij&&vrijStep(C,d,dt,rate,run,lane,slope);
   lane(W.me,d,P.vrij&&W.myOff!=null?W.myOff:.85,run?cad:0,spd,stand);
   W.pace.g.visible=!P.free;lane(W.pace,d+W.gap,-.85,run?(seg&&seg.cad||90):0,spd,stand);
-  /* andere fietsers: iets sneller of langzamer dan jij, zodat je ze inhaalt of zij jou */
+  /* Andere fietsers. Elk heeft een eigen vermogen en gewicht en rijdt daarmee zoals jij: langzaam omhoog, hard omlaag, en door als jij
+     stilvalt. Hun vermogen ligt rond het jouwe van de laatste halve minuut, zodat je ze inhaalt of zij jou. Iedereen rijdt rechts;
+     wie inhaalt gaat links voorbij en schuift daarna weer naar rechts. Soms rijden er twee samen, de tweede in het wiel. */
   W.vs+=(spd-W.vs)*Math.min(1,dt*.8);
-  if(!vr)for(const n of W.npcs){
-    if(n.d==null||Math.abs(n.d-d)>230){n.f=.82+Math.random()*.36;n.d=n.f<1?d+150+Math.random()*70:d-60-Math.random()*40;n.off=Math.random()<.5?-2.25:2.25}
-    /* meeschuiven met jouw stap (ook bij 60x), plus hun eigen voor- of achterstand op gewone snelheid */
-    n.d+=run?step+W.vs*(n.f-1)*dt:0;
-    lane(n.R,n.d,n.off,run?n.cad:0,W.vs*n.f,run&&n.f>1&&(slope(n.d)>11.5||(slope(n.d)>8&&(t/1000+n.cad*7)%60<18)));
-  }
+  if(!vr){const simK=P.sim?Math.max(1,Math.min(P.speed,3)):1,myOff=P.vrij&&W.myOff!=null?W.myOff:.85,kg=state.profile.weight||75;
+    W.pw=W.pw==null?(P.ftp||200)*.62:W.pw+((pw||0)-W.pw)*Math.min(1,dt/30);const basis=Math.max(W.pw,(P.ftp||200)*.5)/kg;
+    W.npcs.forEach((n,i)=>{
+      if(n.d==null||n.wkg==null||n.d-d>270||n.d-d<-170){const f=.76+Math.random()*.52;n.lead=null;n.wkg=clamp(basis*f,1.3,5.5);n.m=60+Math.random()*26;n.v=null;n.cad0=78+Math.random()*16;n.jit=(Math.random()-.6)*.35;
+        n.d=f<1?d+110+Math.random()*130:d-45-Math.random()*80;n.off=null;
+        const vo=W.npcs[i-1];if(i%2&&vo&&vo.d!=null&&!vo.lead&&Math.random()<.4){n.lead=vo;n.d=vo.d-2.05}}
+      const sl=slope(n.d),hwN=C.hwAt?C.hwAt(n.d):3,rechts=Math.min(hwN-.75,1.9)+n.jit;if(n.off==null)n.off=rechts;
+      if(n.lead&&(n.lead.lead||n.lead.d==null||Math.abs(n.lead.d-n.d)>12))n.lead=null;
+      if(n.lead){n.v=n.lead.v;if(run)n.d+=step+(n.v-W.v)*dt+clamp(n.lead.d-2.05-n.d,-1,1)*dt*1.5}
+      else{const vt=speedFor(n.wkg*n.m,sl,0,n.m+9);n.v=n.v==null?vt:n.v+(vt-n.v)*Math.min(1,dt*.6);if(run)n.d+=step+(n.v-W.v)*dt}
+      /* inhalen: is er binnen 14 m iemand voor die langzamer rijdt (of zit hij er net naast), dan links erlangs */
+      let doel=n.lead?n.lead.off+.1:rechts;
+      if(!n.lead){const kijk=(od,oo,ov)=>{const g=od-n.d;if(g>-3.5&&g<Math.max(14,(n.v-ov)*4.5)&&n.v>ov+.25&&Math.abs(oo-doel)<1.25)doel=Math.min(doel,oo-1.2)};kijk(d,myOff,W.v);for(const o of W.npcs)if(o!==n&&o.d!=null&&o.lead!==n)kijk(o.d,o.off,o.v||0);doel=Math.max(doel,-(hwN-.8))}
+      n.off+=clamp(doel-n.off,-1.3*dt*simK,1.3*dt*simK);
+      lane(n.R,n.d,n.off,run&&n.v<13.5?n.cad0*(sl>6?.86:1):0,n.v*simK,run&&(sl>11.5||(sl>8&&(t/1000+n.cad0*7)%60<18)))});
+    /* windschaduw: rijd je recht achter een ander, dan scheelt dat luchtweerstand (ook in een training; het doelvermogen blijft gelijk) */
+    if(!P.vrij||!samenOn()){let best=0;for(const n of W.npcs){const g=n.d-d,lat=Math.abs(n.off-myOff);if(g>.3&&g<14&&lat<1.2)best=Math.max(best,draftAt(g)*(1-lat/1.2))}
+      W.draft=(W.draft||0)+(best-(W.draft||0))*Math.min(1,dt*2)}}
   finishWatch(C,d);
   /* camera achter de fietser */
   const CB=4.6,ahead=roadAt(C,d+20),back=d>=CB?roadAt(C,d-CB):(q=>({x:q.x-Math.sin(q.h)*(CB-d),y:q.y,z:q.z+Math.cos(q.h)*(CB-d),h:q.h}))(roadAt(C,0));
@@ -1647,13 +1667,33 @@ function worldHud(d){
   if(W&&W.C){const C=W.C;set('p-spd',Math.round((W.v||0)*3.6));set('p-hm',Math.round(Math.floor(d/C.L)*C.UPlap+C.UP[kAt(C,d)]));
     const ctl=el('p-ctl');if(ctl)ctl.classList.toggle('hide',P.mode==='run'&&now()-(W.uiT||0)>4000)}
   if(P.vrij)vrijHud(d);
-  if(W&&W.C&&!P.free){
-    if(now()-(W.profT||0)>300){W.profT=now();drawProfile(d)}
-  }
+  if(W&&W.C&&now()-(W.profT||0)>300){W.profT=now();drawMap(d);if(!P.free)drawProfile(d)}
   if(!g.on)return;
   set('p-pts',g.pts.toLocaleString('nl-NL'));set('p-mult',g.streak>=5?`${gameMult()>1?`×${gameMult()} · `:''}reeks ${clock(g.streak)}`:'');
   set('p-stars','★ '+g.stars.reduce((a,b)=>a+b,0));
   const pop=el('p-pop');if(pop){const on=g.pop&&now()-g.pop.t<3500;pop.hidden=!on;if(on)set('p-pop','★'.repeat(g.pop.st)+'☆'.repeat(3-g.pop.st))}
+}
+/* kaartje van de hele ronde, noorden boven: de route als lijn, wat je gereden hebt in de accentkleur, een stip waar je bent
+   en kleine stippen voor wie er met je meerijdt. De lijn zelf wordt één keer per route getekend en daarna alleen overgezet. */
+function drawMap(d){
+  const cv=document.getElementById('p-kaart');if(!cv)return;const C=W.C,c=cv.getContext('2d'),w=cv.width,h=cv.height,m=22;
+  let K=W.kaartje;
+  if(!K||K.id!==C.route.id||K.w!==w){let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;const st=Math.max(1,Math.round(C.N/900));for(let k=0;k<C.N;k+=st){x0=Math.min(x0,C.X[k]);x1=Math.max(x1,C.X[k]);z0=Math.min(z0,C.Z[k]);z1=Math.max(z1,C.Z[k])}
+    const s=Math.min((w-2*m)/Math.max(1,x1-x0),(h-2*m)/Math.max(1,z1-z0)),ox=(w-(x1-x0)*s)/2-x0*s,oz=(h-(z1-z0)*s)/2-z0*s,P2=[];for(let k=0;k<C.N;k+=st)P2.push([C.X[k]*s+ox,C.Z[k]*s+oz]);
+    const bg=document.createElement('canvas');bg.width=w;bg.height=h;const b=bg.getContext('2d');b.lineJoin=b.lineCap='round';
+    b.strokeStyle='rgba(21,25,34,.2)';b.lineWidth=9;b.beginPath();P2.forEach((q,i)=>i?b.lineTo(q[0],q[1]):b.moveTo(q[0],q[1]));b.closePath();b.stroke();
+    b.strokeStyle='#8b919c';b.lineWidth=4;b.stroke();
+    /* de start: een klein dwarsstreepje */
+    {const a=P2[0],n=P2[1],dx=n[0]-a[0],dz=n[1]-a[1],l=Math.hypot(dx,dz)||1;b.strokeStyle='#151922';b.lineWidth=4;b.beginPath();b.moveTo(a[0]-dz/l*9,a[1]+dx/l*9);b.lineTo(a[0]+dz/l*9,a[1]-dx/l*9);b.stroke()}
+    K=W.kaartje={id:C.route.id,w,bg,P:P2,st,acc:getComputedStyle(document.documentElement).getPropertyValue('--acc').trim()||'#E8452C'}}
+  const at=dd=>{const f=wrapD(C,dd)/STEP/K.st,i=Math.floor(f)%K.P.length,j=(i+1)%K.P.length,u=f-Math.floor(f),a=K.P[i],b=K.P[j];return [a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u]};
+  c.clearRect(0,0,w,h);c.drawImage(K.bg,0,0);c.lineJoin=c.lineCap='round';
+  /* gereden deel van deze ronde */
+  {const dl=wrapD(C,d),n=Math.floor(dl/STEP/K.st);c.strokeStyle=K.acc;c.lineWidth=5;c.beginPath();c.moveTo(K.P[0][0],K.P[0][1]);for(let i=1;i<=n&&i<K.P.length;i++)c.lineTo(K.P[i][0],K.P[i][1]);const e=at(dl);c.lineTo(e[0],e[1]);c.stroke()}
+  /* anderen: het groepje of wie samen met je rijdt (alleen als ze niet vlak bij je zitten) */
+  if(P.vrij){const an=[];if(W.bots)an.push(W.bots.d);if(typeof SAMEN!=='undefined')for(const r of SAMEN.riders.values())if(r.st!=='wacht'&&r.st!=='klaar')an.push(r.sd);
+    c.fillStyle='#151922';for(const dd of an){if(Math.abs(dd-d)<60)continue;const q=at(dd);c.beginPath();c.arc(q[0],q[1],5.5,0,7);c.fill()}}
+  const q=at(d);c.fillStyle=K.acc;c.strokeStyle='#fff';c.lineWidth=3.5;c.beginPath();c.arc(q[0],q[1],9,0,7);c.fill();c.stroke();
 }
 /* hoogteprofiel van de komende anderhalve kilometer, in de kleur van de blokken */
 /* kleur bij een stijgingspercentage, zoals op een hoogteprofiel van een klim */

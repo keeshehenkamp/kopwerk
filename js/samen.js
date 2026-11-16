@@ -26,18 +26,24 @@ const routeLen=()=>{const R=ROUTES.find(x=>x.id===routeId());return R?R.km*1000:
 const draftAt=gap=>gap<.4||gap>14?0:gap<=2.5?.32:.32*(1-(gap-2.5)/11.5);
 const fmtGap=m=>Math.abs(m)<1000?Math.round(Math.abs(m))+' m':nl((Math.abs(m)/1000).toFixed(1))+' km';
 
-/* ---------- het groepje: vier tot vijf rijders op een vast vermogen per kilo, als één pakketje ----------
-   Ze rijden op een gewone fiets met gewone luchtweerstand, min wat het groepje onderling scheelt. */
-const BOT_FORM=[[0,.3],[-1.9,1.05],[-1.9,-.45],[-3.8,.3],[-5.7,1.05]];
+/* ---------- het groepje: vier tot vijf rijders op een vast vermogen per kilo, in één rij achter elkaar ----------
+   Ze rijden op een gewone fiets met gewone luchtweerstand, min wat het groepje onderling scheelt.
+   Kopwerk: om de 35 tot 50 seconden zwaait de voorste af naar links, laat zich zakken en sluit achteraan weer aan; de rest schuift op.
+   Zit jij in het wiel van de laatste, dan sluit hij achter jou aan en haalt hij je links in als hij weer naar voren moet. */
+const BOT_GAP=1.95,BOT_LIJN=.55;
 function botsStep(C,d,dt,rate,run,lane,slope){
   /* in een groepsrit rijd je met elkaar, zonder groepje */
   const wkg=samenOn()?0:P.wo.bots;if(!wkg)return null;
-  const B=W.bots||(W.bots={d:d+6,v:0,t:0});
+  const n=W.npcs.length,B=W.bots||(W.bots={d:d+6,v:0,t:0,rot:0,beurt:38,orde:W.npcs.map((_,i)=>i),p:W.npcs.map((_,i)=>({d:d+6-i*BOT_GAP,off:BOT_LIJN}))}),rs=Math.max(1,rate);
   /* de eerste twintig seconden houdt het groepje in tot je aansluit; daarna rijdt het zijn eigen tempo */
-  if(run){B.t+=dt*rate;let vt=speedFor(wkg*75,slope(B.d),.18,75+9);if(B.t<20&&B.d-d>4)vt=Math.min(vt,(W.v||0)+.4);B.v+=(vt-B.v)*Math.min(1,dt*.7*Math.max(1,rate));B.d+=B.v*dt*rate}
-  const out=[];
-  W.npcs.forEach((n,i)=>{const f=BOT_FORM[i%BOT_FORM.length],bd=B.d+f[0];n.d=bd;n.off=f[1];
-    lane(n.R,bd,f[1],run?n.cad:0,B.v,run&&slope(bd)>8);out.push({d:bd,off:f[1]})});
+  if(run){B.t+=dt*rate;let vt=speedFor(wkg*75,slope(B.d),.18,75+9);if(B.t<20&&B.d-d>4)vt=Math.min(vt,(W.v||0)+.4);B.v+=(vt-B.v)*Math.min(1,dt*.7*rs);B.d+=B.v*dt*rate;
+    B.rot+=dt*rate;if(B.rot>B.beurt&&B.t>25){B.rot=0;B.beurt=35+Math.random()*15;B.orde.push(B.orde.shift())}}
+  const out=[],staart=B.d-(n-2)*BOT_GAP,inWiel=d<staart-.5&&d>staart-3.4&&Math.abs((W.myOff??.85)-BOT_LIJN)<.8;
+  B.orde.forEach((ix,slot)=>{const q=B.p[ix],nn=W.npcs[ix];let doel=B.d-slot*BOT_GAP;if(slot===n-1&&inWiel)doel=d-2.1;
+    const dv=doel-q.d;if(run)q.d+=B.v*dt*rate;q.d+=clamp(dv,-1.6*dt*rs,1.6*dt*rs);
+    /* afzakken of jou voorbij naar voren: links van de rij; opschuiven in de rij zelf */
+    q.off+=clamp(((dv<-.6||dv>2.6)?BOT_LIJN-1.3:BOT_LIJN)-q.off,-1.4*dt*rs,1.4*dt*rs);
+    nn.d=q.d;nn.off=q.off;lane(nn.R,q.d,q.off,run?nn.cad:0,B.v,run&&slope(q.d)>8);out.push({d:q.d,off:q.off})});
   return out;
 }
 
@@ -158,7 +164,8 @@ function vrijStep(C,d,dt,rate,run,lane,slope){
   /* de dichtstbijzijnde rijder vóór je bepaalt de windschaduw; zit er nog iemand vlak voor hem, dan iets meer */
   let best=null,n8=0;
   for(const a of ahead){const g=a.d-d;if(g>.3&&g<14){if(!best||g<best.g)best={g,off:a.off};if(g<8)n8++}}
-  const dr=best?Math.min(.4,draftAt(best.g)+(n8>1?.05:0)):0;
+  /* rijd je ernaast in plaats van erachter (minder dan een fietslengte), dan vang je nog maar weinig */
+  const dr=best?Math.min(.4,draftAt(best.g)+(n8>1?.05:0))*(best.g>1.7?1:.3):0;
   W.draft=(W.draft||0)+(dr-(W.draft||0))*Math.min(1,dt*2*Math.max(1,rate));
   /* je fietser stuurt zelf achter het wiel; kom je te dichtbij, dan ernaast om in te halen */
   let off=.85;if(best)off=best.g>1.7?best.off:best.off+(best.off>.4?-1.25:1.25);

@@ -401,7 +401,7 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .pload{position:absolute;left:50%;top:40%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;font-weight:700;text-shadow:0 1px 6px rgba(0,0,0,.5)}
 .pload[hidden]{display:none}
 .pprof{position:absolute;left:26px;top:108px;width:240px;pointer-events:none;background:rgba(10,13,20,.6);border-radius:8px;padding:8px 10px 6px}
-.pprof canvas{display:block;width:100%;height:56px}.pprof span{display:block;font-size:13px;font-weight:700;margin-top:4px;color:#fff}
+.pprof canvas{display:block;width:100%;height:56px}.pprof #p-kaart{height:auto;aspect-ratio:540/330;margin-bottom:4px}.player.vrij .pprof #p-prof,.player.vrij .pprof span{display:none}.player.vrij .pprof #p-kaart{margin-bottom:0}.pprof span{display:block;font-size:13px;font-weight:700;margin-top:4px;color:#fff}
 .pcd{position:absolute;left:50%;top:30%;transform:translate(-50%,-50%);font-size:clamp(90px,14vw,170px);font-weight:800;color:#fff;text-shadow:0 4px 24px rgba(0,0,0,.45);animation:pop .35s ease-out;pointer-events:none;font-variant-numeric:tabular-nums}
 .pcd[hidden]{display:none}
 @media (max-width:900px){.pprof{left:16px;top:120px;width:148px;padding:6px 8px 4px}.pprof canvas{height:38px}.pprof span{font-size:11px}}
