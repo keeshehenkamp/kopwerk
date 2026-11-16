@@ -4,7 +4,7 @@
    Kleuren komen uit één plaatje per renner (kitAtlas): bovenin het shirt rondom, rechts het opschrift op de onderbuis,
    onderin vakjes met één kleur. In Blender wijst elk onderdeel naar het midden van zijn vakje. */
 const PATCH=['huid','haar','broek','handschoen','sok','schoen','zool','shirt','boord','lip','oogwit','pupil','helm','helmstreep','bril','glas',
-  'frame0','frame1','zwart','carbon','alu','band','bandzij','ketting','zadel','stuurlint','bidon','spaak','acc2','wit','logo'];
+  'frame0','frame1','zwart','carbon','alu','band','bandzij','ketting','zadel','stuurlint','bidon','spaak','acc2','wit','logo','oog'];
 function patchColors(k){
   return {huid:k.skin||'#e0a283',haar:k.hair||'#5a3b26',broek:'#16191f',handschoen:'#33373e',sok:'#f4f4f2',schoen:'#f4f4f2',zool:'#1b1d22',
     shirt:k.base,boord:k.acc,lip:'#a5493f',oogwit:'#f7f5ef',pupil:'#2a1d14',helm:k.helmet,helmstreep:k.hstripe,
@@ -37,12 +37,21 @@ function drawAtlas(c,k){
   c.fillText('KOPWERK',384,290);c.fillText('KOPWERK',384,354);
   /* vakjes met één kleur: 16 per rij, 32 x 32, vanaf y 384 */
   const pc=patchColors(k);
-  PATCH.forEach((n,i)=>{c.fillStyle=pc[n];c.fillRect((i%16)*32,384+Math.floor(i/16)*32,32,32)});
+  PATCH.forEach((n,i)=>{if(pc[n]){c.fillStyle=pc[n];c.fillRect((i%16)*32,384+Math.floor(i/16)*32,32,32)}});
+  /* vak 'oog': één getekend oog waar beide oogbollen naar wijzen. Oogwit met de schaduw van het bovenste ooglid, iris met een donkere rand,
+     pupil en een glansje; de oogbol heeft in dit vak een straal van 13 beeldpunten */
+  {const i=PATCH.indexOf('oog'),x=(i%16)*32+16,y=384+Math.floor(i/16)*32+16,iris=k.oog||'#6a4a30';c.save();c.beginPath();c.rect(x-16,y-16,32,32);c.clip();
+    c.fillStyle='#f4f1ea';c.fillRect(x-16,y-16,32,32);
+    {const g=c.createLinearGradient(0,y-13,0,y+2);g.addColorStop(0,'rgba(92,66,58,.55)');g.addColorStop(1,'rgba(92,66,58,0)');c.fillStyle=g;c.fillRect(x-16,y-16,32,20)}
+    c.fillStyle='#2a1d14';c.beginPath();c.arc(x,y,6.9,0,7);c.fill();
+    {const g=c.createRadialGradient(x,y+1,1,x,y,6.2);g.addColorStop(0,sh(iris,.16));g.addColorStop(.7,iris);g.addColorStop(1,sh(iris,-.12));c.fillStyle=g;c.beginPath();c.arc(x,y,6.2,0,7);c.fill()}
+    c.fillStyle='#120d0a';c.beginPath();c.arc(x,y,2.9,0,7);c.fill();
+    c.fillStyle='rgba(255,255,255,.95)';c.beginPath();c.arc(x-2.3,y-2.6,1.35,0,7);c.fill();c.fillStyle='rgba(255,255,255,.5)';c.beginPath();c.arc(x+2.4,y+2.2,.7,0,7);c.fill();c.restore()}
 }
 /* lijfplaatje: models/lijfkaart.png zegt per pixel welk kledingstuk het is (rood = kleurvak, 200 = shirt met patroon; groen en blauw =
    plek op het shirt). Hiermee kleuren we per tenue het lijf, met nette randen bij kraag, mouwen, broek en sokken.
    models/lijfao.png is de gebakken schaduw in plooien en holtes (neus, ogen, lippen); die maakt de kleuren daar donkerder. */
-const SHIRT_R=200;
+const SHIRT_R=200,LIP_I=9;
 function mixHex(a,b,t){const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)),A=p(a),B=p(b);return '#'+A.map((x,i)=>Math.round(x+(B[i]-x)*t).toString(16).padStart(2,'0')).join('')}
 /* De kaart kent de plek op het shirt maar in 256 stappen; daardoor kreeg de opdruk een kartelrand. shirtUV maakt die plek vloeiend:
    per pixel het gemiddelde van de buren die op hetzelfde stuk shirt liggen (rondom telt door over de naad, van 255 naar 0). */
@@ -64,14 +73,16 @@ function drawLijf(c,k,kaart,atlas,ao,uv){
       const fu=((uv?uv.U[i]:src[j+1])/255*512*AS%AW+AW)%AW,fv=Math.max(0,Math.min(256*AS-1.001,(1-(uv?uv.V[i]:src[j+2])/255)*512*AS)),x0=Math.floor(fu),y0=Math.floor(fv),tx=fu-x0,ty=fv-y0,x1=(x0+1)%AW,
         a=(y0*AW+x0)*4,b=(y0*AW+x1)*4,cq=((y0+1)*AW+x0)*4,d=((y0+1)*AW+x1)*4,mx=(n)=>(pat[a+n]*(1-tx)+pat[b+n]*tx)*(1-ty)+(pat[cq+n]*(1-tx)+pat[d+n]*tx)*ty;
       R=mx(0);G=mx(1);B=mx(2)}
-    else{const cc=rgb[r]||rgb[0];R=cc[0];G=cc[1];B=cc[2]}
+    else{const cc=rgb[r]||rgb[0];R=cc[0];G=cc[1];B=cc[2];
+      /* huid en lippen: groen in de kaart = blos (wangen, neus, oren, knieën), blauw = een donkere lijn (wimpers, tussen de lippen) */
+      if(r===0||r===LIP_I){const bl=src[j+1]/255*.3,ln=src[j+2]/255*.72;if(bl>0){G*=1-bl*.26;B*=1-bl*.3;R=Math.min(255,R*(1+bl*.03))}if(ln>0){R+=(52-R)*ln;G+=(36-G)*ln;B+=(30-B)*ln}}}
     /* gebakken schaduw: op de huid voluit (neus, ogen, lippen), op kleding veel lichter, anders tekenen de spieren zich af in het shirt */
     const kl=r===SHIRT_R||(r>=2&&r<=8),f=sh?(kl?0.8+0.2*sh[j]/255:0.4+0.6*sh[j]/255):1;o[j]=R*f;o[j+1]=G*f;o[j+2]=B*f;o[j+3]=255}
   c.putImageData(out,0,0);
 }
 
 /* ---------- model laden (één keer) en per renner een kopie met eigen tenue ---------- */
-const RIDER_V='20261115e';
+const RIDER_V='20261116b';
 let RIDER=null;
 async function loadRider(){
   if(RIDER)return RIDER;
