@@ -13,6 +13,8 @@
   const m=(x,y,h)=>[x*f,y*f,h-H0];
   (window.ROUTE_DESIGN=window.ROUTE_DESIGN||{}).ventoux={
     km:S.km,spoor:'ventoux',naam:'Mont Ventoux',hoogteDorp:Math.round(H0),
+    /* huizen in de dorpen worden op maat gebouwd in deze stijl (js/gebouwen.js) */
+    bouwstijl:'provence',
     /* markeringen: km langs de route */
     marks:{bedoin:.35,colombe:3.05,bruns:4.3,esteve:5.44,bos:6.1,reynard:14.98,kaal:15.5,simpson:19.75,tempetes:20.5,top:21.14,
       noord:22.3,serein:26.9,belvedere:31.56,garrigue:36.6,malaucene:42.26,madeleine:48.1,terug:54.3},
@@ -84,6 +86,9 @@
       {m:'elektrapaal',land:['wijn'],van:'malaucene+0.6',tot:'terug',elke:58,vast:true,kant:-1,af:[2.3,2.3],draai:'weg',tint:false},
       {m:'stapelmuur',land:['wijn','garrigue'],elke:150,af:[4.2,7],draai:'weg',rij:[5,5.9]},
       {m:'cabanon',land:['wijn'],elke:650,af:[16,38],draai:'naarweg'},
+      /* losse boerderijen (mas) tussen de wijngaarden en in de garrigue, elk met cipressen en een plataan bij het erf */
+      {bouw:'provence',land:['wijn'],elke:520,af:[20,46],w:[6.5,8.5],d:[10,16],bomen:['cipres','cipres','plataan']},
+      {bouw:'provence',land:['garrigue'],elke:1100,af:[18,40],w:[6,8],d:[9,13],bomen:['cipres','steeneik']},
       {m:'wegkruis',land:['wijn'],elke:2600,af:[3,3.6],draai:'naarweg',tint:false},
       {m:'cipres',boom:true,land:['wijn','garrigue'],elke:70,af:[5,16],schaal:[.9,1.3]},
       {m:'olijf',boom:true,land:['wijn','garrigue'],elke:55,af:[5,20],schaal:[.9,1.2]},

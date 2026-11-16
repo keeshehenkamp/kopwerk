@@ -1080,7 +1080,7 @@ function worldBuild(){
        ramen spiegelen de lucht en vangen soms de zon */
     const HSH={uTop:{value:new T.Color(W.mood.top)},uHor:{value:new T.Color(W.mood.hor)},uSun:{value:new T.Vector3(...W.mood.dir).normalize()},uSunC:{value:new T.Color(W.mood.disc_on?W.mood.sun:W.mood.hor)},uNight:{value:W.mood.name==='schemer'?1:W.mood.name==='avond'?.3:0}};
     const facade=(mt,U=HSH)=>{mt.onBeforeCompile=sh=>{Object.assign(sh.uniforms,U);
-      sh.vertexShader='attribute float pat;\nvarying vec3 vWP;varying float vPat,vLY;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\nvWP=(modelMatrix*instanceMatrix*vec4(transformed,1.)).xyz;vPat=pat;vLY=transformed.y;');
+      sh.vertexShader='attribute float pat;\nvarying vec3 vWP;varying float vPat,vLY;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\n\n#ifdef USE_INSTANCING\nvWP=(modelMatrix*instanceMatrix*vec4(transformed,1.)).xyz;\n#else\nvWP=(modelMatrix*vec4(transformed,1.)).xyz;\n#endif\nvPat=pat;vLY=transformed.y;');
       sh.fragmentShader='varying vec3 vWP;varying float vPat,vLY;uniform vec3 uTop,uHor,uSun,uSunC;uniform float uNight;\nfloat hh(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}\nfloat vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hh(i),hh(i+vec2(1,0)),f.x),mix(hh(i+vec2(0,1)),hh(i+vec2(1,1)),f.x),f.y);}\n'
         +sh.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
         vec3 nn=normalize(cross(dFdx(vWP),dFdy(vWP)));float ny=abs(nn.y);int P=int(vPat+.5);if(P==0)P=ny<.35?2:ny<.95?7:1;
@@ -1089,7 +1089,11 @@ function worldBuild(){
           if(P==2){float row=floor(vLY/.27),s=u+mod(row,2.)*.45;diffuseColor.rgb=mix(diffuseColor.rgb*(.9+.17*hh(vec2(row,floor(s/.9)))),vec3(.6,.58,.54),.7*max(step(fract(s/.9),.04),step(fract(vLY/.27),.1)));}
           else if(P==3){diffuseColor.rgb*=.9+.13*vn(vec2(u,vLY)*1.7)+.06*hh(floor(vec2(u,vLY)*38.))-.13*step(vLY,.42);}
           else if(P==4){float row=floor(vLY/.22);diffuseColor.rgb*=mix(.84+.22*hh(vec2(row,floor(u/2.6+row*.37))),.55,step(fract(vLY/.22),.09));}
-          else if(P==5){float row=floor(vLY/.34),s=u+mod(row,2.)*.31;diffuseColor.rgb*=mix(.8+.3*hh(vec2(row,floor(s/.62))),.66,max(step(fract(s/.62),.05),step(fract(vLY/.34),.1)));}}
+          else if(P==5){float row=floor(vLY/.34),s=u+mod(row,2.)*.31;diffuseColor.rgb*=mix(.8+.3*hh(vec2(row,floor(s/.62))),.66,max(step(fract(s/.62),.05),step(fract(vLY/.34),.1)));}
+          /* 10: fijne baksteen met lichte voegen (vervaagt op afstand), 11: damwand met staande ribbels, 12: breuksteen in onregelmatige lagen */
+          else if(P==10){float row=floor(vLY/.13),s=u+mod(row,2.)*.22,fa=clamp(1.-fwidth(vLY/.13)*1.4,0.,1.);diffuseColor.rgb=mix(diffuseColor.rgb*(1.+fa*(-.08+.16*hh(vec2(row,floor(s/.44))))),vec3(.74,.71,.66),.42*fa*max(step(fract(s/.44),.06),step(fract(vLY/.13),.14)));}
+          else if(P==11){diffuseColor.rgb*=1.+.09*sin(u*24.)*clamp(1.-fwidth(u*24.)*.6,0.,1.);}
+          else if(P==12){float row=floor(vLY/.24+.3*vn(vec2(u*.7,0.))),s=u+hh(vec2(row,3.))*.5,fa=clamp(1.-fwidth(vLY/.24)*1.4,0.,1.);diffuseColor.rgb*=1.+fa*(-.07+.15*hh(vec2(row,floor(s/.5)))-.07*max(step(fract(s/.5),.06),step(fract(vLY/.24+.3*vn(vec2(u*.7,0.))),.1)));}}
         else if(ny<.95){
           if(P==7){float row=floor(vLY/.3);diffuseColor.rgb*=mix(.87+.17*hh(vec2(row,floor(u/.45))),.7,step(fract(vLY/.3),.16));}
           else if(P==8){diffuseColor.rgb*=(.76+.32*sin(fract(u/.24)*3.1416))*(.9+.14*hh(vec2(floor(u/.24),floor(vLY/.42))));}
@@ -1100,12 +1104,14 @@ function worldBuild(){
           outgoingLight+=uNight*vec3(1.,.66,.32)*1.5*step(.5,hh(floor(vWP.xz*.45)+floor(vLY/2.6)*7.));}
         #include <opaque_fragment>`)}};
     const house=new T.MeshPhongMaterial({vertexColors:true,shininess:10,specular:'#202020'});facade(house);
+    /* zelfde gevels en daken voor gebouwen op maat (js/gebouwen.js): één net per kilometer, van twee kanten zichtbaar */
+    const gevel=new T.MeshPhongMaterial({vertexColors:true,shininess:10,specular:'#202020',side:T.DoubleSide});facade(gevel);
     const car=new T.MeshPhongMaterial({vertexColors:true,shininess:80,specular:'#8a8a8a'});facade(car,{...HSH,uNight:{value:0}});
     /* het dal: dezelfde mist, maar pas ver weg dik (tot ~2,8 km), zodat je diep het dal in kijkt en het einde in de waas verdwijnt */
     const farFog=mt=>{mt.onBeforeCompile=sh=>{sh.fragmentShader=sh.fragmentShader.replace('#include <fog_fragment>','#ifdef USE_FOG\ngl_FragColor.rgb=mix(gl_FragColor.rgb,fogColor,smoothstep(fogNear*2.5,fogFar*4.8,vFogDepth));\n#endif')};return mt};
     const ds={side:T.DoubleSide};
     W.mat={edgeStone:new T.MeshLambertMaterial({...ds,map:W.tex.steen,vertexColors:true}),edgeHedge:new T.MeshLambertMaterial({...ds,map:W.tex.gras,vertexColors:true}),edgeWood:new T.MeshLambertMaterial({...ds,vertexColors:true}),
-      edgeRail:new T.MeshPhongMaterial({...ds,vertexColors:true,shininess:70,specular:'#777777'}),tree,crowd,walk,house,car,tegel:new T.MeshLambertMaterial({map:W.tex.tegel}),blob:new T.MeshBasicMaterial({color:'#000',transparent:true,opacity:.22,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}),
+      edgeRail:new T.MeshPhongMaterial({...ds,vertexColors:true,shininess:70,specular:'#777777'}),tree,crowd,walk,house,gevel,car,tegel:new T.MeshLambertMaterial({map:W.tex.tegel}),blob:new T.MeshBasicMaterial({color:'#000',transparent:true,opacity:.22,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}),
     lam:new T.MeshLambertMaterial({vertexColors:true,map:W.tex.gras}),asf:new T.MeshLambertMaterial({map:W.tex.asf,vertexColors:true}),rood:new T.MeshLambertMaterial({map:W.tex.asf,color:new T.Color(2.3,.62,.44),polygonOffset:true,polygonOffsetFactor:-1}),
     lap:new T.MeshLambertMaterial({map:W.tex.asf,color:new T.Color(.8,.8,.82),polygonOffset:true,polygonOffsetFactor:-1}),naad:new T.MeshLambertMaterial({color:'#36373c',polygonOffset:true,polygonOffsetFactor:-1}),
     woord:new T.MeshLambertMaterial({map:roadWords(),transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3}),line:new T.MeshLambertMaterial({color:'#f2f0e8'}),

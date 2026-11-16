@@ -975,7 +975,7 @@ function* dzExtras(X){
      schaal:[van, tot]; groep:[aantal, spreiding in meters]; rij:[aantal, tussenruimte] = achter elkaar langs de weg;
      op:'water' = drijft op het water; zoek:'oever' = vanaf de weg naar buiten tot het water begint (terug: zoveel meter daarvoor, op de kant); boom:true = als boom (met schaduw dichtbij);
      kleur: lijst kleuren; helling: steilste grond waar het mag staan */
-  {const hsD=(i,k)=>{const x=Math.sin(i*127.1+k*311.7+C.seed*.0191)*43758.5453;return x-Math.floor(x)};let nd=0;
+  {const hsD=(i,k)=>{const x=Math.sin(i*127.1+k*311.7+C.seed*.0191)*43758.5453;return x-Math.floor(x)};let nd=0;const DB=dzBouwer();
     for(let ri=0;ri<(D.details||[]).length;ri++){const R=D.details[ri],e=R.elke||100,v0=R.van!=null?C.at(R.van):-1,v1=R.tot!=null?C.at(R.tot):L+1,ms=[].concat(R.m),af=R.af||[3,8],sc=R.schaal||[1,1],n=R.rij?R.rij[0]:R.groep?R.groep[0]:1;
       for(let i=Math.floor(a/e);i<=Math.floor(end/e);i++){const d=(i+(R.vast?0:hsD(i,ri*9+1)))*e;if(d<a||d>=end||d<v0||d>v1)continue;if(R.land&&!R.land.includes(C.secP(d).land))continue;
         const s=R.kant||(hsD(i,ri*9+2)<.5?-1:1),o0=af[0]+hsD(i,ri*9+4)*(af[1]-af[0]);
@@ -986,8 +986,14 @@ function* dzExtras(X){
           if(!nat&&(T.slope(A.x,A.z)>(R.helling??.5)||T.slootAt(A.x,A.z)||T.distSide(A.x,A.z)<5||T.exact(A.x,A.z)<hw+Math.min(af[0],1.5)-.3))continue;
           const m=ms[Math.floor(hsD(i*13+j,ri*9+5)*ms.length)%ms.length],y=nat?Lk.peil:A.y,sz=sc[0]+hsD(i*13+j,ri*9+8)*(sc[1]-sc[0]);
           const ry=R.draai==='weg'?-A.q.h+(R.rij||hsD(i,ri*9+6)<.5?0:Math.PI):R.draai==='naarweg'?face(A.q.h,s):R.draai==='vanweg'?face(A.q.h,-s):hsD(i*13+j,ri*9+6)*6.283;
+          /* bouw: een los huis op maat (js/gebouwen.js), met de voorgevel naar de weg en een paar bomen erbij */
+          if(R.bouw){const bw=(R.w||[6,8])[0]+hsD(i,ri*9+11)*((R.w||[6,8])[1]-(R.w||[6,8])[0]),bd=Math.max(bw+1,(R.d||[9,13])[0]+hsD(i,ri*9+12)*((R.d||[9,13])[1]-(R.d||[9,13])[0]));
+            if(T.slope(A.x,A.z)>.3||T.exact(A.x,A.z)<hw+bd/2+3)continue;
+            DB.huis({x:A.x,y:y-.2,z:A.z,ang:Math.PI/2-A.q.h+(hsD(i,ri*9+13)-.5)*.7,w:bw,d:bd,stijl:R.bouw,zaad:Math.floor(hsD(i,ri*9+14)*1e6)+1,voor:[-Math.cos(A.q.h)*s,-Math.sin(A.q.h)*s]});put('blob',A.x,y+.05,A.z,bd*.7,0);
+            for(const bm of R.bomen||[]){const a2=hsD(i,ri*9+15+bm.length)*6.283,x2=A.x+Math.cos(a2)*(bd*.5+4),z2=A.z+Math.sin(a2)*(bd*.5+4);if(T.exact(x2,z2)>hw+3)tree(bm,x2,T.h(x2,z2),z2,.9+hsD(i,ri*9+16)*.3,T.exact(x2,z2)<16)}continue}
           if(R.boom)tree(m,A.x,y,A.z,sz,T.exact(A.x,A.z)<16);
-          else put(m,A.x,y+(R.dy||0),A.z,sz,ry,R.kleur?new TH.Color(R.kleur[Math.floor(hsD(i*13+j,ri*9+7)*R.kleur.length)%R.kleur.length]):R.tint===false?null:tint(.1,.03))}}}}
+          else put(m,A.x,y+(R.dy||0),A.z,sz,ry,R.kleur?new TH.Color(R.kleur[Math.floor(hsD(i*13+j,ri*9+7)*R.kleur.length)%R.kleur.length]):R.tint===false?null:tint(.1,.03))}}}
+    {const m=DB.net();if(m)g.add(m)}}
   yield;
   /* --- publiek: groepjes toeschouwers langs de weg, volgens regels uit het ontwerp (publiek:[...]) ---
      van, tot: stuk van de route; elke: gemiddelde afstand tussen groepjes; n:[van, tot] mensen per groepje; kant; af:[van, tot] meters van de wegrand;
@@ -1017,7 +1023,25 @@ function* dzExtras(X){
     /* één keer verdelen over de kilometers: elk gebouw en elke boom hoort bij het dichtstbijzijnde stuk weg */
     if(!KR.per){KR.per=new Map();const add=(ty,o)=>{const k=T.near(o.x,o.z);if(k<0)return;const ci=Math.floor(k*STEP/CH);let Lc=KR.per.get(ci);if(!Lc)KR.per.set(ci,Lc={B:[],T:[]});Lc[ty].push(o)};for(const b of KR.B)add('B',b);for(const t of KR.T)add('T',t)}
     const Lc=KR.per.get(Math.floor(a/CH)),HUIS=[['rood',6],['wit',5.4],['trapgevel',6.5],['groen',6],['villa',7.5],['huis',5],['geel',8]];
-    if(Lc){let nn=0;
+    if(Lc){let nn=0;const GB=dzBouwer();
+      /* tuin bij een huis: een tegelpad van de voordeur naar de weg, een heg langs de voorkant, bloemen onder de ramen, een boom,
+         soms een auto op de oprit of een schuurtje achter. Alles blijft uit het water en van de weg af */
+      const vrij=(x,z,hw,m=1.6)=>!(C.lakeAt&&C.lakeAt(x,z))&&!T.slootAt(x,z)&&T.exact(x,z)>hw+m&&T.oeverAt(x,z)>2.5;
+      const tuin=(R,hw,w,hs)=>{const Wd=R.voor,tw=R.richt(Wd.T),nw=R.richt(Wd.N),P=(s,off)=>{const q=R.punt(...Wd.q(s,0,off));q[1]=T.h(q[0],q[2]);return q},h2=(i)=>{const x=Math.sin(hs*9173.7+i*37.1)*43758.5453;return x-Math.floor(x)};
+        /* pad: recht de deur uit, tot vlak voor de berm */
+        const pad=[];let ver=0;for(let o2=.4;o2<11;o2+=1.2){const q=P(R.ds,o2);if(!vrij(q[0],q[2],hw,3.4))break;q[1]+=.07;pad.push(q);ver=o2}
+        if(pad.length>1)GB.strook(pad,1.1,h2(1)<.5?'#b9b2a4':'#a8857a');
+        /* heg evenwijdig aan de gevel, met een opening bij het pad */
+        const ho=Math.min(ver-.3,3.2+h2(2)*2.2);if(ho>2.2&&h2(3)<.75){const ry=Math.atan2(tw[0],tw[1]),soort=h2(4)<.7?'heg':'tuinhek';for(let s=-Wd.len/2-2;s<Wd.len/2+1.5;s+=4.1){if(Math.abs(s+2.1-R.ds)<2.9)continue;const q=P(s,ho);if(vrij(q[0],q[2],hw,2))put(soort,q[0],q[1]-.05,q[2],1,ry,soort==='heg'?tint(.12,.04):null)}}
+        /* bloemen onder de ramen, struiken bij de hoeken */
+        for(let i=0;i<4;i++){if(h2(10+i)<.45)continue;const q=P((h2(20+i)-.5)*Wd.len*.9,.7+h2(30+i)*.6);if(vrij(q[0],q[2],hw))put(['bloem','klaproos','madelief','bloem'][i],q[0],q[1],q[2],.9+h2(40+i)*.5,h2(50+i)*6)}
+        for(const z of[-1,1]){if(h2(60+z)<.4)continue;const q=P(z*(Wd.len/2+.8),.5+h2(62+z));if(vrij(q[0],q[2],hw))put('struik',q[0],q[1],q[2],.7+h2(64+z)*.6,h2(66+z)*6,tint())}
+        /* een boom opzij of achter het huis */
+        if(h2(70)<.6){const z=h2(71)<.5?-1:1,q=P(z*(Wd.len/2+2.5+h2(72)*2),-(w*.5+h2(73)*w));if(vrij(q[0],q[2],hw,3)&&T.slope(q[0],q[2])<1)tree(['fruitboom','berk','boom','eik','fruitboom'][Math.floor(h2(74)*5)],q[0],q[1],q[2],.75+h2(75)*.35,T.exact(q[0],q[2])<16)}
+        /* auto op de oprit naast het huis, neus naar de weg */
+        if(h2(80)<.32){const z=h2(81)<.5?-1:1,q=P(z*(Wd.len/2+2.1),1.2);if(vrij(q[0],q[2],hw,2.5)&&T.slope(q[0],q[2])<.25)put('auto',q[0],q[1]+.04,q[2],1,Math.atan2(nw[0],nw[1]),new TH.Color(['#d9d9d9','#30343a','#8a8f96','#b3262d','#1f4f8c','#f2f2f2','#3f6a4a','#5a7fa8'][Math.floor(h2(82)*8)]))}
+        /* schuurtje achter in de tuin */
+        if(h2(90)<.28){const z=h2(91)<.5?-1:1,q=P(z*(Wd.len/2+1.5),-(w+2.5+h2(92)*2));if(vrij(q[0],q[2],hw,3)&&T.slope(q[0],q[2])<.3)GB.huis({x:q[0],y:q[1]-.05,z:q[2],ang:Math.atan2(-tw[1],tw[0])+(h2(93)<.5?0:Math.PI/2),w:2.4+h2(94),d:3.2+h2(95)*1.2,h:2.1,stijl:'schuur',zaad:Math.floor(hs*1e6)+91})}};
       /* schuren, loodsen en huizen verder van de weg: op maat van de kaart, met een zadeldak langs de lange zijde en een deur in de kopgevel */
       const bp=[],bc=[],cW=new TH.Color(),cR=new TH.Color(),cD=new TH.Color(),
         tri=(A,B,Cc,c,k)=>{bp.push(...A,...B,...Cc);for(const P of[A,B,Cc]){const f=k??(.8+.2*clamp((P[1]-A.base)/3,0,1));bc.push(c.r*f,c.g*f,c.b*f)}},quad=(A,B,Cc,Dd,c,k)=>{tri(A,B,Cc,c,k);tri(A,Cc,Dd,c,k)},
@@ -1037,18 +1061,24 @@ function* dzExtras(X){
             {const A=P(-hl,v,wh-.28),B=P(hl,v,wh-.28),B1=P(hl,v,wh),A1=P(-hl,v,wh);s>0?quad(A,B,B1,A1,cT,1):quad(B,A,A1,B1,cT,1)}}
           /* dak met een kleine overstek; de kant naar de zon iets lichter */
           for(const s of[-1,1]){const A=P(-hl-ov,s*(hw2+ov),wh-ov*rh/hw2),B=P(hl+ov,s*(hw2+ov),wh-ov*rh/hw2),R1=P(hl+ov,0,wh+rh),R0=P(-hl-ov,0,wh+rh);s>0?quad(A,B,R1,R0,cR,1):quad(B,A,R0,R1,cR,1)}};
-      for(const b0 of Lc.B){if(++nn%200===0)yield;let b=b0,dist=T.exact(b.x,b.z);const k=T.near(b.x,b.z),p=roadAt(C,k*STEP),hw=C.hwAt(k*STEP);
+      for(const b0 of Lc.B){if(++nn%5===0)yield;let b=b0,dist=T.exact(b.x,b.z);const k=T.near(b.x,b.z),p=roadAt(C,k*STEP),hw=C.hwAt(k*STEP);
         /* in het dorp: een huis dat op de stoep zou staan schuift een paar meter achteruit */
         {const te=hw+b.w/2+4.6-dist;if(te>0&&te<7&&C.secP(k*STEP).land==='dorp'){const dx=b.x-p.x,dz=b.z-p.z,l=Math.hypot(dx,dz)||1;b=Object.assign({},b0,{x:b.x+dx/l*te,z:b.z+dz/l*te});dist=T.exact(b.x,b.z)}}
         if(dist<hw+b.w/2+1.2||(C.lakeAt&&C.lakeAt(b.x,b.z)))continue;
         /* de lange zijde volgt de kaart; de voorgevel kijkt naar de weg */
         let ry=Math.atan2(Math.cos(b.ang),-Math.sin(b.ang));if(Math.sin(ry)*(p.x-b.x)+Math.cos(ry)*(p.z-b.z)<0)ry+=Math.PI;
         const y=T.h(b.x,b.z)-.3,hs=Math.abs(Math.sin(b.x*12.9898+b.z*78.233)*43758.5453)%1;
-        if(b.srt===3)put('kerk',b.x,y,b.z,clamp(b.w/8,.8,1.7),ry,tint(.06,.02));
-        else if(b.srt===1)put('boerderij',b.x,y,b.z,clamp(b.w/10,.7,1.35),ry,tint(.12,.04));
-        /* grote schuren en loodsen: een laag, breed blok in gedekt groen, grijs of bruin */
-        else if(b.srt===2||dist>90||b.w>11)bouw(b,y+.1,b.srt===2||(b.w>11&&C.secP(k*STEP).land!=='dorp'),hs);
-        else{const [m,mw]=HUIS[Math.floor(hs*HUIS.length)%HUIS.length];put(m,b.x,y,b.z,clamp(b.w/mw,.7,1.5),ry,tint(.14,.05))}}
+        if(b.srt===3){const fx=p.x-b.x,fz=p.z-b.z,fl=Math.hypot(fx,fz)||1;GB.huis({x:b.x,y:y+.25,z:b.z,ang:b.ang,w:b.w,d:b.d,stijl:'kerknl',zaad:Math.floor(hs*1e6)+5,voor:[fx/fl,fz/fl]})}
+        /* ver van de weg: een eenvoudig blok met een dak; dichterbij wordt elk gebouw op maat gebouwd (js/gebouwen.js), met een tuin eromheen */
+        else if(dist>150)bouw(b,y+.1,b.srt===2||(b.w>11&&C.secP(k*STEP).land!=='dorp'),hs);
+        else{const dorp=C.secP(k*STEP).land==='dorp',st=b.srt===2?'schuur':b.srt===1?(b.w>7&&b.d/b.w>1.4?'boerderij':'nl'):b.w>11?(dorp?'pand':'schuur'):!dorp&&(b.w>8.6||b.d>14)&&b.d/b.w>1.3?'boerderij':'nl';
+          const fx=p.x-b.x,fz=p.z-b.z,fl=Math.hypot(fx,fz)||1,w=clamp(b.w,st==='nl'?4.6:4,st==='nl'?11:60),d=Math.max(w+.5,Math.min(b.d,st==='nl'?17:200));
+          /* geen hoek of dakrand over de weg of de stoep: zo nodig schuift het gebouw van de weg af, en te dichtbij krijgt het geen aanbouw */
+          let bx=b.x,bz=b.z;const ca=Math.cos(b.ang),sa=Math.sin(b.ang),vrijH=()=>{let m=1e9;for(const [su,sv] of[[1,1],[1,-1],[-1,1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]])m=Math.min(m,T.exact(bx+ca*su*(d/2+.5)+sa*sv*(w/2+.5),bz-sa*su*(d/2+.5)+ca*sv*(w/2+.5)));return m};
+          let mh=vrijH();const marge=hw+(dorp?3.3:1.7);if(mh<marge){const te=marge-mh+.2;if(te>9)continue;bx-=fx/fl*te;bz-=fz/fl*te;mh=vrijH();if(mh<marge-.4||(C.lakeAt&&C.lakeAt(bx,bz)))continue}
+          const R=GB.huis({x:bx,y:T.h(bx,bz)-.05,z:bz,ang:b.ang,w,d,stijl:st,zaad:Math.floor(hs*1e6)+7,voor:[fx/fl,fz/fl],riet:b.srt===1&&hs<.35,krap:mh<hw+7});
+          if(dist<80&&R.voor&&st!=='pand')tuin(R,hw,w,hs)}}
+      {const m=GB.net();if(m)g.add(m)}
       if(bp.length){const q=new TH.BufferGeometry();q.setAttribute('position',new TH.Float32BufferAttribute(bp,3));q.setAttribute('color',new TH.Float32BufferAttribute(bc,3));q.computeVertexNormals();
         if(!M.bouw)M.bouw=new TH.MeshLambertMaterial({vertexColors:true,side:TH.DoubleSide});const m=new TH.Mesh(q,M.bouw);m.castShadow=!W.lite;m.receiveShadow=true;g.add(m)}
       for(const t of Lc.T){if(++nn%300===0)yield;const k=T.near(t.x,t.z),dist=T.exact(t.x,t.z),hw=C.hwAt(k*STEP);if(dist<hw+2.4||(C.lakeAt&&C.lakeAt(t.x,t.z))||T.slootAt(t.x,t.z))continue;
@@ -1148,18 +1178,23 @@ function* dzExtras(X){
   /* --- dorpen: huizen langs de straat, stoepen met tegels, een plein met kerk, lantaarns en mensen --- */
   for(const v of D.dorpen||[]){let v0=C.at(v.van),v1=C.at(v.tot);v0=((v0%L)+L)%L;v1=((v1%L)+L)%L;if(v1<v0)v1+=L;
     for(const sh of[0,-L]){const s0=Math.max(v0+sh,a),s1=Math.min(v1+sh,end);if(s1<=s0)continue;yield;
-      const pl=v.plein?((C.at(v.plein)%L)+L)%L:-1e9,ks=v.kant||-1,list=v.huizen||['chalet'];
+      const pl=v.plein?((C.at(v.plein)%L)+L)%L:-1e9,ks=v.kant||-1,list=v.huizen||['chalet'],VB=dzBouwer();let hn=0;
       const WD={chalet:8,chalet2:9,chalet3:10,steenhuis:7,herberg:11,hooischuur:8,mergel:6.5,mergel2:7.5,vakwerk:7,vakhoeve:10,trapgevel:6.5,villa:7.5,winkel:8,boerderij:10,huis:5,schuur:7},
         DP={chalet:9,chalet2:11.5,chalet3:11,steenhuis:8.5,herberg:10,hooischuur:11,mergel:8,mergel2:9,vakwerk:9,vakhoeve:18,trapgevel:9,villa:8,winkel:10,boerderij:20,huis:7,schuur:10};
       if(!v.echt)for(const side of[-1,1])for(let row=0;row<(v.klein?1:2);row++){let d=s0+r()*4;
-        while(d<s1){const k=list[Math.floor(r()*list.length)],w=WD[k]||8,dp=DP[k]||9,hw=C.hwAt(d);
+        while(d<s1){const k=list[Math.floor(r()*list.length)],w=D.bouwstijl?5.2+r()*r()*6:WD[k]||8,dp=D.bouwstijl?7.5+r()*2.5:DP[k]||9,hw=C.hwAt(d);
           if(side===ks&&Math.abs(d-pl)<32&&row===0){d=pl+32;continue}
-          const off=side*(hw+(v.klein?5:3.4)+row*(dp+6)+r()*(row?6:2.2)+dp/2),A=at(d+w/2,off);
+          const off=side*(hw+(v.klein?5:3.4)+row*(dp+6)+r()*(row?6:D.bouwstijl?.5:2.2)+dp/2),A=at(d+w/2,off);
           if(T.distSide(A.x,A.z)<dp/2+4||(C.lakeAt&&(C.lakeAt(A.x,A.z)||C.lakeAt(A.x+5,A.z)||C.lakeAt(A.x-5,A.z)))||(C.rounds||[]).some(R0=>Math.hypot(R0.x-A.x,R0.z-A.z)<R0.r+dp)){d+=4;continue}
-          put(k,A.x,T.h(A.x,A.z)-.5,A.z,1,face(A.q.h,side)+(row?(r()-.5)*.25:0),tint(.16,.05));put('blob',A.x,T.h(A.x,A.z)+.05,A.z,Math.max(w,dp)*.6,0);
+          if(D.bouwstijl&&k!=='kerk'){if(++hn%3===0)yield;
+            /* op maat: aan de straat staan de huizen in rijtjes tegen elkaar, elk met een eigen breedte, hoogte en kleur; daarachter los */
+            const br=row?6+r()*4:w,dw=row?7+r()*3:dp,dwars=br<dw*.8,hq=A.q.h+(row?(r()-.5)*.3:0),ang=dwars?-hq:Math.PI/2-hq;
+            VB.huis({x:A.x,y:T.h(A.x,A.z)-.25,z:A.z,ang,w:dwars?br:dw,d:dwars?dw:br,stijl:D.bouwstijl,zaad:Math.floor(r()*1e6)+3,voor:[-Math.cos(A.q.h)*side,-Math.sin(A.q.h)*side],winkel:!row&&!v.klein&&r()<.22,rij:!row,lagen:v.klein?2:0})}
+          else put(k,A.x,T.h(A.x,A.z)-.5,A.z,1,face(A.q.h,side)+(row?(r()-.5)*.25:0),tint(.16,.05));put('blob',A.x,T.h(A.x,A.z)+.05,A.z,Math.max(w,dp)*.6,0);
           if(row===0&&r()<.3){const B=at(d+w+1.2,side*(hw+2.6));put('lamp',B.x,B.y+.13,B.z,1,face(B.q.h,-side))}
           if(row===1&&r()<.4){const B=at(d+w/2,side*(hw+3.4+dp+3));tree(['berk','boom','fruitboom'][Math.floor(r()*3)],B.x,T.h(B.x,B.z),B.z,.8,false)}
-          d+=w+(row?3+r()*9:1.2+r()*4)}}
+          d+=w+(row?3+r()*9:D.bouwstijl?(r()<(v.klein?.3:.7)?.05:(v.klein?7:2)+r()*(v.klein?16:5)):1.2+r()*4)}}
+      {const m=VB.net();if(m)g.add(m)}
       if(!v.klein){
         /* stoepen met tegels en stoepranden */
         const pos=[],uv=[],idx=[];for(const side of[-1,1]){let run=false;for(let d=s0;d<=s1;d+=4){const q=roadAt(C,d),hw=C.hwAt(d);
@@ -1170,7 +1205,9 @@ function* dzExtras(X){
         for(let d=s0+12;d<s1;d+=30+r()*40){const side=r()<.5?-1:1,A=at(d,side*(C.hwAt(d)+1.25));put('auto',A.x,A.q.y+.13,A.z,1,-A.q.h+(side>0?0:Math.PI),new TH.Color(['#d9d9d9','#30343a','#8a8f96','#b3262d','#1f4f8c','#f2f2f2'][Math.floor(r()*6)]))}
         /* plein met kerk, fontein, terras en bomen */
         if(pl>=s0&&pl<s1){const hw=C.hwAt(pl),A=at(pl,ks*(hw+13));/* op het laagste punt onder het plein, anders zweeft de rand boven een helling */put('plein',A.x,A.q.y+.03,A.z,.9,face(A.q.h,ks));
-          const K=at(pl,ks*(hw+38));put(v.kerk||'alpenkerk',K.x,T.h(K.x,K.z)-.4,K.z,1,face(K.q.h,ks));put('blob',K.x,K.y+.06,K.z,11,0);
+          const K=at(pl,ks*(hw+38));
+          if(D.bouwstijl==='provence'){VB.huis({x:K.x,y:T.h(K.x,K.z)-.2,z:K.z,ang:-K.q.h,w:9.5,d:19,stijl:'kerkprov',zaad:Math.floor(pl)+11,voor:[-Math.cos(K.q.h)*ks,-Math.sin(K.q.h)*ks]});{const m=VB.net();if(m)g.add(m)}}
+          else put(v.kerk||'alpenkerk',K.x,T.h(K.x,K.z)-.4,K.z,1,face(K.q.h,ks));put('blob',K.x,K.y+.06,K.z,11,0);
           const F=at(pl,ks*(hw+15));put('fontein',F.x,F.y+.05,F.z,1,0);
           for(const dd of[-11,-7,8,12]){const E=at(pl+dd,ks*(hw+9+r()*3));put('terras',E.x,E.y+.05,E.z,1,r()*6,new TH.Color().setHSL([0,.08,.55,.33][Math.floor(r()*4)],.65,.55));if(r()<.7)put('loper',E.x+.8,E.y,E.z,1,r()*6,new TH.Color().setHSL(r(),.6,.5))}
           for(const dd of[-16,16]){const E=at(pl+dd,ks*(hw+24));tree('boom',E.x,E.y,E.z,.9,true)}
