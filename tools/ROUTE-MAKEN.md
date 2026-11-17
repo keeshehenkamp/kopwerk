@@ -97,6 +97,9 @@ kade), een vaart in de polder polderpeil. Kijk de wegen na vanaf de route (aansl
 van boven (geen losse grijze vlakken). Wat nergens op aansluit, laat de wereld weg. De wegen liggen in vakken van twee kilometer, los van de
 stukken route (`dzKaartTegels`), zodat een weg dwars door de polder nooit halverwege ophoudt; `TH.view` bouwt ze in één keer. Een weg ligt op
 een helling nooit onder het fijne land langs de route: controleer dat met een straal recht van boven (de weg moet het eerste zijn wat je raakt).
+Langs de route ruimt `dzKaartIndeling` de kaart op: wat op het asfalt van de route ligt of binnen 10 m met de route meeloopt (de straat zelf
+nog een keer, ventwegen, fietspadstukjes) gaat weg; wat overblijft sluit haaks aan als er geen rivier of vaart tussen ligt, korte restjes en
+stompjes karrenspoor vallen weg. Vee staat nooit op een kaartweg of in het water. Kijk na een nieuwe kaart alle aansluitingen van boven na.
 Een route kan allebei hebben (heuvels met dorpen): dan `terrein.hoogte` én `terrein.kaart`. Dat is nog niet gedaan; controleer
 dan extra goed of gebouwen op de helling staan en niet zweven.
 

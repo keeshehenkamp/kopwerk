@@ -197,6 +197,8 @@ function dzKaart(id){
   const RH=new Map(),G=32;
   K.R.forEach(R=>{for(let i=0;i<R.P.length-1;i++){const [ax,az]=R.P[i],[bx,bz]=R.P[i+1],s={ax,az,bx,bz,hw:R.w/2,R};
     for(let gx=Math.floor((Math.min(ax,bx)-12)/G);gx<=Math.floor((Math.max(ax,bx)+12)/G);gx++)for(let gz=Math.floor((Math.min(az,bz)-12)/G);gz<=Math.floor((Math.max(az,bz)+12)/G);gz++){const k=gx+','+gz;let l=RH.get(k);if(!l)RH.set(k,l=[]);l.push(s)}}});
+  K.wegBij=(x,z,zelf)=>{const l=RH.get(Math.floor(x/G)+','+Math.floor(z/G));if(!l)return null;let m=99,b=null;
+    for(const s of l){if(s.R===zelf)continue;const dx=s.bx-s.ax,dz=s.bz-s.az,t=clamp(((x-s.ax)*dx+(z-s.az)*dz)/(dx*dx+dz*dz||1),0,1),d=Math.hypot(s.ax+dx*t-x,s.az+dz*t-z)-s.hw;if(d<m){m=d;b=s.R}}return b&&{R:b,m}};
   K.wegAf=(x,z,zelf)=>{const l=RH.get(Math.floor(x/G)+','+Math.floor(z/G));if(!l)return 99;let m=99;
     for(const s of l){if(s.R===zelf)continue;const dx=s.bx-s.ax,dz=s.bz-s.az,t=clamp(((x-s.ax)*dx+(z-s.az)*dz)/(dx*dx+dz*dz||1),0,1);m=Math.min(m,Math.hypot(s.ax+dx*t-x,s.az+dz*t-z)-s.hw)}return m};
   return K;
@@ -373,6 +375,9 @@ function designTerrain(C){
   T.near=(x,z)=>RK[cell(x,z)];
   /* afstand tot het boezemwater van de kaart (of heel ver), en of hier een sloot ligt */
   T.oeverAt=(x,z)=>WD?WD[cell(x,z)]:1e9;T.slootAt=(x,z)=>!!WM&&WM[cell(x,z)]===2;
+  /* staat hier boezemwater in beeld: laag genoeg en vlak bij een uitgegraven boezemcel. Het polderland achter de dijk ligt ook onder het peil,
+     maar verder van het water */
+  T.inBoezem=(x,z)=>!!WM&&WD[cell(x,z)]<10&&T.boezemOk(x,z)&&T.h(x,z)<(TD.peil??0)+.12;
   /* mag hier boezemwater liggen: waar het land als boezem is uitgegraven (WM 1), of één cel ernaast (daar ligt de kade eroverheen).
      Zo steekt een slecht verdeeld vlak nergens als plaat over het land uit */
   T.boezemOk=(x,z)=>{if(!WM)return true;const i0=clamp(Math.round((x-x0)/cs),0,nx-1),j0=clamp(Math.round((z-z0)/cs),0,nz-1);
@@ -682,19 +687,46 @@ function dzKaartStap(budget){
 function* dzKaartIndeling(C){
   const T=C.T,KR=T.KR;
   if(!KR.wegPer){const per=new Map(),add=(x,z,o)=>{if(T.near(x,z)<0)return;const c=Math.floor(x/KVAK)+','+Math.floor(z/KVAK);let l=per.get(c);if(!l)per.set(c,l=[]);l.push(o)};let n=0;
-    for(const R of KR.R){if(!R.H)continue;const P=R.P3;if(++n%25===0)yield;
-      /* sluit een einde ergens op aan (de route, een andere weg of een brug)? Een los stuk dat nergens op aansluit (een erf, een parkeerplek) laten we weg, behalve een lange weg; een weg die
-         doodloopt krijgt een afgerond einde in plaats van een rechte rand */
-      const vast=i=>{const [x,z]=P[i],k=T.near(x,z);return (k>=0&&T.exact(x,z)<C.hwAt(k*STEP)+8)||KR.wegAf(x,z,R)<2.5};
-      R.los=[!vast(0),!vast(P.length-1)];if(R.len<150&&R.los[0]&&R.los[1]&&!R.brug)continue;
-      /* water onder de brug? Anders is het gewoon weg */
-      /* een brug alleen waar je het water ziet doorlopen: onder het midden water, en links en rechts naast de brug ook (de sloot of vaart loopt
-         eronderdoor). Boven een sloot die in de wereld niet te zien is, zou een brug als een hekje in het gras staan: dan is het een dam */
-      if(R.brug){const q=P[P.length>>1],A0=P[0],B0=P[P.length-1],dx=B0[0]-A0[0],dz=B0[1]-A0[1],l=Math.hypot(dx,dz)||1,nx=-dz/l,nz=dx/l,o=R.w/2+2.5,
-          nat=(x,z)=>KR.inLaag(x,z,0)||!!(C.lakeAt&&C.lakeAt(x,z)),wl=x=>x?1:0;
-        R.overWater=nat(q[0],q[1])&&wl(nat(q[0]+nx*o,q[1]+nz*o))+wl(nat(q[0]-nx*o,q[1]-nz*o))>=2;const nat2=R.overWater;
-        if(nat2){add(q[0],q[1],{R,a:0,b:P.length-1});continue}}
-      for(let i=0;i<P.length-1;i+=14){const b=Math.min(P.length-1,i+14),q=P[(i+b)>>1];add(q[0],q[1],{R,a:i,b})}}
+    /* afstand tot de rand van de route, en of een stuk weg met de route mee loopt (in plaats van erop aan te sluiten) */
+    const rand=(x,z)=>{const k=T.near(x,z);return k<0?1e9:T.exact(x,z)-C.hwAt(k*STEP)};
+    const langs=(P,i)=>{const [x,z]=P[i],k=T.near(x,z);if(k<0)return false;const A=P[Math.max(0,i-1)],B=P[Math.min(P.length-1,i+1)],q=roadAt(C,k*STEP),dx=B[0]-A[0],dz=B[1]-A[1],l=Math.hypot(dx,dz)||1;
+      return Math.abs(dx*Math.sin(q.h)-dz*Math.cos(q.h))/l>.8};
+    const randPt=(x,z)=>{const k=T.near(x,z);let d0=k*STEP,best=1e9;for(let dd=d0-15;dd<=d0+15;dd+=.5){const q=roadAt(C,dd),dist=Math.hypot(q.x-x,q.z-z);if(dist<best){best=dist;d0=dd}}
+      const q=roadAt(C,d0),sd=Math.sign((x-q.x)*Math.cos(q.h)+(z-q.z)*Math.sin(q.h))||1,hr=C.hwAt(d0);return [q.x+Math.cos(q.h)*sd*hr,q.z+Math.sin(q.h)*sd*hr]};
+    /* rivier, vaart of meer; een polderslootje telt niet, daar gaat een weg met een dam overheen (zoals de ringsloot aan de voet van de dijk) */
+    const nat=(x,z)=>!!(C.lakeAt&&C.lakeAt(x,z))||T.inBoezem(x,z);
+    const deel=(R,s,e)=>{const P=R.P3.slice(s,e+1),cum=[0];for(let i=1;i<P.length;i++)cum.push(cum[i-1]+Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]));
+      return Object.assign(Object.create(R),{P3:P,H:R.H.slice(s,e+1),cum,len:cum[cum.length-1],orig:R,knip:[s>0,e<R.P3.length-1]})};
+    for(const R0 of KR.R){if(!R0.H)continue;if(++n%25===0)yield;
+      /* Langs de route opschonen. Op de kaart ligt de straat waar de route over gaat soms nog een keer, een paar meter ernaast (de GPX en de kaart
+         wijken iets af), en er lopen stukjes fietspad en ventweg langs. Wat op het asfalt van de route ligt, of binnen 10 m met de route
+         meeloopt, gaat weg; wat overblijft, sluit haaks op de route aan (ext in dzKaartWegen). Een brug die zo dichtbij ligt, is de brug van de route zelf */
+      const P0=R0.P3,uit=P0.map((q,i)=>{const e=rand(q[0],q[1]);return e<-.3||(e<10&&langs(P0,i))});
+      let stukken=[];if(!uit.some(Boolean))stukken=[R0];else if(!R0.brug){let s=-1;for(let i=0;i<=P0.length;i++){if(i<P0.length&&!uit[i]){if(s<0)s=i}else if(s>=0){if(i-1>s)stukken.push(deel(R0,s,i-1));s=-1}}}
+      for(let R of stukken){const P=R.P3,eig=R.orig||R;
+        /* sluit een einde ergens op aan (de route, een andere weg of een brug)? Een los stuk dat nergens op aansluit (een erf, een parkeerplek) laten we weg, behalve een lange weg; een weg die
+           doodloopt krijgt een afgerond einde in plaats van een rechte rand. Een geknipt einde bij de route sluit altijd aan */
+        /* een einde vlak bij de route (een geknipt einde tot 16 m) sluit haaks op de route aan, als er geen rivier of vaart tussen ligt en het
+           niet al op een andere weg of brug aansluit */
+        R.aan=[0,1].map(j=>{const [x,z]=P[j?P.length-1:0],e=rand(x,z),kn=R.knip&&R.knip[j];if(e>(kn?16:8)||!kn&&e>1.5&&KR.wegAf(x,z,eig)<1.5)return false;if(e<.5)return true;const [ex,ez]=randPt(x,z),l=Math.hypot(ex-x,ez-z);
+          for(let t=0;t<=l;t+=1){const px=x+(ex-x)*t/(l||1),pz=z+(ez-z)*t/(l||1);if(nat(px,pz))return false}return true});
+        const vast=i=>{const [x,z]=P[i];return R.aan[i?1:0]||KR.wegAf(x,z,eig)<2.5};
+        R.los=[!vast(0),!vast(P.length-1)];if(R.len<150&&R.los[0]&&R.los[1]&&!R.brug)continue;
+        /* korte stompjes: een stukje karrenspoor of weg dat aan één kant nergens heen gaat, ziet eruit als een fout */
+        if((R.soort===3&&R.len<40||R.len<12)&&(R.los[0]||R.los[1])&&!R.brug)continue;if(R.len<6&&!R.brug&&!R.aan[0]&&!R.aan[1])continue;
+        /* een kort restje tussen twee stukken route (de bocht van een ventweg of parkeerhaven die met de route meeliep) */
+        if(R.knip&&(R.knip[0]||R.knip[1])&&R.aan[0]&&R.aan[1]&&R.len<30)continue;
+        /* water onder de brug? Anders is het gewoon weg */
+        /* een brug alleen waar je het water ziet doorlopen: onder het midden water, en links en rechts naast de brug ook (de sloot of vaart loopt
+           eronderdoor). Boven een sloot die in de wereld niet te zien is, zou een brug als een hekje in het gras staan: dan is het een dam */
+        if(R.brug){const q=P[P.length>>1],A0=P[0],B0=P[P.length-1],dx=B0[0]-A0[0],dz=B0[1]-A0[1],l=Math.hypot(dx,dz)||1,nx=-dz/l,nz=dx/l,o=R.w/2+2.5,
+            nat=(x,z)=>KR.inLaag(x,z,0)||!!(C.lakeAt&&C.lakeAt(x,z)),wl=x=>x?1:0;
+          R.overWater=nat(q[0],q[1])&&wl(nat(q[0]+nx*o,q[1]+nz*o))+wl(nat(q[0]-nx*o,q[1]-nz*o))>=2;
+          if(R.overWater){add(q[0],q[1],{R,a:0,b:P.length-1});continue}
+          /* een dam over een sloot is van dezelfde soort als de weg die erop aansluit (een karrenspoor blijft een karrenspoor) */
+          const nb=[0,P.length-1].map(i=>KR.wegBij(P[i][0],P[i][1],eig)).find(o=>o&&o.m<1.5&&!o.R.brug);
+          if(nb&&R.len<25)R=Object.assign(Object.create(R),{soort:nb.R.soort,w:nb.R.w,orig:eig})}
+        for(let i=0;i<P.length-1;i+=14){const b=Math.min(P.length-1,i+14),q=P[(i+b)>>1];add(q[0],q[1],{R,a:i,b})}}}
     KR.wegPer=per}
 }
 function* dzKaartWegen(C,key,geo){
@@ -744,7 +776,7 @@ function* dzKaartWegen(C,key,geo){
   for(const {R,a:a0,b:b0} of L){const hw=R.w/2,tint=TINT[R.soort]||TINT[0];if(b0-a0<1)continue;if(++nr%2===0)yield;
     /* een einde bij de route: tot tegen de rand van de route doortrekken (asfalt een fractie eroverheen, een pad tot de rand) */
     let P=R.P3,H=R.H,a=a0,b=b0;
-    if(!R.brug){const ext=(i,j)=>{const [x,z]=P[i],k=T.near(x,z);if(k<0)return null;const hr=C.hwAt(k*STEP),e=T.exact(x,z);if(e>hr+4.5||e<hr-.3)return null;
+    if(!R.brug){const ext=(i,j)=>{const [x,z]=P[i],k=T.near(x,z);if(k<0)return null;const hr=C.hwAt(k*STEP),e=T.exact(x,z);if(!R.aan||!R.aan[i?1:0]||e<hr-.3)return null;
         let d0=k*STEP,best=1e9;for(let dd=d0-15;dd<=d0+15;dd+=.5){const q=roadAt(C,dd),dist=Math.hypot(q.x-x,q.z-z);if(dist<best){best=dist;d0=dd}}
         const q=roadAt(C,d0),sd=Math.sign((x-q.x)*Math.cos(q.h)+(z-q.z)*Math.sin(q.h))||1,o=sd*(R.soort===0?hr-.15:hr+.05);return [[q.x+Math.cos(q.h)*o,q.z+Math.sin(q.h)*o],q.y-.04]};
       const s0=a===0?ext(0):null,s1=b===P.length-1?ext(P.length-1):null;
@@ -911,8 +943,11 @@ function* dzChunkJob(ci){
   /* auto's, mensen en spullen niet in of vlak naast een sloot of het boezemwater van de kaart */
   const KRw=T.KR&&T.KR.inLaag?T.KR:null,LANDOBJ=/^(auto|car|loper|bank|terras|parasol|camper|fiets|baal|trekker|landhek|mens|zit|fan|kraam|mast|lamp|struik|pol|hekpaal|heg|picknick|cabanon|elektrapaal|stapelmuur)/,MENS=/^(auto|car|mens|zit|fan|loper|camper|fiets|terras|parasol|kraam)/;
   /* boezem: waar boezemwater mag liggen en het land onder het peil ligt, staat in beeld water */
-  const boezem=(x,z)=>T.peil!=null&&T.boezemOk(x,z)&&T.h(x,z)<T.peil+.15;
-  const nat=(k,x,z)=>KRw&&LANDOBJ.test(k)&&(KRw.inLaag(x,z,MENS.test(k)?1.4:.4)||!!(C.lakeAt&&C.lakeAt(x,z))||boezem(x,z));
+  const boezem=(x,z)=>T.inBoezem(x,z);
+  /* vee niet op een kaartweg of in het water; ander los spul niet midden op een kaartweg */
+  const VEE=/^(schaap|koe|paard|geit|ezel)/;
+  const nat=(k,x,z)=>{if(!KRw)return false;if(VEE.test(k))return KRw.wegAf(x,z)<2.5||KRw.inLaag(x,z,1)||!!(C.lakeAt&&C.lakeAt(x,z))||boezem(x,z);
+    return LANDOBJ.test(k)&&(KRw.inLaag(x,z,MENS.test(k)?1.4:.4)||!!(C.lakeAt&&C.lakeAt(x,z))||boezem(x,z)||!MENS.test(k)&&KRw.wegAf(x,z)<.6)};
   const lists={},put=(k,x,y,z,s,ry,col,sy,tl)=>{if(nat(k,x,z))return;(lists[k]=lists[k]||[]).push([x,y,z,s,ry,col,sy,tl])};
   const tint=(l,h)=>{const c=new TH.Color(1,1,1);c.offsetHSL((r()-.5)*(h||.04),(r()-.5)*.15,(r()-.5)*(l||.18));return c};
   const KC=W.KC||{},pick=L=>L[Math.floor(r()*L.length)];
