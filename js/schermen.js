@@ -361,11 +361,8 @@ function vandaagView(){
   logPlan(plan,today);
   const td=plan.days.find(d=>d.iso===tk);
   const pend=ui.pending?`<div class="notice row spread"><span>Onderbroken training: ${esc(ui.pending.wo.name)}, ${clock(ui.pending.rec.p.length)}</span><span class="row"><button class="btn small" data-act="pendSave">Opslaan</button><button class="btn small" data-act="pendDrop">Weggooien</button></span></div>`:'';
-  let hide=false;try{hide=localStorage.getItem('kopwerk.synchint')==='0'}catch(e){}
-  const sync=CONFIG.firebase&&syncInfo.ready&&!syncInfo.user&&!hide?`<div class="card row spread"><h3>Synchroniseren</h3>
-    <span class="row"><button class="btn small pri" data-act="syncLogin">Inloggen met Google</button><button class="btn small icon" data-act="syncHide" aria-label="Verbergen">${I.x}</button></span></div>`:'';
   return `<div class="head"><div><h1>Vandaag</h1><p>${dateLong(today).replace(/^./,c=>c.toUpperCase())}</p></div></div>
-    <div class="home"><div class="stack">${pend}${sync}${statusCard(plan,today)}${checkCard(today)}${weekAskCard(today)}<div class="dayw">${dayCard(td,tk)}</div>${weekCard(today)}</div></div>`;
+    <div class="home"><div class="stack">${pend}${statusCard(plan,today)}${checkCard(today)}${weekAskCard(today)}<div class="dayw">${dayCard(td,tk)}</div>${weekCard(today)}</div></div>`;
 }
 
 /* ---------- schema ---------- */
@@ -597,22 +594,20 @@ function profileCard(){
 /* Koppelingen staan altijd in beeld, ook wat nog komt: Strava (zodra de koppeling aan staat) en Apple Gezondheid in de iPhone-app,
    waar ritten van Garmin, Wahoo en Strava vanzelf binnenkomen */
 function linkCard(){
-  const u=syncInfo.user,s=state.strava;
-  const sync=!CONFIG.firebase?'':u?`<div class="li"><span class="w"><b>Synchronisatie aan</b><span>${esc(u.email)}${syncInfo.err?' · '+syncInfo.err:syncInfo.at?' · bijgewerkt om '+pad(new Date(syncInfo.at).getHours())+':'+pad(new Date(syncInfo.at).getMinutes()):''}</span></span><button class="btn small" data-act="syncLogout">Uitloggen</button></div>`
-    :`<div class="li"><span class="w"><b>Synchronisatie</b></span><button class="btn small" data-act="syncLogin">Inloggen met Google</button></div>`;
+  const s=state.strava;
   const str=!stravaReady()?'':s?`<div class="li"><span class="w"><b>Strava gekoppeld${s.name?' · '+esc(s.name):''}</b><span>${s.checked?'Bijgewerkt om '+pad(new Date(s.checked).getHours())+':'+pad(new Date(s.checked).getMinutes()):'Ritten komen vanzelf binnen'}</span></span><span class="row"><button class="btn small" data-act="stravaFetch">Nu ophalen</button><button class="btn small warn" data-act="stravaOff">Ontkoppelen</button></span></div>`
     :`<div class="li"><span class="w"><b>Strava</b></span><button class="btn small" data-act="stravaConnect">Koppel Strava</button></div>`;
   const soon=(t,s)=>`<div class="li"><span class="w"><b>${t}</b><span>${s}</span></span></div>`;
   const str2=stravaReady()?str:soon('Strava','Ritten vanzelf ophalen · binnenkort');
   const apple=soon('Apple Gezondheid','Ritten van Garmin, Wahoo en Strava · in de iPhone-app');
-  return `<div class="card"><div style="margin-bottom:6px">${sech('tpurple',I.link,'Koppelingen')}</div><div class="list">${str2}${apple}${sync}</div></div>`;
+  return `<div class="card"><div style="margin-bottom:6px">${sech('tpurple',I.link,'Koppelingen')}</div><div class="list">${str2}${apple}</div></div>`;
 }
 function profielView(){
   if(!state.setup)return setupView();
   return `<div class="head"><div><h1>Profiel</h1></div></div>
     <div class="stack">${settingsForm(false)}
     <div class="card stack">${sech('tyellow',I.sun,'Weergave')}<div class="form"><div><label class="f" for="s-theme">Licht of donker</label>${sel('id="s-theme" data-chg="theme"',[['auto','Zoals je apparaat'],['light','Licht'],['dark','Donker']],getTheme())}</div></div></div>
-    ${profileCard()}${linkCard()}
+    ${profileCard()}${acctCard()}${linkCard()}
     <div class="card"><div style="margin-bottom:6px">${sech('tgreen',I.data,'Je gegevens')}</div><div class="list">
       <div class="li"><span class="w"><b>Back-up</b></span><span class="row"><button class="btn small" data-act="backup">Downloaden</button><label class="btn small" style="cursor:pointer">Terugzetten<input type="file" accept=".json,application/json" data-chg="restore" style="position:absolute;opacity:0;width:1px;height:1px"></label></span></div>
       <div class="li"><span class="w"><b>Opnieuw beginnen</b></span><button class="btn small warn" data-act="wipe">Alles wissen</button></div></div></div></div>`;
@@ -714,6 +709,7 @@ function modalHTML(){
   if(ui.modal&&ui.modal.kind==='health')return healthModal();
   if(ui.modal&&ui.modal.kind==='log')return logModal();
   if(ui.modal&&ui.modal.kind==='own')return ownModal();
+  if(ui.modal&&ui.modal.kind==='acctDel')return acctDelModal();
   return '';
 }
 
@@ -722,6 +718,8 @@ function render(){
   if(ensureBlock(state,new Date()))save(false);
   if(P){renderPlayer();document.getElementById('modal').innerHTML='';return}
   if(W)worldClose();
+  /* zonder account geen app: inloggen eerst (js/account.js) */
+  {const g=acctGate();if(g){app.innerHTML=g;document.getElementById('modal').innerHTML='';lastScreen='';return}}
   const views={vandaag:vandaagView,kalender:kalenderView,schema:kalenderView,ritten:kalenderView,prestaties:prestatiesView,voortgang:voortgangView,analyse:voortgangView,ride:rideView,lib:libView,profiel:profielView,settings:profielView,training:trainingView};
   const v=views[ui.view]||vandaagView,fe=document.activeElement,fid=fe&&fe.id&&/^(INPUT|SELECT|TEXTAREA)$/.test(fe.tagName)?fe.id:'';
   const body=v(),scr=typeof routeOf==='function'?routeOf():ui.view;

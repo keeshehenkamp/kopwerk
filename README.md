@@ -35,6 +35,7 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 | `js/grafieken.js` | Grafieken |
 | `models/kenney.bin`, `models/kenney.json` | 46 gratis 3D-modellen van [Kenney](https://kenney.nl) (CC0): bomen, struiken, rotsen, hout, bloemen en auto's, met ingebakken natuurlijke kleuren. Opnieuw maken met `python3 tools/kenney.py <map met uitgepakte Kenney-pakketten>` (Nature Kit en Car Kit) |
 | `js/evenementen.js` | Dertig grote toertochten en cyclo's in Europa (afstanden, hoogtemeters, hellingen); hoe lang de hellingen voor jou duren, welk soort schema daarbij past (korte hellingen, middellange klimmen, lange cols, vlak, kasseien) en of het haalbaar is |
+| `js/account.js` | Inloggen (Apple, Google, e-mail met wachtwoord), uitloggen en account verwijderen. Zonder account geen app: `acctGate` toont het inlogscherm in plaats van de app |
 | `js/schermen.js` | Schermen en vensters |
 | `js/acties.js` | Knoppen, toetsen en het opstarten van de app |
 
@@ -59,13 +60,14 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 - Eigen ritten vooruit inplannen (Kalender, Plannen): `overrides[datum].own = {m, e}` met de duur in minuten en de zwaarte (0 rustig tot 3 zeer zwaar, zoals `EFFORT`). De planner (`ownWo` in `js/planner.js`) zet zo'n rit vast in de week: als lange rit vanaf 100 minuten of vier vijfde van je lange rit, als zware dag bij zwaar of zeer zwaar. Hij schuift niet door als je hem mist, en een buitenrit op die dag blijft een buitenrit (geen training uit het schema). Ritten na volgende week staan in de Kalender onder Later, zonder schema eromheen.
 - Van demo-ritten (`sim`) bewaart de app alleen de laatste. Ze tellen niet mee in het schema, de kalender of je beste ritten.
 
-- Synchronisatie (Firebase, inloggen met Google) kiest per kant het nieuwste op basis van `updatedAt`. Alleen echte wijzigingen verhogen die (`save()`); wat de app zelf afleidt, zoals de planlog en records, bewaart met `save(false)`. Terug in de app of het tabblad haalt de app wijzigingen van je andere apparaat op.
+- Account: Kopwerk werkt alleen met een account (Firebase Auth: Apple, Google of e-mail met wachtwoord, `js/account.js`). `kopwerk.acct` onthoudt dat er op dit apparaat is ingelogd, zodat de app zonder verbinding gewoon opent. Uitloggen zet eerst alles online en maakt daarna dit apparaat leeg; account verwijderen wist `users/{uid}` met ritten en meetgegevens, trekt bij Apple de sleutels in en verwijdert het account. `firestore.rules`: ieder account leest en schrijft alleen zijn eigen `users/{uid}`.
+- Synchronisatie (Firebase) kiest per kant het nieuwste op basis van `updatedAt`. Alleen echte wijzigingen verhogen die (`save()`); wat de app zelf afleidt, zoals de planlog en records, bewaart met `save(false)`. Terug in de app of het tabblad haalt de app wijzigingen van je andere apparaat op.
 
 Verander deze namen of het formaat niet zonder migratie, anders zijn bestaande gegevens niet meer leesbaar. Alle opslag loopt via `js/opslag.js`. Daar kan later ook synchronisatie op aansluiten.
 
 ## Laptop en telefoon
 
-Rijden met je trainer kan alleen in een browser met Web Bluetooth: Chrome of Edge op je laptop (of Chrome op Android). Op een telefoon of tablet zonder Bluetooth, zoals een iPhone, toont de app geen startknoppen: daar plan je, pas je je tijd aan en kijk je je ritten terug. Log op beide in met Google, dan zie je overal hetzelfde.
+Rijden met je trainer kan alleen in een browser met Web Bluetooth: Chrome of Edge op je laptop (of Chrome op Android). Op een telefoon of tablet zonder Bluetooth, zoals een iPhone, toont de app geen startknoppen: daar plan je, pas je je tijd aan en kijk je je ritten terug. Log op beide in met hetzelfde account, dan zie je overal hetzelfde.
 
 ## Routes
 
@@ -76,7 +78,7 @@ Een route in `ROUTES` (js/wereld.js) is een ronde van een heel aantal kilometers
 Bij openen en bij terugkomen in de app kijkt Kopwerk of `index.html` een nieuwer versienummer heeft (`checkVersion` in `js/acties.js`). Zo ja, dan laadt hij de nieuwe versie, behalve tijdens een rit. Daarom altijd `?v=` ophogen bij een wijziging.
 
 
-`manifest.webmanifest` en de iconen in `icons/` maken dat je Kopwerk via "Zet op beginscherm" als losse app kunt openen, zonder browserbalken. Let op: op een iPhone heeft die app een eigen opslag, los van Safari. Neem je gegevens mee met een back-up (Profiel, Je gegevens: downloaden in Safari, terugzetten in de app) of door in te loggen met Google (Profiel, Koppelingen).
+`manifest.webmanifest` en de iconen in `icons/` maken dat je Kopwerk via "Zet op beginscherm" als losse app kunt openen, zonder browserbalken. Let op: op een iPhone heeft die app een eigen opslag, los van Safari. Neem je gegevens mee met een back-up (Profiel, Je gegevens: downloaden in Safari, terugzetten in de app) of door op beide met hetzelfde account in te loggen.
 
 ## Lokaal testen
 
