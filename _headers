@@ -1,0 +1,11 @@
+# Cloudflare Pages: extra kopregels voor de webversie.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: bluetooth=(self), geolocation=(), camera=(), microphone=()
+
+# index.html en het manifest altijd vers; scripts en css hebben ?v= in de naam.
+/index.html
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
