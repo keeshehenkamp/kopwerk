@@ -438,8 +438,10 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 /* kaartje: echte kaart rond je plek, met de naam van het dorp en zoomknoppen */
 .pkaart{position:relative;margin-bottom:4px}.player.vrij .pkaart{margin-bottom:0}.pprof .pkaart #p-kaart{margin-bottom:0}
 .w3 .pprof:has(.pkaart.geo){width:300px}
-.pkaart.geo{pointer-events:auto;border-radius:6px;overflow:hidden;border:1px solid rgba(21,25,34,.14);background:#f8f4f0}.pkaart.geo #p-kaart,.pkaart:not(.geo) .pmap{display:none}
-.pkaart .pmap{width:100%;aspect-ratio:4/3}
+.pkaart.geo{pointer-events:auto;border-radius:6px;overflow:hidden;border:1px solid rgba(21,25,34,.14);background:#f8f4f0}.pkaart:not(.geo) .pmap{display:none}
+/* de echte kaart ligt over het kaartje van de hele ronde; dat blijft zichtbaar tot de echte kaart geladen is */
+.pkaart.geo #p-kaart{aspect-ratio:4/3}.pkaart .pmap{position:absolute;inset:0;visibility:hidden}.pkaart.klaar .pmap{visibility:visible}.pkaart.klaar #p-kaart{visibility:hidden}
+.pkaart:not(.klaar) .pzoom,.pkaart:not(.klaar) .pbron{display:none}
 .pmij{width:22px;height:22px;border-radius:50%;background:var(--acc);border:2.5px solid #fff;box-sizing:border-box;display:grid;place-items:center}
 .pmij::after{content:'';width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #fff;margin-top:-2px}
 .pkaart #p-plaats{position:absolute;left:6px;top:6px;max-width:calc(100% - 46px);background:#fff;color:#151922;border:1px solid rgba(21,25,34,.16);border-radius:5px;padding:2px 7px;font-size:13px;font-weight:700;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

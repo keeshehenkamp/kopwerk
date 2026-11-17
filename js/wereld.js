@@ -1746,6 +1746,9 @@ function drawMap(d){
   if(!K)K=kaartMaak(G,box);
   /* het rijscherm is opnieuw opgebouwd: de kaart verhuist mee */
   if(K.div.parentNode!==box)box.prepend(K.div);
+  /* tot de echte kaart geladen is (of als de kaartdienst niet bereikbaar is): het kaartje van de hele ronde, zodat er altijd een kaart staat */
+  const klaar=!!W.kmap&&!K.laden;box.classList.toggle('klaar',klaar);
+  if(!klaar)drawRonde(d,cv);
   /* andere maat (verhuisd, telefoon gedraaid, of gemaakt toen het paneel nog verborgen was): de kaart past zich aan */
   if(W.kmap&&K.w!==K.div.clientWidth){K.w=K.div.clientWidth;W.kmap.resize()}
   const lab=document.getElementById('p-plaats');if(lab){const t=kaartPlek(G,C,d);if(lab.textContent!==t)lab.textContent=t;lab.hidden=!t}
@@ -1763,17 +1766,18 @@ function kaartWeg(w){if(w.kmap)try{w.kmap.remove()}catch(e){}if(w.kaart&&w.kaart
 /* kaartje van de hele ronde, noorden boven: de route als lijn, wat je gereden hebt in de accentkleur, een stip waar je bent
    en kleine stippen voor wie er met je meerijdt. De lijn zelf wordt één keer per route getekend en daarna alleen overgezet. */
 function drawRonde(d,cv){
-  if(cv.width!==540||cv.height!==330){cv.width=540;cv.height=330}
+  /* de hoogte volgt de plek: 540 x 330, of 4:3 als het de plaats van de echte kaart inneemt */
+  const h0=cv.clientWidth&&cv.clientHeight?Math.round(540*cv.clientHeight/cv.clientWidth):330;if(cv.width!==540||cv.height!==h0){cv.width=540;cv.height=h0}
   const C=W.C,c=cv.getContext('2d'),w=cv.width,h=cv.height,m=22;
   let K=W.kaartje;
-  if(!K||K.id!==C.route.id||K.w!==w){let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;const st=Math.max(1,Math.round(C.N/900));for(let k=0;k<C.N;k+=st){x0=Math.min(x0,C.X[k]);x1=Math.max(x1,C.X[k]);z0=Math.min(z0,C.Z[k]);z1=Math.max(z1,C.Z[k])}
+  if(!K||K.id!==C.route.id||K.w!==w||K.h!==h){let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;const st=Math.max(1,Math.round(C.N/900));for(let k=0;k<C.N;k+=st){x0=Math.min(x0,C.X[k]);x1=Math.max(x1,C.X[k]);z0=Math.min(z0,C.Z[k]);z1=Math.max(z1,C.Z[k])}
     const s=Math.min((w-2*m)/Math.max(1,x1-x0),(h-2*m)/Math.max(1,z1-z0)),ox=(w-(x1-x0)*s)/2-x0*s,oz=(h-(z1-z0)*s)/2-z0*s,P2=[];for(let k=0;k<C.N;k+=st)P2.push([C.X[k]*s+ox,C.Z[k]*s+oz]);
     const bg=document.createElement('canvas');bg.width=w;bg.height=h;const b=bg.getContext('2d');b.lineJoin=b.lineCap='round';
     b.strokeStyle='rgba(21,25,34,.2)';b.lineWidth=9;b.beginPath();P2.forEach((q,i)=>i?b.lineTo(q[0],q[1]):b.moveTo(q[0],q[1]));b.closePath();b.stroke();
     b.strokeStyle='#8b919c';b.lineWidth=4;b.stroke();
     /* de start: een klein dwarsstreepje */
     {const a=P2[0],n=P2[1],dx=n[0]-a[0],dz=n[1]-a[1],l=Math.hypot(dx,dz)||1;b.strokeStyle='#151922';b.lineWidth=4;b.beginPath();b.moveTo(a[0]-dz/l*9,a[1]+dx/l*9);b.lineTo(a[0]+dz/l*9,a[1]-dx/l*9);b.stroke()}
-    K=W.kaartje={id:C.route.id,w,bg,P:P2,st,acc:getComputedStyle(document.documentElement).getPropertyValue('--acc').trim()||'#E8452C'}}
+    K=W.kaartje={id:C.route.id,w,h,bg,P:P2,st,acc:getComputedStyle(document.documentElement).getPropertyValue('--acc').trim()||'#E8452C'}}
   const at=dd=>{const f=wrapD(C,dd)/STEP/K.st,i=Math.floor(f)%K.P.length,j=(i+1)%K.P.length,u=f-Math.floor(f),a=K.P[i],b=K.P[j];return [a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u]};
   c.clearRect(0,0,w,h);c.drawImage(K.bg,0,0);c.lineJoin=c.lineCap='round';
   /* gereden deel van deze ronde */
