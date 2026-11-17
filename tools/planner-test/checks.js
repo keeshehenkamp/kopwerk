@@ -183,6 +183,30 @@ function runWeekChecks(add){
     for(let i=1;i<vs.length;i++)if(vs[i]<vs[i-1])return `daalt van ${vs[i-1]} naar ${vs[i]} W op ${dagen[i]}`;
     /* zonder trainingen geen winst */
     state.rides=state.rides.slice(0,1);cache.clear();const q=probFtp(dagen[dagen.length-1],planOf);return q.v<=q.v0+1||`met één rit toch ${q.v0} naar ${q.v} W`});
+  /* 10. eigen ritten vooruit inplannen (Kees, 17-11-2026: een weekendje fietsen met twee lange ritten moet het schema van tevoren sturen).
+     Een eigen rit staat vast en telt als lange of zware dag: geen zware training de dag ervoor, de dag erna kort, geen tweede lange rit,
+     niet meer zware dagen dan anders, en hij schuift niet door als je hem niet reed. */
+  const eigen=(sc,tot,own)=>{volg(sc,tot);const mon=parseISO(tot);NOW=mon.getTime()+8*36e5;const today=new Date(NOW),zonder=planWeek(state,mon,today);
+    for(const [k,o] of Object.entries(own))state.overrides[k]={own:o};return {mon,today,zonder,met:planWeek(state,mon,today)}};
+  const WEEKEND={avail:[60,75,60,75,90,240,240]},sat='2026-12-12',sun='2026-12-13';
+  for(const [naam,sc] of [['blok',Object.assign({noEvent:true,goal:'ftp',block:true},WEEKEND)],['evenement',WEEKEND],['weinig tijd',{noEvent:true,goal:'fit',block:true,avail:[0,60,0,60,0,120,180]}]])T('eigen rit',naam,'een weekend met twee eigen ritten stuurt het schema niet goed',()=>{
+    const {zonder,met}=eigen(sc,'2026-12-07',{[sat]:{m:180,e:1},[sun]:{m:150,e:2}}),D=met.days,za=D[5],zo=D[6];
+    if(!za.wo||!za.wo.own||za.wo.minutes!==180)return `zaterdag is ${za.wo?za.wo.type+' '+za.wo.minutes+' min':'rust'}, geen eigen rit van 180 min`;
+    if(!zo.wo||!zo.wo.own||zo.wo.minutes!==150)return `zondag is ${zo.wo?zo.wo.type+' '+zo.wo.minutes+' min':'rust'}, geen eigen rit van 150 min`;
+    if(!za.long)return 'een eigen rit van drie uur telt niet als lange rit';
+    if(!zo.key)return 'een zware eigen rit telt niet als zware dag';
+    if(D[4].key||D[4].test)return `de dag voor je eigen rit is zwaar: ${D[4].wo.type}`;
+    const lang=D.filter(d=>d.long&&!(d.wo&&d.wo.own));if(lang.length)return `naast je eigen ritten nog een lange rit op ${DAYS[lang[0].i]}`;
+    const n=x=>x.days.filter(d=>d.key).length;if(n(met)>n(zonder))return `${n(met)} zware dagen met je eigen ritten, ${n(zonder)} zonder`;
+    return true});
+  T('eigen rit','dag erna','de dag na een lange eigen rit is langer dan een uur',()=>{const {met}=eigen(Object.assign({noEvent:true,goal:'fit',block:true},{avail:[60,75,60,75,240,240,120]}),'2026-12-07',{'2026-12-11':{m:210,e:1}}),d=met.days[5];return !d.wo||d.wo.minutes<=60||`${d.wo.type} ${d.wo.minutes} min`});
+  T('eigen rit','maandag','een zware eigen rit op maandag, toch zwaar op de zondag ervoor',()=>{const {met}=eigen(Object.assign({noEvent:true,goal:'fit',block:true},{avail:[60,75,60,75,60,90,120]}),'2026-12-07',{'2026-12-14':{m:120,e:2}}),d=met.days[6];return !d.key||`zondag ${d.wo.type}`});
+  T('eigen rit','ver vooruit','een eigen rit over vijf weken staat er niet als die week komt',()=>{eigen(Object.assign({noEvent:true,goal:'fit',block:true},WEEKEND),'2026-12-07',{'2027-01-16':{m:200,e:1}});
+    NOW=parseISO('2027-01-11').getTime()+8*36e5;const t=new Date(NOW),d=planWeek(state,mondayOf(t),t).days[5];return (d.wo&&d.wo.own&&d.wo.minutes===200)||(d.wo?d.wo.type:'rust')});
+  T('eigen rit','gemist','een eigen rit die je niet reed, schuift door naar een andere dag',()=>{const {mon}=eigen(Object.assign({noEvent:true,goal:'fit',block:true},{avail:[60,180,60,75,60,90,120]}),'2026-12-07',{'2026-12-08':{m:150,e:2}});
+    NOW=parseISO('2026-12-09').getTime()+8*36e5;const t=new Date(NOW),p=planWeek(state,mon,t),v=p.days.find(d=>d.movedFrom!=null||(d.i>1&&d.wo&&d.wo.own));return !v||`${DAYS[v.i]} ${v.wo.name}`});
+  T('eigen rit','buiten gereden','een buitenrit op de dag van je eigen rit wordt een training uit het schema',()=>{eigen(Object.assign({noEvent:true,goal:'fit',block:true},WEEKEND),'2026-12-07',{[sat]:{m:180,e:1}});
+    NOW=parseISO(sat).getTime()+18*36e5;const r={id:'own1',date:sat,ts:NOW,type:'buiten',name:'Buitenrit',manual:true,dur:175*60,rpe:5,sim:false};matchFeel(r);feelLoad(r);return r.type==='buiten'||r.type});
   /* 8. de week na je evenement: herstellen, geen test en geen zware training */
   T('na evenement','evenement','de week na je evenement is geen herstelweek',()=>!!post&&(post.ctx.kind==='rec'||post.label));
   T('na evenement','evenement','test of zware training in de week na je evenement',()=>{const d=post&&post.days.find(d=>d.wo&&(d.key||d.test||d.wo.minutes>75));return !d||`${DAYS[d.i]} ${d.wo.type} ${d.wo.minutes} min`});

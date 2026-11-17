@@ -83,6 +83,8 @@ function fitChart(path){
    Verder vooruit plannen heeft geen zin: je tijd verandert elke week. */
 function calWhen(d){return `<span class="when"><b>${DAYS[dow(d)]}</b>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span>`}
 const calRide=(r,cls='')=>`<button data-act="openRide" data-id="${r.id}" class="${cls}">${calWhen(parseISO(r.date))}<span class="dot done">${I.check}</span><span class="w"><b>${esc(r.name)}</b><span>${clock(r.dur)}${r.manual&&r.dist?` · ${nl((r.dist/1000).toFixed(1))} km`:''}</span></span>${r.rpe?`<b class="rpev r${r.rpe}">${r.rpe}</b>`:''}<span class="r">${r.tss} TSS</span></button>`;
+/* een eigen rit in de lijst: tik om aan te passen */
+const ownRow=(k,w)=>`<button data-act="ownOpen" data-iso="${k}">${calWhen(parseISO(k))}<span class="dot" style="background:var(--acc)"></span><span class="w"><b>Eigen rit</b><span>${durTxt(w.minutes)} · ${OWN_E[w.e].toLowerCase()}</span></span><span class="r">${w.tss} TSS</span></button>`;
 function kalenderView(){
   if(!state.setup)return setupView();
   const today=new Date(),tk=iso(today),mon=mondayOf(today),real=state.rides.filter(r=>!r.sim);
@@ -91,6 +93,7 @@ function kalenderView(){
     const k=iso(m),rows=planWeek(state,m,today).days.filter(d=>d.iso>tk).flatMap(d=>{
       if(d.event)return [`<div class="li">${calWhen(d.date)}<span class="dot ev"></span><span class="w"><b>${esc(d.event)}</b></span>${I.flag}</div>`];
       if(!d.wo)return [];
+      if(d.wo.own)return [ownRow(d.iso,d.wo)];
       return [`<button data-act="openDay" data-iso="${d.iso}">${calWhen(d.date)}<span class="dot" style="background:var(--z${woZone(d.wo)})"></span><span class="w"><b>${esc(d.wo.name)}</b><span>${durTxt(d.wo.minutes)}</span></span><span class="r">${d.wo.tss} TSS</span></button>`]});
     const open=ui.calEdit===k;
     return `<div class="wkh">${sech(k===iso(mon)?'tblue':'tpurple',ICON.schema,title)}${edit?`<button class="ibtn${open?' on':''}" data-act="calEdit" data-k="${k}" aria-pressed="${open}" aria-label="Tijd per dag, ${title.toLowerCase()}" title="Tijd per dag">${ICO.tijd}</button>`:''}</div>
@@ -106,10 +109,13 @@ function kalenderView(){
     if(mt!==month){month=mt;log+=`<div class="month">${mt}</div>`}
     log+=`<details class="wkf" data-wk="${w}"${open[w]?' open':''}><summary class="wkl"><span>Week ${weekNo(m)}</span><span>${rs.length}× · ${durTxt(Math.round(sec/60))} · ${tss} TSS</span></summary><div class="card tl"><div class="list">${rs.map(r=>calRide(r)).join('')}</div></div></details>`;
   }
-  const tools=`<div class="row"><button class="btn pri lab" data-act="openLog" data-iso="${tk}" data-p="1">${I.plus}Toevoegen</button></div>`;
+  const tools=`<div class="row"><button class="btn lab" data-act="ownOpen" aria-label="Rit plannen">${I.calplus}Plannen</button><button class="btn pri lab" data-act="openLog" data-iso="${tk}" data-p="1">${I.plus}Toevoegen</button></div>`;
+  /* eigen ritten na volgende week: alleen die ritten, het schema eromheen komt pas als die week dichtbij is */
+  const ver=iso(addDays(mon,14)),later=Object.keys(state.overrides).filter(k=>k>=ver&&state.overrides[k].own).sort().map(k=>ownRow(k,ownWo(state.overrides[k].own)));
   const strip=phaseStrip(today);
   return `<div class="head"><div><h1>Kalender</h1></div>${tools}</div><div class="timeline">${strip?`<div style="margin-bottom:6px">${strip}</div>`:''}
     ${planned(mon,'Deze week',true)}${planned(addDays(mon,7),'Volgende week',true)}
+    ${later.length?`<div class="wkh">${sech('tacc',I.calplus,'Later')}</div><div class="card tl"><div class="list">${later.join('')}</div></div>`:''}
     ${log?`<div class="wkh">${sech('tgreen',I.check,'Geweest')}</div>${log}`:''}</div>`;
 }
 

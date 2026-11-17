@@ -11,7 +11,7 @@ const ic=p=>`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColo
 const I={
   l:ic('<path d="m15 18-6-6 6-6"/>'),r:ic('<path d="m9 18 6-6-6-6"/>'),
   up:ic('<path d="m18 15-6-6-6 6"/>'),down:ic('<path d="m6 9 6 6 6-6"/>'),
-  x:ic('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'),check:ic('<path d="M20 6 9 17l-5-5"/>'),
+  x:ic('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'),calplus:ic('<path d="M8 2v4"/><path d="M16 2v4"/><path d="M21 13V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8"/><path d="M3 10h18"/><path d="M16 19h6"/><path d="M19 16v6"/>'),check:ic('<path d="M20 6 9 17l-5-5"/>'),
   clock:ic('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
   zap:ic('<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>'),
   route:ic('<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>'),
@@ -168,7 +168,7 @@ const ICO={
 function avWeek(k){
   if(k==='setup'){const m=ui.setupAvail||(ui.setupAvail=state.avail.slice());return {mins:m,lock:m.map(()=>false)}}
   const tk=iso(new Date()),plan=planWeek(state,parseISO(k),new Date());
-  return {mins:plan.days.map(d=>d.o.skip?0:(d.o.minutes!=null?d.o.minutes:d.base)),lock:plan.days.map(d=>d.iso<tk),dates:plan.days.map(d=>d.date),today:plan.days.map(d=>d.iso===tk)};
+  return {mins:plan.days.map(d=>d.own?d.own.m:d.o.skip?0:(d.o.minutes!=null?d.o.minutes:d.base)),lock:plan.days.map(d=>d.iso<tk||!!d.own),dates:plan.days.map(d=>d.date),today:plan.days.map(d=>d.iso===tk)};
 }
 const wheelIdx=m=>{let b=0;WHEEL.forEach((v,i)=>{if(Math.abs(v-m)<Math.abs(WHEEL[b]-m))b=i});return b};
 function availEditor(k){
@@ -229,6 +229,9 @@ function coachLine(plan,today,rd){
   /* een rit in deze week die veel langer is dan je gewend bent: alleen een melding */
   const lg=plan.days.find(d=>d.wo&&d.iso>=tk&&!d.logged&&!d.done&&longJump(d.wo.minutes,tk,state));
   if(lg)return {t:`${DAYS_L[lg.i].replace(/^./,c=>c.toUpperCase())} ${durTxt(lg.wo.minutes)}: veel langer dan je langste van 30 dagen (${durTxt(longJump(lg.wo.minutes,tk,state))}). Begin rustig.`};
+  /* eigen ritten deze week: de coach zegt dat de week eromheen staat */
+  const own=plan.days.filter(d=>d.own&&d.wo&&d.iso>=tk&&!d.done&&(d.key||d.long));
+  if(own.length)return {t:`${own.map(d=>d.iso===tk?'vandaag':DAYS_L[d.i]).join(' en ').replace(/^./,c=>c.toUpperCase())} je eigen ${own.length>1?'ritten':'rit'}: de week staat eromheen.`};
   const from=iso(addDays(today,-14));
   if(R&&R.k==='gegroeid')return {t:`Lichter gevoel, lagere hartslag: je wordt sterker. Trainingen gaan omhoog.${test?' Met FTP-test.':''}`};
   if(R&&R.k==='kanmeer'){
@@ -265,7 +268,7 @@ function dayCard(d,tk){
     const note=d.adj?`<div class="note moved">${esc(d.adj)}</div>`:d.missed?`<div class="note late">${d.movedTo!=null?miss+', verplaatst naar '+DAYS_L[d.movedTo]:d.why==='moe'?miss+'. De dagen erna zijn lichter.':miss}</div>`:d.movedFrom!=null?`<div class="note moved">Verplaatst van ${DAYS_L[d.movedFrom]}</div>`:'';
     const lukt=`<button class="btn lab" data-act="openMissed" data-iso="${d.iso}">${I.ban}Lukt niet</button>`;
     const act=d.iso>tk?'':d.missed&&d.why?`<div class="row" style="margin-top:8px"><button class="link small" data-act="undoMissed" data-iso="${d.iso}">Melding intrekken</button></div>${logBtn(d)}`
-      :d.iso===tk&&!d.missed?(canRide()?`<button class="btn pri big lab dstart" data-act="startDay" data-iso="${d.iso}">${I.play}Start training</button>`:'')+`<div class="dacts">${logBtn(d)}${swapBtn(d)}${lukt}</div>`
+      :d.iso===tk&&!d.missed&&!d.own?(canRide()?`<button class="btn pri big lab dstart" data-act="startDay" data-iso="${d.iso}">${I.play}Start training</button>`:'')+`<div class="dacts">${logBtn(d)}${swapBtn(d)}${lukt}</div>`
       :`<div class="dacts">${logBtn(d)}${lukt}</div>`;
     return `<button class="wcard day" data-act="openDay" data-iso="${d.iso}"><div class="t"><div><h3>${esc(d.wo.name)}</h3><div class="m">${metaOf(d.wo)}</div>${note}</div><span class="chev">${I.r}</span></div>${profileSVG(d.wo.segs)}</button>
       ${act}`;
@@ -403,6 +406,9 @@ function trainingView(){
     const ty=`<div class="form"><div><label class="f" for="m-type">Soort training</label>${sel('id="m-type" data-chg="ovType"',w?types:[['','Rust']].concat(types.slice(1)),day.o.type||'')}</div></div>`;
     adjust=w?(day.o.type?'<button class="link small" data-act="pickAlt" data-t="">Terug naar de training van het schema</button>':''):`<div class="card stack"><h3>Toch trainen</h3>${ty}</div>`;
   }
+  if(w&&w.own)return `${back}<div class="head"><div><h1>Eigen rit</h1><p>${title}</p></div></div>
+    <div class="stack"><div class="nrow"><div class="tacc"><b>${durTxt(w.minutes)}</b><span>duur</span></div><div class="tblue"><b>${w.tss}</b><span>TSS · ${OWN_E[w.e]}</span></div></div>
+      ${day.iso<iso(new Date())&&!rideOn(day.iso)?`<div class="card">${sech('tacc',I.done,'Hoe ging je rit?')}${checkBtns(day.iso)}</div>`:`<div class="row"><button class="btn lab" data-act="ownOpen" data-iso="${day.iso}">${I.pencil}Aanpassen</button></div>`}</div>`;
   if(!w)return `${back}<div class="head"><div><h1>Rustdag</h1><p>${title}</p></div></div>
     <div class="detail">${adjust}</div>`;
   const why=whyOn(day?day.date:new Date(),w.type),T=w.sec;
@@ -588,14 +594,18 @@ function profileCard(){
     ${rows?`<div class="scroll"><table><thead><tr><th>Helling</th><th>Lengte</th><th>Stijging</th><th>Jouw tijd</th><th>Richtvermogen</th></tr></thead><tbody>${rows}</tbody></table></div>${S.climbs.length>15?`<p class="small muted">En nog ${S.climbs.length-15} hellingen.</p>`:''}`:''}
     ${p.lijst?'<p class="small muted">Richtwaarden; de route verschilt per jaar iets.</p>':''}</div>`;
 }
+/* Koppelingen staan altijd in beeld, ook wat nog komt: Strava (zodra de koppeling aan staat) en Apple Gezondheid in de iPhone-app,
+   waar ritten van Garmin, Wahoo en Strava vanzelf binnenkomen */
 function linkCard(){
-  if(!CONFIG.firebase&&!stravaReady())return '';
   const u=syncInfo.user,s=state.strava;
   const sync=!CONFIG.firebase?'':u?`<div class="li"><span class="w"><b>Synchronisatie aan</b><span>${esc(u.email)}${syncInfo.err?' · '+syncInfo.err:syncInfo.at?' · bijgewerkt om '+pad(new Date(syncInfo.at).getHours())+':'+pad(new Date(syncInfo.at).getMinutes()):''}</span></span><button class="btn small" data-act="syncLogout">Uitloggen</button></div>`
     :`<div class="li"><span class="w"><b>Synchronisatie</b></span><button class="btn small" data-act="syncLogin">Inloggen met Google</button></div>`;
   const str=!stravaReady()?'':s?`<div class="li"><span class="w"><b>Strava gekoppeld${s.name?' · '+esc(s.name):''}</b><span>${s.checked?'Bijgewerkt om '+pad(new Date(s.checked).getHours())+':'+pad(new Date(s.checked).getMinutes()):'Ritten komen vanzelf binnen'}</span></span><span class="row"><button class="btn small" data-act="stravaFetch">Nu ophalen</button><button class="btn small warn" data-act="stravaOff">Ontkoppelen</button></span></div>`
     :`<div class="li"><span class="w"><b>Strava</b></span><button class="btn small" data-act="stravaConnect">Koppel Strava</button></div>`;
-  return `<div class="card"><div style="margin-bottom:6px">${sech('tpurple',I.link,'Koppelingen')}</div><div class="list">${sync}${str}</div></div>`;
+  const soon=(t,s)=>`<div class="li"><span class="w"><b>${t}</b><span>${s}</span></span></div>`;
+  const str2=stravaReady()?str:soon('Strava','Ritten vanzelf ophalen · binnenkort');
+  const apple=soon('Apple Gezondheid','Ritten van Garmin, Wahoo en Strava · in de iPhone-app');
+  return `<div class="card"><div style="margin-bottom:6px">${sech('tpurple',I.link,'Koppelingen')}</div><div class="list">${str2}${apple}${sync}</div></div>`;
 }
 function profielView(){
   if(!state.setup)return setupView();
@@ -610,6 +620,20 @@ function profielView(){
 
 /* ---------- vensters ---------- */
 /* training niet gedaan: waarom? */
+/* ---------- eigen rit vooruit inplannen ----------
+   Een weekendje fietsen of een toertocht: datum, hoe lang en hoe zwaar. Het schema van die week wordt eromheen gezet. */
+const OWN_E=['Rustig','Gemiddeld','Zwaar','Zeer zwaar'];
+const OWN_MIN=[60,90,120,150,180,210,240,270,300,330,360,420,480];
+function ownModal(){
+  const M=ui.modal,tk=iso(new Date()),o=M.iso&&(state.overrides[M.iso]||{}).own,m=o?o.m:180,e=o?o.e|0:1;
+  return `<div class="veil" data-act="veil"><div class="modal narrow stack" role="dialog" aria-modal="true" aria-label="Rit plannen">
+    <h2>${o?'Eigen rit':'Rit plannen'}</h2>
+    <div class="form logform"><div><label class="f" for="o-date">Datum</label><input type="date" id="o-date" value="${M.iso||''}" min="${tk}"></div>
+      <div><label class="f" for="o-min">Duur</label>${sel('id="o-min"',OWN_MIN.map(x=>[x,durTxt(x)]),OWN_MIN.reduce((b,x)=>Math.abs(x-m)<Math.abs(b-m)?x:b))}</div></div>
+    <div class="opts">${OWN_E.map((t,i)=>`<label class="opt"><input type="radio" name="oe" value="${i}"${i===e?' checked':''}><span><b>${t}</b><small>${EFFORT[i][1].split(', ')[1]||''}</small></span></label>`).join('')}</div>
+    <p class="small muted" id="o-err" role="alert"></p>
+    <div class="mfoot"><button class="btn pri" data-act="ownSave">Opslaan</button>${o?`<button class="btn" data-act="ownDel">Verwijderen</button>`:''}<button class="btn" data-act="closeModal">Annuleren</button></div></div></div>`;
+}
 function missedModal(){
   const d=parseISO(ui.modal.iso),tk=iso(new Date());
   return `<div class="veil" data-act="veil"><div class="modal stack" role="dialog" aria-modal="true" aria-label="Training niet gedaan">
@@ -689,6 +713,7 @@ function modalHTML(){
   if(ui.modal&&ui.modal.kind==='missed')return missedModal();
   if(ui.modal&&ui.modal.kind==='health')return healthModal();
   if(ui.modal&&ui.modal.kind==='log')return logModal();
+  if(ui.modal&&ui.modal.kind==='own')return ownModal();
   return '';
 }
 

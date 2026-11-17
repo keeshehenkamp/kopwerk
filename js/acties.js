@@ -103,6 +103,17 @@ const actions={
     toast(n<=3?'Fijn. Eerst rustig, daarna weer volgens schema.':n<=14?'Fijn. De komende week bouw je rustig op.':'Fijn. De komende weken bouw je rustig op, met daarna een FTP-test.')},
   openWo(d){ui.detail={kind:'wo',type:d.type,min:+d.m||ui.lib.min||60,from:'lib'};ui.view='training';render();window.scrollTo(0,0)},
   closeModal(){ui.modal=null;render()},
+  /* eigen rit: plannen, aanpassen of verwijderen. Hij vervangt wat er die dag stond */
+  ownOpen(d){ui.modal={kind:'own',iso:d.iso||''};render()},
+  ownSave(){
+    const k=document.getElementById('o-date').value,m=+document.getElementById('o-min').value,e=+((document.querySelector('input[name="oe"]:checked')||{}).value||1),err=document.getElementById('o-err');
+    if(!k||k<iso(new Date())){err.textContent='Kies een dag vanaf vandaag.';return}
+    if(rideOn(k)){err.textContent='Op die dag heb je al gereden.';return}
+    const old=ui.modal.iso;ui.modal=null;
+    if(old&&old!==k&&state.overrides[old]){const o=Object.assign({},state.overrides[old]);delete o.own;if(Object.keys(o).length)state.overrides[old]=o;else delete state.overrides[old]}
+    setOverride(k,{own:{m,e},type:null,swap:null,skip:null,minutes:null});
+    toast(`Eigen rit op ${dateLong(parseISO(k))}: de week staat eromheen.`)},
+  ownDel(){const k=ui.modal.iso;ui.modal=null;setOverride(k,{own:null});toast('Eigen rit verwijderd.')},
   veil(d,el,e){if(e.target===el){ui.modal=null;render()}},
   startDay(d){ui.detail={kind:'day',iso:d.iso,from:tabOf(ui.view)};const x=modalWo();if(x&&x.wo)openPlayer(x.wo)},
   startModal(){const x=modalWo();if(x&&x.wo)openPlayer(x.wo)},
