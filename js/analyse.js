@@ -172,7 +172,8 @@ function matchPlan(ride,rec){
   ride.as=rideKind(ride);
   if(state.rides.some(r=>!r.sim&&r.date===ride.date&&r.id!==ride.id&&TYPES[r.type]))return;
   const d=planWeek(state,mondayOf(parseISO(ride.date)),new Date()).days.find(x=>x.iso===ride.date),wo=d&&d.wo;
-  if(!wo||isFtpTest(wo.type))return;
+  /* een eigen rit is geen training uit het schema: de rit blijft wat hij was en telt via wat je reed */
+  if(!wo||wo.own||isFtpTest(wo.type))return;
   const c=compareRide(wo,rec.p,ride.ftp);
   ride.cmp={t:wo.type,name:wo.name,score:c.score,hit:c.hit,n:c.n};ride.score=c.score;ride.planned=wo.sec;
   if(c.score>=75){ride.type=wo.type;ride.lvl=wo.lvl||null;ride.name=wo.name;ride.outdoor=true;ride.adj=false}
@@ -187,7 +188,7 @@ function matchFeel(r){
   if(!r.cmp){
     if(state.rides.some(x=>!x.sim&&x.date===r.date&&x.id!==r.id&&TYPES[x.type]))return;
     const d=planWeek(state,mondayOf(parseISO(r.date)),new Date()).days.find(x=>x.iso===r.date),wo=d&&d.wo;
-    if(!wo||isFtpTest(wo.type))return;
+    if(!wo||wo.own||isFtpTest(wo.type))return;
     r.cmp={t:wo.type,name:wo.name,sec:wo.sec,feel:true};r.planned=wo.sec;
   }
   const c=r.cmp,s=feelScore(c.t,r.dur,c.sec,r.rpe),ok=s>=75;
