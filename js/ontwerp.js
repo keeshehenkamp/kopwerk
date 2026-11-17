@@ -180,16 +180,6 @@ function dzKaart(id){
   K.W=K.water.map(a=>{const P=[];let x=a[1],y=a[2];P.push([x/2,-y/2]);for(let i=3;i<a.length;i+=2){x+=a[i];y+=a[i+1];P.push([x/2,-y/2])}return {hoog:a[0],P}});
   K.B=K.gebouwen.map(b=>({x:b[0]/2,z:-b[1]/2,w:b[2]/10,d:b[3]/10,ang:b[4]*Math.PI/180,srt:b[5]}));
   K.T=K.bomen.map(t=>({x:t[0]/2,z:-t[1]/2,srt:t[2]}));
-  const lijn=(a,o)=>{const P=[];let x=a[o],y=a[o+1];P.push([x/2,-y/2]);for(let i=o+2;i<a.length;i+=2){x+=a[i];y+=a[i+1];P.push([x/2,-y/2])}return P};
-  /* sloten die alleen als lijn op de kaart staan, en de andere wegen rond de route (soort 0 asfalt, 1 fietspad, 2 erfpad of landweg, 3 voetpad) */
-  K.S=(K.sloten||[]).map(a=>({w:a[0]/10,P:lijn(a,1)}));
-  K.R=(K.wegen||[]).map(a=>({soort:a[0],w:a[1]/10,brug:!!a[2],P:lijn(a,3)}));
-  /* hoe ver een plek van de rand van een kaartweg ligt: de stukken weg per vak van 32 m */
-  const RH=new Map(),G=32;
-  K.R.forEach(R=>{for(let i=0;i<R.P.length-1;i++){const [ax,az]=R.P[i],[bx,bz]=R.P[i+1],s={ax,az,bx,bz,hw:R.w/2};
-    for(let gx=Math.floor((Math.min(ax,bx)-12)/G);gx<=Math.floor((Math.max(ax,bx)+12)/G);gx++)for(let gz=Math.floor((Math.min(az,bz)-12)/G);gz<=Math.floor((Math.max(az,bz)+12)/G);gz++){const k=gx+','+gz;let l=RH.get(k);if(!l)RH.set(k,l=[]);l.push(s)}}});
-  K.wegAf=(x,z)=>{const l=RH.get(Math.floor(x/G)+','+Math.floor(z/G));if(!l)return 99;let m=99;
-    for(const s of l){const dx=s.bx-s.ax,dz=s.bz-s.az,t=clamp(((x-s.ax)*dx+(z-s.az)*dz)/(dx*dx+dz*dz||1),0,1);m=Math.min(m,Math.hypot(s.ax+dx*t-x,s.az+dz*t-z)-s.hw)}return m};
   return K;
 }
 /* ---------- 2. het land: één hoogteveld rond de hele ronde ----------
@@ -255,9 +245,6 @@ function designTerrain(C){
   const onBridge=d=>(C.bridges||[]).some(([b0,b1])=>d>b0&&d<b1);
   roads.forEach((W2,ri)=>{for(let k=0;k<=W2.N;k++){const hw=ri?W2.hw:C.hwAt(k*STEP);stamp(W2.X[k],W2.Z[k],!ri&&onBridge(k*STEP)?hw+.5:Math.max(hw+1.5,6,cs*.65),W2.Y[k]-.15,true,ri?-2-(ri-1):k)}});
   for(let c=0;c<n;c++){if(WR[c]){VS[c]=VR[c]/WR[c];FX[c]=1}else if(WF[c]){VS[c]=VF[c]/WF[c];FX[c]=1}}
-  /* onder een brug van de route: daar mag het land wegzakken tot de bodem van het water (zie het boezemwater van de kaart hieronder) */
-  const BRG=new Uint8Array(n);for(const [b0,b1] of C.bridges||[])for(let d=b0+2;d<=b1-2;d+=2){const k=Math.round(d/STEP),r=C.hwAt(d)+4,x=C.X[k],z=C.Z[k];
-    for(let j=Math.max(0,Math.floor((z-r-z0)/cs));j<=Math.min(nz-1,Math.ceil((z+r-z0)/cs));j++)for(let i=Math.max(0,Math.floor((x-r-x0)/cs));i<=Math.min(nx-1,Math.ceil((x+r-x0)/cs));i++)if(Math.hypot(x0+i*cs-x,z0+j*cs-z)<=r)BRG[j*nx+i]=1}
   /* meren: bodem vast onder het peil, de oever net onder het peil */
   C.lakes=[];for(const M0 of TD.meren||[]){const M=Object.assign({},M0);if(M.peilAt!=null)M.peil=roadAt(C,C.at(M.peilAt)).y-(M.onder??2.5);const P=M.pt.map(q=>M.anker?toW([M.anker,q[0],q[1],0]).slice(0,2):toW(q).slice(0,2));C.lakes.push({P,peil:M.peil,riet:!!M.riet});
     let bx0=1e9,bx1=-1e9,bz0=1e9,bz1=-1e9;for(const [x,z] of P){bx0=Math.min(bx0,x);bx1=Math.max(bx1,x);bz0=Math.min(bz0,z);bz1=Math.max(bz1,z)}
@@ -265,17 +252,13 @@ function designTerrain(C){
       const x=x0+i*cs,z=z0+j*cs,c=j*nx+i;if(!dzInPoly(P,x,z)||WR[c])continue;VS[c]=M.peil-.8-clamp(dzPolyDist(P,x,z)/3,0,9);FX[c]=2}}
   /* kaart: watervlakken in het raster zetten (WM: 1 = boezemwater, 2 = sloot of plas) en de afstand tot het boezemwater (WD) */
   const KR=TD.kaart?dzKaart(TD.kaart):null,WM=KR?new Uint8Array(n):null,WD=KR?new Float32Array(n).fill(1e9):null,peil=TD.peil??0;
-  if(KR){KR.per=null;KR.wegPer=null;
-    for(const S of KR.S)for(let i=0;i<S.P.length-1;i++){const [ax,az]=S.P[i],[bx,bz]=S.P[i+1],m=Math.max(1,Math.ceil(Math.hypot(bx-ax,bz-az)/4));
-      for(let s=0;s<=m;s++){const ii=Math.round((ax+(bx-ax)*s/m-x0)/cs),jj=Math.round((az+(bz-az)*s/m-z0)/cs);if(ii>=0&&jj>=0&&ii<nx&&jj<nz&&!WM[jj*nx+ii])WM[jj*nx+ii]=2}}
+  if(KR){KR.per=null;
     for(const Wp of KR.W){const P=Wp.P;let zmin=1e9,zmax=-1e9;for(const q of P){zmin=Math.min(zmin,q[1]);zmax=Math.max(zmax,q[1])}
       for(let j=Math.max(0,Math.ceil((zmin-z0)/cs));j<=Math.min(nz-1,Math.floor((zmax-z0)/cs));j++){const z=z0+j*cs,xs=[];
         for(let a=0,b=P.length-1;a<P.length;b=a++){const za=P[a][1],zb=P[b][1];if((za>z)!==(zb>z))xs.push(P[a][0]+(z-za)/(zb-za)*(P[b][0]-P[a][0]))}
         xs.sort((p,q)=>p-q);
         for(let k=0;k+1<xs.length;k+=2)for(let i=Math.max(0,Math.ceil((xs[k]-x0)/cs));i<=Math.min(nx-1,Math.floor((xs[k+1]-x0)/cs));i++){const c=j*nx+i;
-          if(Wp.hoog){if(WR[c]&&!BRG[c])continue;WM[c]=1;WD[c]=0;VS[c]=peil-1.5;FX[c]=2}else if(!WM[c])WM[c]=2}}}
-    /* onder een brug van de route ligt altijd water, ook als de kaart het water bij de brug laat ophouden */
-    for(let c=0;c<n;c++)if(BRG[c]){WM[c]=1;WD[c]=0;VS[c]=peil-1.5;FX[c]=2}
+          if(Wp.hoog){if(WR[c])continue;WM[c]=1;WD[c]=0;VS[c]=peil-1.5;FX[c]=2}else if(!WM[c])WM[c]=2}}}
     /* afstand tot het boezemwater: twee vegen over het raster */
     const rel=(c,c2,w)=>{if(WD[c2]+w<WD[c])WD[c]=WD[c2]+w},dg=cs*Math.SQRT2;
     for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const c=j*nx+i;if(i)rel(c,c-1,cs);if(j){rel(c,c-nx,cs);if(i)rel(c,c-nx-1,dg);if(i<nx-1)rel(c,c-nx+1,dg)}}
@@ -323,14 +306,10 @@ function designTerrain(C){
   /* afstand tot de oever van het dichtstbijzijnde stromende water (negatief = in het water) */
   T.waterAt=(x,z)=>{let m=99;for(const R of waters){if(x<R.bb[0]||x>R.bb[1]||z<R.bb[2]||z>R.bb[3])continue;const P=R.P;for(let i=0;i<P.length-1;i++){const ax=P[i][0],az=P[i][1],dx=P[i+1][0]-ax,dz=P[i+1][1]-az,t=clamp(((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz||1),0,1);m=Math.min(m,Math.hypot(ax+dx*t-x,az+dz*t-z)-R.w/2)}}return m};
   const cell=(x,z)=>clamp(Math.round((z-z0)/cs),0,nz-1)*nx+clamp(Math.round((x-x0)/cs),0,nx-1);
-  T.distMain=(x,z)=>RD[cell(x,z)];T.distSide=(x,z)=>Math.min(QD[cell(x,z)],KR&&KR.R.length?KR.wegAf(x,z)+3:1e9);T.dist=(x,z)=>{const c=cell(x,z);return Math.min(RD[c],QD[c])};
+  T.distMain=(x,z)=>RD[cell(x,z)];T.distSide=(x,z)=>QD[cell(x,z)];T.dist=(x,z)=>{const c=cell(x,z);return Math.min(RD[c],QD[c])};
   T.near=(x,z)=>RK[cell(x,z)];
   /* afstand tot het boezemwater van de kaart (of heel ver), en of hier een sloot ligt */
   T.oeverAt=(x,z)=>WD?WD[cell(x,z)]:1e9;T.slootAt=(x,z)=>!!WM&&WM[cell(x,z)]===2;
-  /* mag hier boezemwater liggen: waar het land als boezem is uitgegraven (WM 1), of één cel ernaast (daar ligt de kade eroverheen).
-     Zo steekt een slecht verdeeld vlak nergens als plaat over het land uit */
-  T.boezemOk=(x,z)=>{if(!WM)return true;const i0=clamp(Math.round((x-x0)/cs),0,nx-1),j0=clamp(Math.round((z-z0)/cs),0,nz-1);
-    for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const i=i0+di,j=j0+dj;if(i>=0&&j>=0&&i<nx&&j<nz&&WM[j*nx+i]===1)return true}return false};
   /* precieze afstand tot de weg (het raster is 8 m grof): rond het dichtstbijzijnde wegpunt zoeken */
   T.exact=(x,z)=>{const c=cell(x,z);let best=Math.min(RD[c],QD[c]);
     if(RD[c]<40){const k0=RK[c];for(let k=k0-10;k<=k0+10;k++){const kk=((k%C.N)+C.N)%C.N;best=Math.min(best,Math.hypot(C.X[kk]-x,C.Z[kk]-z))}}
@@ -582,21 +561,7 @@ function dzLakes(C){
       for(const Wp of C.T.KR.W){if(!!Wp.hoog!==!!hoog)continue;const pts=Wp.P.map(([x,z])=>new TH.Vector2(x,z));if(pts.length>3&&pts[0].distanceTo(pts[pts.length-1])<.01)pts.pop();if(pts.length<3)continue;
         /* een plas of sloot met weinig punten: de hoeken afsnijden, zodat het geen zeshoek blijft */
         if(pts.length<=24)for(let ps=0;ps<2;ps++){const q=[];for(let i=0;i<pts.length;i++){const A=pts[i],B=pts[(i+1)%pts.length];q.push(new TH.Vector2(A.x*.75+B.x*.25,A.y*.75+B.y*.25),new TH.Vector2(A.x*.25+B.x*.75,A.y*.25+B.y*.75))}pts.length=0;pts.push(...q)}
-        const b=pos.length/3;for(const p of pts)pos.push(p.x,y,p.y);
-        /* boezemwater alleen waar het mag (T.boezemOk): driehoeken die half binnen de polder liggen, worden fijner verdeeld en het deel binnen valt weg */
-        const ok=(x,z)=>!hoog||C.T.boezemOk(x,z),tri=(A,B,D,dp)=>{const a=ok(A[0],A[1]),bb=ok(B[0],B[1]),d=ok(D[0],D[1]),m=ok((A[0]+B[0]+D[0])/3,(A[1]+B[1]+D[1])/3);
-          if(a&&bb&&d&&m&&dp>0&&Math.max(Math.hypot(A[0]-B[0],A[1]-B[1]),Math.hypot(B[0]-D[0],B[1]-D[1]),Math.hypot(D[0]-A[0],D[1]-A[1]))<60||(a&&bb&&d&&m&&dp===0)){const q=pos.length/3;pos.push(A[0],y,A[1],B[0],y,B[1],D[0],y,D[1]);idx.push(q,q+1,q+2);return}
-          if(!a&&!bb&&!d&&!m&&dp<3)return;
-          if(dp>=4){if(m){const q=pos.length/3;pos.push(A[0],y,A[1],B[0],y,B[1],D[0],y,D[1]);idx.push(q,q+1,q+2)}return}
-          const ab=[(A[0]+B[0])/2,(A[1]+B[1])/2],bd=[(B[0]+D[0])/2,(B[1]+D[1])/2],da=[(D[0]+A[0])/2,(D[1]+A[1])/2];tri(A,ab,da,dp+1);tri(ab,B,bd,dp+1);tri(da,bd,D,dp+1);tri(ab,bd,da,dp+1)};
-        for(const t of TH.ShapeUtils.triangulateShape(pts,[])){const A=[pts[t[0]].x,pts[t[0]].y],B=[pts[t[1]].x,pts[t[1]].y],D=[pts[t[2]].x,pts[t[2]].y];
-          if(!hoog||(ok(...A)&&ok(...B)&&ok(...D)&&ok((A[0]+B[0]+D[0])/3,(A[1]+B[1]+D[1])/3)&&Math.max(Math.hypot(A[0]-B[0],A[1]-B[1]),Math.hypot(B[0]-D[0],B[1]-D[1]),Math.hypot(D[0]-A[0],D[1]-A[1]))<200))idx.push(b+t[0],b+t[1],b+t[2]);else tri(A,B,D,0)}}
-      /* water onder de bruggen van de route */
-      if(hoog)for(const [b0,b1] of C.bridges||[]){const b=pos.length/3;for(let d=b0;d<=b1+.01;d+=2){const p=roadAt(C,Math.min(d,b1)),o=C.hwAt(d)+6,nx=Math.cos(p.h),nz=Math.sin(p.h);pos.push(p.x-nx*o,y,p.z-nz*o,p.x+nx*o,y,p.z+nz*o)}
-        const m=(pos.length/3-b)/2;for(let i=1;i<m;i++)idx.push(b+i*2-2,b+i*2,b+i*2-1,b+i*2-1,b+i*2,b+i*2+1)}
-      if(!hoog)for(const S of C.T.KR.S||[]){const P=S.P,b=pos.length/3;
-        P.forEach(([x,z],i)=>{const a=P[Math.max(0,i-1)],c=P[Math.min(P.length-1,i+1)],dx=c[0]-a[0],dz=c[1]-a[1],l=Math.hypot(dx,dz)||1,nx=-dz/l*S.w/2,nz=dx/l*S.w/2;
-          pos.push(x-nx,y,z-nz,x+nx,y,z+nz);if(i)idx.push(b+i*2-2,b+i*2-1,b+i*2,b+i*2-1,b+i*2+1,b+i*2)})}
+        const b=pos.length/3;for(const t of TH.ShapeUtils.triangulateShape(pts,[]))idx.push(b+t[0],b+t[1],b+t[2]);for(const p of pts)pos.push(p.x,y,p.y)}
       if(!idx.length)continue;const g=new TH.BufferGeometry();g.setAttribute('position',new TH.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();
       const m=new TH.Mesh(g,hoog?W.mat.water:SM);m.userData.far2=true;m.frustumCulled=false;out.push(m)}}
   /* beken en rivieren: een lint water dat de bedding volgt, iets lichter dan het meer */
@@ -605,81 +570,6 @@ function dzLakes(C){
     const pos=[],idx=[];pts.forEach(([x,z,y],i)=>{const a=pts[Math.max(0,i-1)],b=pts[Math.min(pts.length-1,i+1)],dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz)||1,nx=-dz/l*R.w/2,nz=dx/l*R.w/2;
       pos.push(x-nx,y+.35,z-nz,x+nx,y+.35,z+nz);if(i)idx.push(i*2-2,i*2,i*2-1,i*2-1,i*2,i*2+1)});
     const g=new TH.BufferGeometry();g.setAttribute('position',new TH.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();const m=new TH.Mesh(g,RM);m.userData.far2=true;m.frustumCulled=false;out.push(m)}
-  return out;
-}
-/* ---------- andere wegen en bruggen van de kaart ----------
-   De wegen rond de route uit OpenStreetMap (tools/osm_naar_kaart.py): asfalt, rode fietspaden, erfpaden en voetpaden, in hetzelfde
-   wegdek als de route. Ze liggen op het land zoals het getekend is: het fijne land langs de route, verderop het grove net. Een weg die op
-   de route aansluit, stopt aan de rand ervan. Een brug ligt iets hoger, met een boog als hij lang is, een dikte en aan beide kanten een
-   leuning: wit bij een weg, hout bij een fiets- of voetpad. Elke weg hoort bij de kilometer van de route die het dichtst bij ligt. */
-function dzKaartWegen(C,ci,geo){
-  const TH=T3,T=C.T,KR=T.KR,M=W.mat,cl=ci%C.lapKm,out=[];
-  if(!KR.wegPer){KR.wegPer=new Map();const add=(k,o)=>{if(k<0)return;const c=Math.floor(k*STEP/CH);let l=KR.wegPer.get(c);if(!l)KR.wegPer.set(c,l=[]);l.push(o)};
-    for(const R of KR.R){
-      /* fijner verdelen (hooguit 3 m), zodat de weg het land volgt; een brug blijft één stuk */
-      const P=[R.P[0]];for(let i=0;i<R.P.length-1;i++){const [ax,az]=R.P[i],[bx,bz]=R.P[i+1],m=Math.max(1,Math.ceil(Math.hypot(bx-ax,bz-az)/3));for(let s=1;s<=m;s++)P.push([ax+(bx-ax)*s/m,az+(bz-az)*s/m])}
-      if(R.brug){const q=P[P.length>>1];add(T.near(q[0],q[1]),{R,P});continue}
-      for(let i=0;i<P.length-1;i+=14){const S=P.slice(i,Math.min(P.length,i+15)),q=S[S.length>>1];add(T.near(q[0],q[1]),{R,P:S})}}}
-  const L=KR.wegPer.get(cl);if(!L)return out;
-  /* de hoogte van het land zoals het in beeld staat: langs de route het fijne land (met zijn rand), verderop het grove net dat daar iets lager ligt */
-  /* het grove net: hoekpunten om de 16 m (telefoon 24 m), met dezelfde verlaging langs de route als in dzFarMesh, en daartussen dezelfde driehoeken */
-  const st=W.lite?3:2,fv=(i,j)=>{const ci=Math.min(T.nz-1,j*st)*T.nx+Math.min(T.nx-1,i*st),dm=T.RD[ci],ds=T.QD[ci];let y=T.H[ci];
-      if(dm<66){let mn=y;for(let dj=-st;dj<=st;dj++)for(let di=-st;di<=st;di++){const ii=i*st+di,jj=j*st+dj;if(ii>=0&&jj>=0&&ii<T.nx&&jj<T.nz)mn=Math.min(mn,T.H[jj*T.nx+ii])}y=dm<56?mn-.7:y+(mn-.7-y)*clamp((66-dm)/10,0,1)}
-      if(dm<26&&T.RK[ci]>=0)y=Math.min(y,C.Y[T.RK[ci]]-1.6);if(ds<22)y=Math.min(y,T.h(T.QX[ci],T.QZ[ci])-1.3);return y},
-    farH=(x,z)=>{const fi=(x-T.x0)/(T.cs*st),fj=(z-T.z0)/(T.cs*st),i=Math.floor(fi),j=Math.floor(fj),u=fi-i,v=fj-j;
-      /* driehoeken a-d-b en b-d-e van het net */
-      return u+v<=1?fv(i,j)+(fv(i+1,j)-fv(i,j))*u+(fv(i,j+1)-fv(i,j))*v:fv(i+1,j+1)+(fv(i,j+1)-fv(i+1,j+1))*(1-u)+(fv(i+1,j)-fv(i+1,j+1))*(1-v)};
-  const gy=(x,z)=>{const th=T.h(x,z),dm=T.exact(x,z);if(dm>=56)return farH(x,z);
-    const k=T.near(x,z);if(k<0)return th;const d=k*STEP,p=roadAt(C,d),hw=C.hwAt(d);
-    let y=dm<=hw+.3?p.y-.1:(()=>{const t=clamp((dm-hw-.3)/3.4,0,1);return p.y-.12+(th-p.y+.12)*t*t*(3-2*t)})();
-    if(dm>48)y=Math.max(y-.3-1.5*(dm-48)/8,farH(x,z));else if(dm>40)y-=.3*(dm-40)/8;return y};
-  /* de hoogte van een weg: op het land, op de dijkhelling iets hoger (daar ligt het land tussen de rijen van het fijne net soms net boven
-     de lijn), en nooit onder het boezemwater: een weg langs de oever valt anders deels onder water */
-  const wy=(x,z)=>{let y=gy(x,z)+(T.exact(x,z)<25?.2:.06);if(C.lakeAt&&C.lakeAt(x,z))y=Math.max(y,T.peil+.12);return y};
-  if(!M.kweg){M.kweg=new TH.MeshLambertMaterial({vertexColors:true,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});dzRoadShade(M.kweg);
-    M.kbrug=new TH.MeshLambertMaterial({vertexColors:true,side:TH.DoubleSide})}
-  /* kleur per soort, over het asfalt heen: grijs asfalt, rood fietspad, licht erfpad, bleke tegels */
-  const TINT=[[.97,.97,.97],[1.45,.84,.72],[1.42,1.36,1.18],[1.62,1.57,1.48]];
-  const rp=[],ru=[],rc=[],ri=[],bp=[],bc=[],bi=[],wp=[],wi=[],TD=C.design.terrein||{};
-  const box=(x,y,z,hx,hy,hz,ang,col)=>{const b=bp.length/3,ca=Math.cos(ang),sa=Math.sin(ang);
-    for(const [sx,sy,sz] of[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]]){const lx=sx*hx,lz=sz*hz;bp.push(x+lx*ca-lz*sa,y+sy*hy,z+lx*sa+lz*ca);bc.push(col.r,col.g,col.b)}
-    for(const f of[[0,3,2,1],[4,5,6,7],[0,1,5,4],[2,3,7,6],[1,2,6,5],[0,4,7,3]])bi.push(b+f[0],b+f[1],b+f[2],b+f[0],b+f[2],b+f[3])};
-  const wit=new TH.Color('#e9e7e1'),hout=new TH.Color('#7d5f45'),beton=new TH.Color('#a19d95'),plank=new TH.Color('#8a6a4c');
-  for(const {R,P} of L){if(P.length<2)continue;const n=P.length,tint=TINT[R.soort]||TINT[0],hw=R.w/2;
-    let Y;
-    if(R.brug){
-      /* van oever naar oever: de einden op het land, daartussen iets hoger en bij een lange brug een boog */
-      let len=0;const cum=[0];for(let i=1;i<n;i++){len+=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);cum.push(len)}
-      const y0=gy(P[0][0],P[0][1]),y1=gy(P[n-1][0],P[n-1][1]),top=Math.max(y0,y1)+.3+Math.min(1.1,len*.03);
-      Y=cum.map(c=>{const t=c/(len||1);return y0+(y1-y0)*t+(top-(y0+(y1-y0)*t))*Math.pow(Math.sin(Math.PI*t),.55)});
-    }else Y=null;
-    const b0=rp.length/3;let v=0;
-    for(let i=0;i<n;i++){const [x,z]=P[i],a=P[Math.max(0,i-1)],c=P[Math.min(n-1,i+1)],dx=c[0]-a[0],dz=c[1]-a[1],l=Math.hypot(dx,dz)||1,nx=-dz/l,nz=dx/l;
-      if(i)v+=Math.hypot(x-P[i-1][0],z-P[i-1][1]);
-      for(const s of[-1,1]){const ex=x+nx*hw*s,ez=z+nz*hw*s,y=Y?Y[i]:wy(ex,ez);rp.push(ex,y,ez);ru.push(s<0?0:1,v/48);rc.push(...tint)}
-      if(i)ri.push(b0+i*2-2,b0+i*2-1,b0+i*2,b0+i*2-1,b0+i*2+1,b0+i*2)}
-    if(!Y)continue;
-    /* water eronder: op de kaart houdt een sloot vaak op bij de brug. Een stuk sloot dwars onder het wegdek, dat aan beide kanten aansluit
-       (niet bij boezemwater, dat ligt er al) */
-    {const a=P[0],e=P[n-1],q=P[n>>1],dx=e[0]-a[0],dz=e[1]-a[1],l=Math.hypot(dx,dz)||1,ux=dx/l,uz=dz/l,vx=-uz,vz=ux,hl=Math.max(.8,l*.36),hb=hw+1;
-      if(!(C.lakeAt&&C.lakeAt(q[0],q[1]))){const C4=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([su,sv])=>[q[0]+ux*hl*su+vx*hb*sv,q[1]+uz*hl*su+vz*hb*sv]),b=wp.length/3;
-        /* net boven het land eromheen, zodat het niet onder het gras verdwijnt, en onder het wegdek */
-        const yw=Math.min(Math.max(...C4.map(c=>gy(c[0],c[1])),gy(q[0],q[1]))+.05,Math.max(...Y)-.2);
-        for(const c of C4)wp.push(c[0],yw,c[1]);wi.push(b,b+2,b+1,b,b+3,b+2)}}
-    /* de brug zelf: een dikke rand onder het wegdek en aan beide kanten een leuning met palen */
-    const weg=R.soort===0,kl=weg?beton:plank,rl=weg?wit:hout,dik=weg?.45:.28;
-    for(let i=0;i<n-1;i++){const [x0,z0]=P[i],[x1,z1]=P[i+1],seg=Math.hypot(x1-x0,z1-z0);if(seg<.05)continue;const ang=Math.atan2(z1-z0,x1-x0),nx=-(z1-z0)/seg,nz=(x1-x0)/seg,ym=(Y[i]+Y[i+1])/2;
-      for(const s of[-1,1]){const ex=(x0+x1)/2+nx*(hw+.06)*s,ez=(z0+z1)/2+nz*(hw+.06)*s;
-        box(ex,ym-dik/2,ez,seg/2+.02,dik/2,.07,ang,kl);
-        box(ex,ym+(weg?.95:1.02),ez,seg/2+.02,.04,.045,ang,rl);
-        box(ex,ym+(weg?.55:.55),ez,seg/2+.02,.025,.03,ang,rl)}}
-    let acc=0;for(let i=0;i<n;i++){if(i)acc+=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);if(i&&i<n-1&&acc<1.6)continue;acc=0;
-      const [x,z]=P[i],a=P[Math.max(0,i-1)],c=P[Math.min(n-1,i+1)],dx=c[0]-a[0],dz=c[1]-a[1],l=Math.hypot(dx,dz)||1,nx=-dz/l,nz=dx/l,ang=Math.atan2(dz,dx);
-      for(const s of[-1,1])box(x+nx*(hw+.06)*s,Y[i]+.5,z+nz*(hw+.06)*s,.05,.5,.05,ang,rl)}}
-  if(ri.length){const m=new TH.Mesh(geo(rp,ri,rc,ru),M.kweg);m.receiveShadow=true;out.push(m)}
-  /* geen eigen schaduw: dat scheelt per kilometer een tekenopdracht in de schaduwronde */
-  if(bi.length){const m=new TH.Mesh(geo(bp,bi,bc),M.kbrug);m.receiveShadow=true;out.push(m)}
-  if(wi.length&&M.sloot){const q=geo(wp,wi),m=new TH.Mesh(q,M.sloot);m.receiveShadow=true;out.push(m)}
   return out;
 }
 /* ---------- het wegdek ----------
@@ -751,7 +641,7 @@ function* dzChunkJob(ci){
       nc=OFF.length;
       for(const off0 of OFF){const [b]=bnd[Math.sign(off0)],o1=innerOff(off0,p.k),off=Math.abs(o1)>Math.abs(b)?b:o1,ao=Math.abs(off0);
         const x=p.x+nx*off,z=p.z+nzv*off;let y;
-        if(onBr)y=Math.min(p.y-.6,T.h(x,z));else if(ao<=hw+.3)y=p.y-.1;else{const t=clamp((ao-hw-.3)/3.4,0,1),th=T.h(x,z);y=p.y-.12+(th-p.y+.12)*t*t*(3-2*t)}
+        if(ao<=hw+.3)y=p.y-.1;else if(onBr)y=Math.min(p.y-.4,T.h(x,z));else{const t=clamp((ao-hw-.3)/3.4,0,1),th=T.h(x,z);y=p.y-.12+(th-p.y+.12)*t*t*(3-2*t)}
         if(ao>=55)y-=1.8;else if(ao>=47)y-=.3;
         pos.push(x,y,z);uv.push(x/14,z/14);
         dzGround(C,x,z,y,tmp,sp,land,(C.design.bosDeel&&C.design.bosDeel[land])??DZFM[land]??1);/* langs het asfalt: grind (bm, het materiaal tekent de rand) en daarnaast wat droger, platgereden gras */
@@ -797,8 +687,6 @@ function* dzChunkJob(ci){
     const m=new TH.Mesh(geo(ap,ai,new Array(ap.length).fill(.97),au),M.asf);m.receiveShadow=true;g.add(m);
     if(!M.skirt)M.skirt=new TH.MeshLambertMaterial({color:'#6b6553',side:TH.DoubleSide});g.add(new TH.Mesh(geo(sk,ski),M.skirt));
   }
-  /* --- andere wegen en bruggen van de kaart --- */
-  if(T.KR&&T.KR.R.length){for(const m of dzKaartWegen(C,ci,geo))g.add(m);yield}
   for(const R0 of C.rounds)if(R0.at>=a&&R0.at<end){
     /* ringweg en middeneiland met stoeprand en gras */
     const ring=new TH.RingGeometry(R0.r-3.6,R0.r+3.6,48,1);ring.rotateX(-Math.PI/2);
@@ -1011,9 +899,7 @@ function* dzExtras(X){
       for(let k=0;k<m-1;k++){const b0=G.pos.length/3;
         for(let i=0;i<n;i++){const q=pts[i];for(const [w,h,cl,bot] of[prof[k],prof[k+1]]){const y=(bot?q.yb:q.yt)+h;G.pos.push(q.x+q.nx*w,y,q.z+q.nz*w);c.set(cl).multiplyScalar(q.tone??1);G.col.push(c.r,c.g,c.b);G.uv.push(q.L/2.4,(y-q.yb)/2.4)}
           if(i)G.idx.push(b0+i*2-2,b0+i*2-1,b0+i*2,b0+i*2-1,b0+i*2+1,b0+i*2)}}};
-    const steen=(D.punten||[]).filter(q=>q.soort==='brug').map(q=>{const d=C.at(q.at);return [d-(q.lengte||28)/2,d+(q.lengte||28)/2]});
-    /* een stenen borstwering alleen op een stenen brug; een vaartbrug heeft zijn eigen witte leuning */
-    const kindAt=(d,s)=>{if(C.secP(d).rand==='stoep')return null;if(onBr(d))return steen.some(([b0,b1])=>d>b0&&d<b1)?'muur':null;if(inGal(d))return null;
+    const kindAt=(d,s)=>{if(C.secP(d).rand==='stoep')return null;if(onBr(d))return 'muur';if(inGal(d))return null;
       const p=roadAt(C,d),hw=C.hwAt(d);for(const m of hps)if(Math.abs(m[1]-d)<34&&s===-m[3])return 'rail';
       const o=s*(hw+7),drop=p.y-T.h(p.x+Math.cos(p.h)*o,p.z+Math.sin(p.h)*o);if(drop<2.2)return null;
       const R=C.secP(d).rand;return R==='muur'?'muur':R==='rail'?'rail':drop>6?'rail':null};

@@ -53,8 +53,6 @@
     {m:'fiets',land:['dorp'],elke:40,af:[2.2,2.4],draai:'weg',kleur:['#b3262d','#1f4f8c','#2f6b3a','#d9d9d9','#1d1f22']}
   ],
   punten:[
-    /* waar de route zelf de rivier oversteekt (op de kaart wisselt het water daar van kant): vlakke bruggen met witte leuningen */
-    {soort:'vaartbrug',at:1.44,lengte:20},{soort:'vaartbrug',at:4.598,lengte:20},{soort:'vaartbrug',at:5.953,lengte:20},
     {soort:'molen',at:9.11,kant:1,af:1020,schaal:1.7},
     {soort:'koeien',van:.8,tot:1.8,kant:-1,af:26,bont:true},
     {soort:'schapen',van:3,tot:4.2,kant:-1,af:7},

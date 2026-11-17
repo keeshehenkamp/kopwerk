@@ -9,7 +9,7 @@ Gebruik:  python3 tools/route_gegevens.py <id> tegels <map>            toont wat
 Zonder --ja wordt er niets opgehaald: eerst aan Kees vragen of het mag (zie tools/ROUTE-MAKEN.md).
 Leest js/routes/<id>-spoor.js (van tools/gpx_naar_spoor.py) voor de ligging van de route.
 - tegels: Terrain Tiles (terrarium, zoom 12), dezelfde lijst als 'tools/hoogte_naar_bin.py <id> --welke'. Daarna: hoogte_naar_bin.py.
-- osm: water, waterlopen, wegen en bruggen, gebouwen, bos, bomenrijen, losse bomen, molens en forten binnen --rand meter (standaard 1000) rond de route,
+- osm: water, gebouwen, bos, bomenrijen, losse bomen, molens en forten binnen --rand meter (standaard 1000) rond de route,
   als 'out geom'. Daarna: osm_naar_kaart.py. (c) OpenStreetMap-bijdragers (ODbL).
 """
 import sys, os, json, math, subprocess, argparse, urllib.request, urllib.parse
@@ -37,8 +37,7 @@ else:
  way["building"];relation["building"];way["amenity"="place_of_worship"];
  way["natural"~"^(wood|scrub|tree_row)$"];relation["natural"~"^(wood|scrub)$"];
  way["landuse"~"^(forest|orchard)$"];relation["landuse"~"^(forest|orchard)$"];
- node["natural"="tree"];node["man_made"="windmill"];way["man_made"="windmill"];way["historic"~"^(fort|castle|manor)$"];
- way["highway"];way["waterway"];way["man_made"="bridge"];);
+ node["natural"="tree"];node["man_made"="windmill"];way["man_made"="windmill"];way["historic"~"^(fort|castle|manor)$"];);
 out geom;"""
     print(f'gebied {bb} ({(X.max() - X.min() + 2 * r) / 1000:.1f} x {(Y.max() - Y.min() + 2 * r) / 1000:.1f} km)\n{q}')
     if not A.ja: sys.exit('niets opgehaald: voeg --ja toe als het mag')

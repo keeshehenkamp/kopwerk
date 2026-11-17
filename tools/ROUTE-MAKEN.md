@@ -89,10 +89,6 @@ python3 tools/osm_naar_kaart.py <id> <bestand.json>            # js/routes/<id>-
 ```
 
 Het verslag van `osm_naar_kaart.py` noemt bruggen, molens, forten en kerken met km, kant en afstand: gebruik dat voor `punten`.
-De kaart bevat ook de andere wegen rond de route en hun bruggen, en sloten die alleen als lijn op de kaart staan; de wereld tekent die vanzelf
-(`dzKaartWegen` in `js/ontwerp.js`). De regel 'bruggen' in het verslag zijn plekken waar de route zelf boezemwater kruist. Kijk of het water daar
-echt van kant wisselt (anders raakt de route alleen de oever) en zet er dan een `{soort:'vaartbrug',at:<km>,lengte:20}` in `punten`.
-Controleer het water van bovenaf tegen OpenStreetMap: een rivier moet donker (boezem) zijn, een vaart in de polder licht (polderpeil).
 Een route kan allebei hebben (heuvels met dorpen): dan `terrein.hoogte` én `terrein.kaart`. Dat is nog niet gedaan; controleer
 dan extra goed of gebouwen op de helling staan en niet zweven.
 
