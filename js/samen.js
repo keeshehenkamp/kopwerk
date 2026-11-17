@@ -197,7 +197,7 @@ function vrijReadyHTML(){
   const laps=sel(`data-chg="vrijLaps"${guest?' disabled':''}`,[[1,'1 ronde'],[2,'2 rondes'],[3,'3 rondes'],[5,'5 rondes'],[10,'10 rondes'],[0,'Onbeperkt']],p.laps||0);
   const bots=sel('data-chg="vrijBots"',[[0,'Geen groepje'],[2,'Groepje 2,0 W/kg'],[2.5,'Groepje 2,5 W/kg'],[3,'Groepje 3,0 W/kg'],[3.5,'Groepje 3,5 W/kg'],[4,'Groepje 4,0 W/kg']],p.bots||0);
   let sam;
-  if(!syncInfo.user)sam=`<div class="row small"><span class="muted">Samen rijden met een code kan als je bent ingelogd.</span><button class="btn small" data-act="syncLogin">Inloggen</button></div>`;
+  if(!syncInfo.user)sam=`<div class="row small"><span class="muted">Samen rijden met een code kan als je bent ingelogd.</span></div>`;
   else if(!inG)sam=`<div class="row small"><button class="btn small" data-act="samenNew">Groepsrit maken</button><span class="muted">of</span>
       <input id="samen-code" class="code" maxlength="6" placeholder="Code" value="${esc(ui.samenCode||'')}" autocomplete="off" aria-label="Code van de groepsrit"><button class="btn small" data-act="samenJoin">Meedoen</button></div>`;
   else{

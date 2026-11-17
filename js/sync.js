@@ -4,7 +4,7 @@
 const FB='https://www.gstatic.com/firebasejs/12.19.0/';
 const SYNC_KEY='kopwerk.sync';
 let fb=null,syncT=0;
-const syncInfo={user:null,at:0,busy:false,err:''};
+const syncInfo={user:null,at:0,busy:false,err:'',ready:false,pulled:false};
 const hashOf=s=>{let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return h};
 const syncMeta=()=>{try{return Object.assign({lastPull:0,main:0,h:{},up:{}},JSON.parse(localStorage.getItem(SYNC_KEY)||'{}'))}catch(e){return {lastPull:0,main:0,h:{},up:{}}}};
 const syncMetaSave=m=>{try{localStorage.setItem(SYNC_KEY,JSON.stringify(m))}catch(e){}};
@@ -13,15 +13,17 @@ async function fbInit(){
   const [A,U,F]=await Promise.all(['app','auth','firestore'].map(m=>import(FB+'firebase-'+m+'.js')));
   const app=A.initializeApp(CONFIG.firebase);
   fb={U,F,auth:U.getAuth(app),db:F.getFirestore(app)};
-  U.onAuthStateChanged(fb.auth,u=>{syncInfo.user=u?{uid:u.uid,email:u.email}:null;syncInfo.ready=true;if(!P)render();else if(P.vrij&&P.mode==='ready'){if(u&&ui.samenCode&&!samenOn())samenJoin(ui.samenCode);else renderPlayer()}if(u)syncPull()});
+  fb.auth.languageCode='nl';
+  /* terug van een doorverwijzing (als de pop-up geblokkeerd was): alleen een fout tonen, het inloggen zelf meldt onAuthStateChanged */
+  U.getRedirectResult(fb.auth).catch(e=>{if(typeof acctErr==='function'){acct.err=acctErr(e);if(!P)render()}});
+  U.onAuthStateChanged(fb.auth,u=>{
+    const was=syncInfo.user&&syncInfo.user.uid;
+    syncInfo.user=u?{uid:u.uid,email:u.email,verified:u.emailVerified,prov:((u.providerData||[])[0]||{}).providerId||'password'}:null;
+    if(!u||u.uid!==was)syncInfo.pulled=false;
+    syncInfo.ready=true;acctRemember(u);if(!P)render();else if(P.vrij&&P.mode==='ready'){if(u&&ui.samenCode&&!samenOn())samenJoin(ui.samenCode);else renderPlayer()}if(u)syncPull()});
   return fb;
 }
-async function syncLogin(){
-  const f=await fbInit().catch(()=>null);if(!f)return toast('Synchronisatie is nog niet ingesteld.');
-  try{await f.U.signInWithPopup(f.auth,new f.U.GoogleAuthProvider())}
-  catch(e){if(!/popup-closed|cancelled-popup/.test(e&&e.code||''))toast('Inloggen lukte niet ('+(e&&e.code||'onbekend')+').')}
-}
-async function syncLogout(){if(fb){await fb.U.signOut(fb.auth);syncInfo.user=null;try{localStorage.removeItem(SYNC_KEY)}catch(e){}render()}}
+/* inloggen, uitloggen en account verwijderen: js/account.js */
 const uRef=(...p)=>fb.F.doc(fb.db,'users',syncInfo.user.uid,...p);
 /* Haalt wijzigingen van andere apparaten op en voegt ze samen: ritten van beide kanten, de rest van de nieuwste kant. */
 async function syncPull(){
@@ -52,7 +54,9 @@ async function syncPull(){
     syncInfo.err='';
   }catch(e){syncInfo.err='Synchroniseren lukte niet.'}
   syncInfo.busy=false;syncInfo.at=Date.now();
-  if(!P&&ui.view==='profiel')render();
+  /* na de eerste keer ophalen weet de app of je al een schema had (zie acctGate) */
+  const first=!syncInfo.pulled;syncInfo.pulled=true;
+  if(!P&&(first||ui.view==='profiel'))render();
 }
 /* terug in de app of het tabblad: ophalen wat je op je andere apparaat deed (hooguit eens per halve minuut) */
 let syncLastPull=0;
