@@ -25,6 +25,7 @@ Wat een App Store-lancering nu tegenhoudt:
 - 17-11-2026: Kees heeft een Mac; de iOS-app wordt daar gebouwd.
 - 17-11-2026: inloggen kan met Apple, Google of een eigen account.
 - 17-11-2026: op de telefoon rijd je alleen in cijfers, zonder 3D-wereld.
+- 17-11-2026: er komt ook een versie voor de laptop (Mac en Windows). Voorstel: de repo wordt privé, de webversie verhuist naar Cloudflare Pages (gratis) en de iPad-app staat ook in de Mac App Store voor Macs met een Apple-chip. Een abonnement moet dan ook op het web te kopen zijn (bijvoorbeeld Stripe, samen met de App Store via RevenueCat).
 
 ## Spoor 1: Product en code
 
