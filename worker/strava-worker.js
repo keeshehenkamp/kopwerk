@@ -1,6 +1,6 @@
 /* Cloudflare Worker voor Kopwerk: wisselt Strava-codes om voor tokens en stuurt API-verzoeken door.
    Het Strava-geheim staat alleen hier, als secret STRAVA_CLIENT_SECRET; STRAVA_CLIENT_ID is een gewone variabele. */
-const ORIGINS=['https://keeshehenkamp.github.io','http://localhost:8772'];
+const ORIGINS=['https://keeshehenkamp.github.io','https://kopwerk.pages.dev','http://localhost:8772'];
 export default{async fetch(req,env){
   const o=req.headers.get('Origin')||'',cors={'Access-Control-Allow-Origin':ORIGINS.includes(o)?o:ORIGINS[0],'Access-Control-Allow-Methods':'GET,POST,OPTIONS','Access-Control-Allow-Headers':'Authorization,Content-Type','Vary':'Origin'};
   if(req.method==='OPTIONS')return new Response(null,{headers:cors});
