@@ -33,9 +33,9 @@ function acctView(){
   const busy=acct.busy?' disabled':'';
   if(!acct.mode)return acctWrap(`<div class="lbrand">${logo}<span>Kopwerk</span></div>
     <h1>Inloggen</h1>
-    <div class="lbtns">
+    <div class="lbtns">${NATIVE?'':/* in de iOS-app volgt inloggen met Apple en Google via iOS zelf; pop-ups werken daar niet */`
       <button class="btn big lapple" data-act="acctApple"${busy}>${LOGO_APPLE}Doorgaan met Apple</button>
-      <button class="btn big lgoogle" data-act="acctGoogle"${busy}>${LOGO_GOOGLE}Doorgaan met Google</button>
+      <button class="btn big lgoogle" data-act="acctGoogle"${busy}>${LOGO_GOOGLE}Doorgaan met Google</button>`}
       <button class="btn big lmail" data-act="acctMode" data-m="mail"${busy}>${LOGO_MAIL}Doorgaan met e-mail</button>
     </div>${err}${acct.fail?'<button class="link small" data-act="acctRetry">Opnieuw proberen</button>':''}`);
   const m=acct.mode,T={mail:'Inloggen met e-mail',nieuw:'Nieuw account',reset:'Wachtwoord vergeten'}[m];

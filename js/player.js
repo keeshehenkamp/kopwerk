@@ -245,7 +245,7 @@ function playerHTML(){
         <button class="btn small" data-act="goSim">Demo zonder trainer</button>
         <select id="simspeed" aria-label="Snelheid van de demo"><option value="1">1×</option><option value="10">10×</option><option value="60" selected>60×</option></select>
       </div>`;
-  const readyBox=ready&&!v3?`<div class="pready stack"><div class="row">${viewSeg}</div>${P.vrij?vrijReadyHTML():''}${bleRow}${bleMsg}${demoRow}</div>`:'';
+  const readyBox=ready&&!v3?`<div class="pready stack">${isPhone()?'':`<div class="row">${viewSeg}</div>`}${P.vrij?vrijReadyHTML():''}${bleRow}${bleMsg}${demoRow}</div>`:'';
   /* startscherm in 3D: links een paneel met twee tabbladen (Rit en Fietser), rechts je fietser om omheen te draaien */
   const tab=startTab();
   const startBox=ready&&v3?`<div class="zstart">
@@ -298,7 +298,7 @@ function playerHTML(){
     <div class="ptop">
       <div><h2>${esc(w.name)}</h2>${status}${v3?' <span class="small" id="p-km"></span>':''}</div>
       <div class="pclock"><span id="p-elapsed" style="color:var(--ink);font-size:34px;font-weight:600">0:00</span><span>${P.vrij?'':` / ${clock(P.total)}${P.free?' +':''}`}</span></div>
-      <div class="row">${ready?'<button class="btn" data-act="closePlayer">Sluiten</button>':'<button class="btn" data-act="view3d">3D-wereld</button>'}</div>
+      <div class="row">${ready?'<button class="btn" data-act="closePlayer">Sluiten</button>':isPhone()?'':'<button class="btn" data-act="view3d">3D-wereld</button>'}</div>
     </div>
     ${hud}${load}<div class="pcd" id="p-cd" hidden></div>
     <div class="pmain">

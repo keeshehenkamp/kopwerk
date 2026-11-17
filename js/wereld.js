@@ -5,7 +5,9 @@
 const THREE_URL='https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
 const VIEW_KEY='kopwerk.view';
 let W=null,T3=null,ANISO=4;
-const view3d=()=>{try{return localStorage.getItem(VIEW_KEY)!=='cijfers'}catch(e){return true}};
+/* op een telefoon rijd je alleen in cijfers (besloten 17-11-2026): daar laadt de 3D-wereld niet. iPad en laptop houden hem. */
+const isPhone=()=>{try{return matchMedia('(pointer:coarse)').matches&&Math.min(screen.width,screen.height)<600}catch(e){return false}};
+const view3d=()=>{if(isPhone())return false;try{return localStorage.getItem(VIEW_KEY)!=='cijfers'}catch(e){return true}};
 function setView3d(on){try{localStorage.setItem(VIEW_KEY,on?'3d':'cijfers')}catch(e){}}
 
 /* ---------- punten, reeksen en sterren (ook zonder 3D) ---------- */
