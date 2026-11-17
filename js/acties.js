@@ -59,6 +59,7 @@ window.addEventListener('popstate',e=>{
   routeIdx=here;routeApply(s&&s.view?s:routeParse(location.hash));
 });
 const actions={
+  ...ACCT_ACTIONS,
   nav(d){ui.view=d.v;ui.modal=null;ui.confirm='';ui.draft=null;render();window.scrollTo(0,0)},
   back(d){if(routeBack())return;ui.view=(d&&d.v)||(ui.detail&&ui.detail.from)||'vandaag';render();window.scrollTo(0,0)},
   /* een dag waarop je reed: laat zien wat je echt deed, niet wat er gepland stond */
@@ -234,9 +235,6 @@ const actions={
     const p=packOf(day.planType,state),n=p[(p.indexOf(day.wo.type)+1)%p.length];
     setOverride(d.iso,{swap:n===day.planType?null:n});
   },
-  syncLogin(){syncLogin()},
-  syncHide(){try{localStorage.setItem('kopwerk.synchint','0')}catch(e){}render()},
-  syncLogout(){syncLogout()},
   stravaConnect(){stravaConnect()},
   stravaFetch(){stravaFetch(true)},
   stravaOff(){delete state.strava;save();render();toast('Strava is ontkoppeld.')},
@@ -396,7 +394,7 @@ window.addEventListener('beforeunload',e=>{if(P&&(P.mode==='run'||P.mode==='paus
   try{const a=await idb.get('active');if(a&&a.rec&&a.rec.p&&a.rec.p.length>=60&&a.wo){ui.pending=a;if(!P)render()}}catch(e){}
   checkVersion();
   /* koppelingen: inloggen (synchroniseert vanzelf), terugkomst van Strava, en elk uur nieuwe Strava-ritten */
-  fbInit().catch(()=>{});
+  acctFb();
   /* net bijgewerkt (zie checkVersion): het versienummer weer uit de adresbalk */
   if(new URLSearchParams(location.search).has('u'))history.replaceState(history.state,'',location.pathname+location.hash);
   /* uitnodiging voor een groepsrit: ?samen=CODE */

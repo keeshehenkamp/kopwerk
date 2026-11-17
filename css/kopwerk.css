@@ -50,7 +50,7 @@ a{color:inherit}
 .btn.icon{padding:8px 10px;display:inline-flex;align-items:center;justify-content:center}
 .btn.small{padding:4px 11px;font-size:13.5px}
 .link{background:none;border:0;padding:0;color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--hover)}
-select,input[type=number],input[type=text],input[type=date],input[type=password]{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 11px;max-width:100%}
+select,input[type=number],input[type=text],input[type=date],input[type=password],input[type=email]{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 11px;max-width:100%}
 label.f{display:block;font-size:13.5px;color:var(--muted);margin-bottom:5px}
 .badge{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--sunk);color:var(--muted)}
 .notice{border:1px solid var(--edge);background:var(--surface);padding:12px 16px;border-radius:var(--r)}
@@ -512,7 +512,7 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
   .back{padding:12px 0;margin-bottom:0}
   .why summary,.evbox summary{padding:10px 0}
   .rpe button{height:46px}
-  select,input[type=number],input[type=text],input[type=date],input[type=password]{padding:11px 12px;min-height:44px}
+  select,input[type=number],input[type=text],input[type=date],input[type=password],input[type=email]{padding:11px 12px;min-height:44px}
 }
 
 /* wissel tussen onderdelen van één tab (Voortgang: Fitheid en Prestaties) */
@@ -777,3 +777,21 @@ h2.sech{font-size:26px}h3.sech{font-size:21px;line-height:1.15}
 @media (pointer:coarse){.ibtn.plain{width:44px;height:44px}}
 .feel.zin{margin-top:8px}.feel.zin span{align-self:center}
 .ftpgoal{margin-top:18px}.ftpgoal .prog{margin:8px 0 0}
+/* ---------- inloggen (js/account.js) ---------- */
+.lmain{padding:calc(24px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(30px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px))}
+.login{max-width:380px;margin:0 auto;padding-top:min(12vh,90px);display:flex;flex-direction:column;gap:18px}
+.lbrand{display:flex;align-items:center;gap:10px;font-family:var(--cond);font-weight:600;font-size:26px}
+.lbrand svg{width:34px;height:26px}
+.lsplash{justify-content:center;padding-top:20vh;opacity:.9}
+.lbtns{display:flex;flex-direction:column;gap:10px}
+.lbtns .btn,.lform .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:50px}
+.lbtns svg{width:20px;height:20px;flex:none}
+.lbtns .lapple{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.lbtns .lapple svg{margin-top:-2px}
+.lform{display:flex;flex-direction:column;gap:14px}
+.lform input{width:100%}
+.lerr{color:var(--bad);font-size:14px}
+.lnote{font-size:14px}
+.llinks{display:flex;gap:20px;flex-wrap:wrap}
+.btn[disabled]{opacity:.6;cursor:default}
+.login>.link{align-self:flex-start}
