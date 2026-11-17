@@ -21,6 +21,7 @@ window.TH={
   view(d,o={}){
     const C=W.C,ci=Math.floor(d/1000);W.dist=d;W.v=0;W.lastD=null;W.camP=null;W.lookP=null;
     for(let c=Math.max(0,ci-(o.rond==null?1:o.rond));c<=ci+(o.ver==null?5:o.ver);c++)if(!W.chunks.has(c))buildChunk(c);
+    if(typeof dzKaartStap==='function')dzKaartStap();
     const q=roadAt(C,d),f=[Math.sin(q.h),-Math.cos(q.h)],r=[Math.cos(q.h),Math.sin(q.h)];
     W.camHook=o.rit?null:()=>{const back=o.back==null?6:o.back,lift=o.lift==null?2.2:o.lift,rt=o.right||0;
       const px=q.x-f[0]*back+r[0]*rt,pz=q.z-f[1]*back+r[1]*rt,py=q.y+lift;W.cam.position.set(px,py,pz);

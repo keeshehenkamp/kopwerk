@@ -1653,6 +1653,8 @@ function worldStep(t){
   /* de kilometer waar je nu rijdt moet er meteen zijn; de volgende bouwen we op de achtergrond, hooguit 4 ms per beeld */
   if(!W.chunks.has(ci))buildChunk(ci);else for(let c=ci+1;c<=ci+fwd;c++)if(!W.chunks.has(c)){chunkStep(c,4);break}
   for(const c of W.chunks.keys())if(c<ci-2||c>ci+fwd+2)dropChunk(c);
+  /* het wegennet van de kaart (ontworpen route): als de kilometer waar je rijdt er staat, per beeld een paar ms */
+  if(C.designed&&W.chunks.has(ci))dzKaartStap(3);
   /* verre bergtoppen alleen in de Alpen; ze komen geleidelijk op als je de Alpen in rijdt */
   const alps=(mixNow.bergen||0)>.35;W.mat.piek.opacity=clamp(((mixNow.bergen||0)-.35)*5,0,1);
   for(const [c,gr] of W.chunks){const near=c>=ci-1&&c<=ci+1,vis=near+'/'+alps;if(gr.userData.vis!==vis){gr.userData.vis=vis;for(const ch of gr.children)ch.visible=ch.userData.far?alps:ch.userData.vall||near||(C.designed&&!ch.isInstancedMesh)}}
