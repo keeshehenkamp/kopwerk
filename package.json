@@ -1,0 +1,19 @@
+{
+  "name": "kopwerk",
+  "private": true,
+  "description": "Kopwerk als iOS-app. De webversie heeft geen build-stap; dit is alleen voor de app (Capacitor).",
+  "scripts": {
+    "web": "node tools/ios/web.mjs",
+    "ios": "node tools/ios/web.mjs && cap sync ios && cap open ios",
+    "sync": "node tools/ios/web.mjs && cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor-community/bluetooth-le": "^8.3.0",
+    "@capacitor-community/keep-awake": "^8.0.1",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/ios": "^8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "appId": "nl.kopwerk.app",
+  "appName": "Kopwerk",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#111318"
+  },
+  "plugins": {
+    "BluetoothLe": {
+      "displayStrings": {
+        "scanning": "Zoeken…",
+        "cancel": "Annuleren",
+        "availableDevices": "Gevonden",
+        "noDeviceFound": "Niets gevonden"
+      }
+    }
+  }
+}

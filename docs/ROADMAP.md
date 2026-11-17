@@ -31,13 +31,14 @@ Wat een App Store-lancering nu tegenhoudt:
 
 **Fase A: iOS-app die rijdt** (eerst, want dit is het grootste risico)
 
-- [Claude] Capacitor toevoegen: de bestaande webapp gaat ongewijzigd in een native iOS-schil. Webversie blijft gewoon werken.
-- [Claude] Bluetooth-laag in `bluetooth.js` die op het web Web Bluetooth gebruikt en in de app de native plugin (`@capacitor-community/bluetooth-le`): FTMS-trainer, ERG, hartslagmeter.
+- [Claude] ✓ Capacitor toevoegen: de bestaande webapp gaat ongewijzigd in een native iOS-schil. Webversie blijft gewoon werken. (17-11-2026, Capacitor 8, bundle-ID voorlopig `nl.kopwerk.app`)
+- [Claude] ✓ Bluetooth-laag die op het web Web Bluetooth gebruikt en in de app de native plugin (`@capacitor-community/bluetooth-le`, via `js/native.js`): FTMS-trainer, ERG, hartslagmeter. Getest met een nagebootste trainer; nog te testen met de echte trainer.
 - [Claude] Alles meeleveren in de app: three.js, lettertypes, modellen. Daarna ook een service worker voor de webversie.
-- [Claude] Scherm aan houden en geluid tijdens een rit met native plugins; app op de achtergrond mag de rit niet breken.
-- [Claude] Op de telefoon rijd je alleen in cijfers (besloten 17-11-2026): het rijscherm zonder 3D-wereld. De 3D-wereld wordt op de telefoon niet geladen. Op iPad en laptop blijft hij; prestaties op iPad meten en zo nodig een lichtere stand maken (het fietsermodel is 1,7 MB, de Ventoux-hoogtekaart 0,5 MB).
+- [Claude] Scherm aan houden en geluid tijdens een rit met native plugins; app op de achtergrond mag de rit niet breken. Scherm aan ✓ (KeepAwake), Bluetooth blijft verbonden op de achtergrond ✓; geluid nog na te lopen op de iPhone.
+- [Claude] ✓ Op de telefoon rijd je alleen in cijfers (besloten 17-11-2026): het rijscherm zonder 3D-wereld. De 3D-wereld wordt op de telefoon niet geladen. Op iPad en laptop blijft hij; prestaties op iPad meten en zo nodig een lichtere stand maken (het fietsermodel is 1,7 MB, de Ventoux-hoogtekaart 0,5 MB).
 - [Kees] Xcode installeren op je Mac en daar bouwen en ondertekenen (Kees heeft een Mac, dus geen bouwdienst nodig).
 - [Kees] Testen met de eigen trainer en hartslagmeter via TestFlight.
+- [Claude] Inloggen met Apple en Google in de iOS-app via iOS zelf (nu alleen e-mail in de app).
 
 **Fase B: klaar voor vreemden**
 

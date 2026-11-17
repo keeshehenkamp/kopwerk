@@ -17,7 +17,8 @@ Geen build-stap. `index.html` laadt de bestanden hieronder als gewone scripts, i
 | `js/analyse.js` | Analyse van een rit, records, conditie en vermoeidheid |
 | `js/bestanden.js` | Import (.fit, .tcx), export (.zwo, zip), downloads |
 | `js/opslag.js` | Opslag in de browser |
-| `js/bluetooth.js` | Trainer en hartslagmeter via Web Bluetooth |
+| `js/native.js` | Alleen in de iOS-app (Capacitor): bouwt `navigator.bluetooth` na op de native Bluetooth-plugin en `navigator.wakeLock` op KeepAwake, zodat de rest van de code voor web en app gelijk blijft. In de browser doet het niets. `NATIVE` zegt of je in de app zit |
+| `js/bluetooth.js` | Trainer en hartslagmeter via Web Bluetooth (in de app via `js/native.js`) |
 | `js/player.js` | De workout player en de demo-modus |
 | `js/wereld.js` | 3D-rit (three.js): routes als rondjes met een eigen hoogteprofiel (`ROUTES`), snelheid uit vermogen, gewicht en helling, landschappen met dorpen en herkenningspunten, publiek, weer en tijd van de dag, tempomaker, andere fietsers met een eigen vermogen (rijden rechts, halen links in, geven windschaduw), een kaartje: een echte kaart rond je plek (OpenFreeMap via MapLibre, pas geladen bij een route met echte ligging) met plaatsnamen, de route, wat je gereden hebt en het dorp waar je doorheen rijdt, zoomen met + en − of het scrollwiel (`kopwerk.kaartzoom`), punten en sterren, productdemo. Een kilometer wereld wordt in stapjes van een paar ms opgebouwd (`chunkJob`), zodat het beeld niet hapert |
 | `js/fietser.js` | De fietser: model uit Blender (`models/fietser.glb`, één animatie met drie houdingen: zittend, uit het zadel en diep over het stuur), tenue als plaatje per renner, en per beeld de houding (`poseRider`): crankstand, staan op steile stukken, laag boven de 40 km/u, hoofd de bocht in, pedalen waterpas bij uitrollen. Bron en scripts staan buiten deze map, in `Kopwerk-blender/` (`anim.py` maakt de houdingen, `uitrusting.py` helm en schoenen, `fiets_extra.py` het dichte kettingblad, `export.py` het GLB-bestand) |
@@ -66,7 +67,49 @@ Verander deze namen of het formaat niet zonder migratie, anders zijn bestaande g
 
 ## Laptop en telefoon
 
-Rijden met je trainer kan alleen in een browser met Web Bluetooth: Chrome of Edge op je laptop (of Chrome op Android). Op een telefoon of tablet zonder Bluetooth, zoals een iPhone, toont de app geen startknoppen: daar plan je, pas je je tijd aan en kijk je je ritten terug. Log op beide in met hetzelfde account, dan zie je overal hetzelfde.
+Rijden met je trainer kan in de iOS-app (iPhone en iPad) en in een browser met Web Bluetooth: Chrome of Edge op je laptop (of Chrome op Android). In Safari op een iPhone of iPad toont de webversie geen startknoppen: daar plan je, pas je je tijd aan en kijk je je ritten terug. Log overal in met hetzelfde account, dan zie je overal hetzelfde.
+
+Op een telefoon rijd je alleen in cijfers (`isPhone` in `js/wereld.js`: aanraakscherm, kortste kant onder 600 punten). De 3D-wereld en three.js worden daar niet geladen. Op een iPad en laptop kies je zelf.
+
+## iOS-app
+
+De app is de webapp in een native schil ([Capacitor](https://capacitorjs.com) 8). De webversie heeft nog steeds geen build-stap; `package.json` en `capacitor.config.json` zijn alleen voor de app.
+
+| Wat | Waar |
+| --- | --- |
+| Xcode-project | `ios/App/App.xcodeproj` (Swift Package Manager, geen CocoaPods) |
+| Bundle-ID | `nl.kopwerk.app` (voorlopig; vast zodra de eerste build naar App Store Connect gaat) |
+| Bluetooth | `@capacitor-community/bluetooth-le`, met `js/native.js` als vertaling naar Web Bluetooth. Kiezen gaat met een lijstje van iOS zelf. Toestemmingstekst en achtergrondmodus `bluetooth-central` in `ios/App/App/Info.plist` |
+| Scherm aan | `@capacitor-community/keep-awake`, via `navigator.wakeLock` |
+| Inloggen | In de app alleen e-mail met wachtwoord (`initializeAuth`, zonder pop-ups). Apple en Google komen via iOS zelf in een volgende stap |
+| Icoon en opstartscherm | `ios/App/App/Assets.xcassets` (logo op `#111318`) |
+| Webbestanden | `npm run web` kopieert `index.html`, `css`, `js`, `icons`, `models` naar `www/`; `cap sync` zet die in de app. `www/` en `ios/App/App/public` staan niet in git |
+
+### Bouwen op een Mac
+
+Eenmalig:
+
+1. Installeer Xcode 26 uit de App Store, open het één keer en laat het de iOS-onderdelen installeren.
+2. Installeer Node.js (LTS) van [nodejs.org](https://nodejs.org).
+3. Haal de code op in een map buiten iCloud (dus niet op je Bureaublad of in Documenten als die met iCloud synchroniseren):
+   ```bash
+   cd ~ && mkdir -p Code && cd Code
+   git clone https://github.com/keeshehenkamp/kopwerk.git
+   cd kopwerk
+   npm install
+   ```
+4. Zet op je iPhone de ontwikkelaarsmodus aan: Instellingen, Privacy en beveiliging, Ontwikkelaarsmodus (verschijnt pas nadat je de iPhone één keer met Xcode hebt verbonden). De iPhone herstart.
+
+Elke keer:
+
+1. `npm run ios`: zet de webbestanden klaar en opent Xcode.
+2. In Xcode: klik links op **App**, tab **Signing & Capabilities**, kies bij **Team** je Apple ID (Xcode, Settings, Accounts, + als hij er nog niet staat). Zonder betaald ontwikkelaarsaccount werkt dit ook (Personal Team), maar dan stopt de app na 7 dagen en moet je opnieuw op ▶ drukken.
+3. Sluit je iPhone aan met een kabel, kies hem bovenaan als bestemming en druk op ▶.
+4. De eerste keer op de iPhone: Instellingen, Algemeen, VPN en apparaatbeheer, je Apple ID vertrouwen.
+
+Na een wijziging in de webcode: `npm run sync` en opnieuw ▶. Een wijziging in alleen `ios/` vraagt alleen ▶.
+
+Gaat er iets mis: in Xcode staat de console onderaan (Bluetooth-meldingen beginnen met `⚡️`). Met Safari op de Mac kun je de app ook bekijken: Safari, Ontwikkel, je iPhone, Kopwerk (zet eerst in Safari bij Instellingen, Geavanceerd de ontwikkelaarsfuncties aan).
 
 ## Routes
 

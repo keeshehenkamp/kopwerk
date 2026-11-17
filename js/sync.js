@@ -12,10 +12,11 @@ async function fbInit(){
   if(fb||!CONFIG.firebase)return fb;
   const [A,U,F]=await Promise.all(['app','auth','firestore'].map(m=>import(FB+'firebase-'+m+'.js')));
   const app=A.initializeApp(CONFIG.firebase);
-  fb={U,F,auth:U.getAuth(app),db:F.getFirestore(app)};
+  /* in de iOS-app geen pop-ups of doorverwijzingen: getAuth laadt daarvoor een verborgen venster dat in de app blijft hangen */
+  fb={U,F,auth:NATIVE?U.initializeAuth(app,{persistence:U.indexedDBLocalPersistence}):U.getAuth(app),db:F.getFirestore(app)};
   fb.auth.languageCode='nl';
   /* terug van een doorverwijzing (als de pop-up geblokkeerd was): alleen een fout tonen, het inloggen zelf meldt onAuthStateChanged */
-  U.getRedirectResult(fb.auth).catch(e=>{if(typeof acctErr==='function'){acct.err=acctErr(e);if(!P)render()}});
+  if(!NATIVE)U.getRedirectResult(fb.auth).catch(e=>{if(typeof acctErr==='function'){acct.err=acctErr(e);if(!P)render()}});
   U.onAuthStateChanged(fb.auth,u=>{
     const was=syncInfo.user&&syncInfo.user.uid;
     syncInfo.user=u?{uid:u.uid,email:u.email,verified:u.emailVerified,prov:((u.providerData||[])[0]||{}).providerId||'password'}:null;
