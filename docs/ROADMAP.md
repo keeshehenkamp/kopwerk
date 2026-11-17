@@ -20,6 +20,12 @@ Wat een App Store-lancering nu tegenhoudt:
 6. **Geen verdienmodel in de code.** Geen abonnement, geen proefperiode, geen betaalscherm.
 7. **Kleine losse eindjes.** Strava staat uit (`CONFIG.strava: null`), en dan geldt Strava's API-limiet (nieuwe apps eerst één atleet, daarna aanvragen). `docs/onderbouwing.md` staat wel in de map op de laptop maar niet in de repo. De app is alleen in het Nederlands.
 
+## Besloten
+
+- 17-11-2026: Kees heeft een Mac; de iOS-app wordt daar gebouwd.
+- 17-11-2026: inloggen kan met Apple, Google of een eigen account.
+- 17-11-2026: op de telefoon rijd je alleen in cijfers, zonder 3D-wereld.
+
 ## Spoor 1: Product en code
 
 **Fase A: iOS-app die rijdt** (eerst, want dit is het grootste risico)
@@ -28,14 +34,14 @@ Wat een App Store-lancering nu tegenhoudt:
 - [Claude] Bluetooth-laag in `bluetooth.js` die op het web Web Bluetooth gebruikt en in de app de native plugin (`@capacitor-community/bluetooth-le`): FTMS-trainer, ERG, hartslagmeter.
 - [Claude] Alles meeleveren in de app: three.js, lettertypes, modellen. Daarna ook een service worker voor de webversie.
 - [Claude] Scherm aan houden en geluid tijdens een rit met native plugins; app op de achtergrond mag de rit niet breken.
-- [Claude] Prestaties van de 3D-wereld op iPhone en iPad meten en zo nodig een lichtere stand maken (het fietsermodel is 1,7 MB, de Ventoux-hoogtekaart 0,5 MB).
-- [Kees] Een Mac met Xcode, of akkoord op een bouwdienst in de cloud (bijvoorbeeld Codemagic of GitHub Actions op macOS). Zonder Mac kan Claude het project maken, maar bouwen en ondertekenen gaat dan via zo'n dienst.
+- [Claude] Op de telefoon rijd je alleen in cijfers (besloten 17-11-2026): het rijscherm zonder 3D-wereld. De 3D-wereld wordt op de telefoon niet geladen. Op iPad en laptop blijft hij; prestaties op iPad meten en zo nodig een lichtere stand maken (het fietsermodel is 1,7 MB, de Ventoux-hoogtekaart 0,5 MB).
+- [Kees] Xcode installeren op je Mac en daar bouwen en ondertekenen (Kees heeft een Mac, dus geen bouwdienst nodig).
 - [Kees] Testen met de eigen trainer en hartslagmeter via TestFlight.
 
 **Fase B: klaar voor vreemden**
 
 - [Claude] Firestore-regels voor iedere gebruiker (alleen je eigen gegevens) in plaats van de twee vaste adressen. Groepsritten blijven zoals ze zijn.
-- [Claude] Inloggen met Apple naast Google; account en alle gegevens verwijderen vanuit Profiel.
+- [Claude] Inloggen met Apple, Google of een eigen account met e-mail en wachtwoord (besloten 17-11-2026); account en alle gegevens verwijderen vanuit Profiel.
 - [Claude] Toestemmingsvraag voor hartslag en gezondheidsgegevens bij de eerste keer.
 - [Claude] Eerste keer openen voor een onbekende gebruiker: kort en zonder uitleg, binnen de ontwerpregels (niveau, tijd, doel, trainer koppelen).
 - [Claude] Scherm met licenties en bronnen (OpenStreetMap, OpenFreeMap, Terrain Tiles, Kenney, three.js, lettertypes).
@@ -91,7 +97,7 @@ Wat een App Store-lancering nu tegenhoudt:
 
 ## Mijlpalen
 
-1. **Fundament**: accounts en beslissingen van Kees rond (Apple, KvK, domein, Mac of bouwdienst, prijs).
+1. **Fundament**: accounts en beslissingen van Kees rond (Apple, KvK, domein, prijs).
 2. **TestFlight-bèta**: iOS-app die rijdt, open voor andere gebruikers, privacybeleid online.
 3. **Indienen**: abonnement, Store-pagina, screenshots, website live.
 4. **Lancering**: publiek in de App Store, aankondiging, eerste maand bijsturen op wat testers en gebruikers zeggen.
@@ -100,8 +106,8 @@ Wat een App Store-lancering nu tegenhoudt:
 
 In deze volgorde, waarbij 1 en 2 tegelijk kunnen lopen:
 
-1. **Bedrijf en accounts opzetten**: een stappenlijst voor Kees (Apple Developer, KvK, domein, bank, handelaarsstatus), plus de beslissingen over prijs, Mac of bouwdienst en talen.
-2. **iOS-app die rijdt**: Capacitor en native Bluetooth, alles offline meegeleverd, eerste build op TestFlight.
+1. **Bedrijf en accounts opzetten**: een stappenlijst voor Kees (Apple Developer, KvK, domein, bank, handelaarsstatus), plus de beslissingen over prijs en talen.
+2. **iOS-app die rijdt**: Capacitor en native Bluetooth, rijden in cijfers op de telefoon, alles offline meegeleverd, eerste build op TestFlight vanaf je Mac.
 3. **Klaar voor andere gebruikers**: Firestore-regels per gebruiker, Inloggen met Apple, account verwijderen, toestemming voor hartslag, eerste keer openen, licentiescherm.
 4. **Privacy, voorwaarden en merknaam**: privacybeleid, gebruiksvoorwaarden met disclaimer, Apple-privacylabel, merknaamcheck.
 5. **Abonnement en prijs**: verdienmodel kiezen, StoreKit of RevenueCat inbouwen, betaalscherm.
