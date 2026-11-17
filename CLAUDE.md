@@ -34,6 +34,7 @@ Elk scherm moet in één blik te lezen zijn. Loop deze lijst na vóór je een sc
 - Hardlopen telt mee in vermoeidheid en fitheid en in hoe zwaar de dag erna mag zijn, niet in je FTP. De belasting komt uit snelheid en gevoel (`runLoad`).
 - Een slimme planner betekent niet veel informatie. Wisselen is één knop op dezelfde plek, zonder lijst of extra uitleg (`PACKS`: pakketten van minstens vier trainingen met hetzelfde doel). De dag blijft even lang en even zwaar bedoeld.
 - Eigen ritten (een weekendje fietsen, een toertocht) plan je vooruit in Kalender met Plannen: datum, duur en zwaarte, zo ver vooruit als je wilt. Het schema eromheen toont de app alleen voor deze en volgende week. Een eigen rit staat vast en telt als lange rit of zware dag: geen zware training de dag ervoor, de dag erna kort, geen tweede lange rit en niet meer zware dagen dan anders (`ownWo`).
+- Te weinig gereden (`shortfall`): de laatste twee gewone weken elk onder 60% van de geplande minuten (vuistregel). De planner bouwt dan vanzelf rustiger op, en de coach zegt in één regel dat meer nodig is en waarvoor (je evenement, of sterker worden). Niet na een herstelweek alleen, niet als je ziek was.
 - Vandaag staat op Home en niet ook nog in Kalender.
 - Onder Geweest in Kalender alleen wat je echt deed (geen gemiste trainingen), per week ingeklapt. Nog in te vullen trainingen staan op Home.
 - De coach zegt op Home één ding tegelijk, in één regel: wat hij zag en wat er daardoor verandert.

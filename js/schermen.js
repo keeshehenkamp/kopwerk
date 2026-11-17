@@ -216,6 +216,9 @@ function coachLine(plan,today,rd){
   if(last&&b&&last.result&&dayDiff(parseISO(b.start),today)<7)return {t:`Blok klaar: ${blockVal(last,last.from)} naar ${blockVal(last,last.result)}${blockHit(last,last.result)?', doel gehaald':''}. Nieuw doel: ${blockGoal(b)}.`};
   if(fat.back!=null)return {t:`${fat.back} dagen niet gereden: je bouwt rustig weer op.${fat.stage===3?' Na een week een FTP-test.':''} Je hartslag kan even hoger zijn.`};
   if(fat.restart)return {t:`${fat.restart} dagen niet gereden: eerst een paar rustige dagen.`};
+  /* twee weken te weinig gereden: zeggen dat meer nodig is, en waarvoor */
+  const sf=shortfall(state,today);
+  if(sf)return {t:`Twee weken maar ${sf.pct}% van je schema gereden: zo ${state.event&&plan.ctx.toGo!=null?`ben je niet klaar voor ${state.event.name||'je evenement'}`:'word je niet sterker'}. Rij deze week wat er staat.`};
   if(R&&R.k==='diep')return {t:R.ease?'Zwaar gevoel, lage hartslag: eerst een paar lichtere dagen, dan kijken we opnieuw.':'Zwaar gevoel en lage hartslag komen terug: deze week rustiger.'};
   if(R&&R.k==='moe')return {t:'Zwaar gevoel, hoge hartslag: deze week minder.'};
   if(R&&R.k==='zwaar')return {t:R.ease?'Trainingen voelden zwaarder dan verwacht: eerst een paar lichtere dagen.':'Trainingen voelden zwaarder dan verwacht: deze week lichter.'};

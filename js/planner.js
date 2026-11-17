@@ -409,6 +409,26 @@ function ownWo(o){
   return {id:`eigen-${m}-${e}`,type:'duur',own:true,e,L:0,lvl:null,name:'Eigen rit',desc:EFFORT[e][1]+'.',segs:[S(sec,IF,IF,'Eigen rit','steady')],sec,minutes:m,IF,tss:Math.round(m/60*IF*IF*100)};
 }
 const ownLong=(o,C)=>o.m>=Math.max(100,C.longT*.8),ownHard=o=>(o.e|0)>=2;
+/* Te weinig gereden: de laatste twee hele weken voor deze week elk onder 60% van de geplande minuten (vuistregel). Niet in een herstel-,
+   afbouw- of evenementweek, niet als je ziek of geblesseerd was en niet voor je begon. De planner bouwt dan al vanzelf rustiger op
+   (je uren volgen wat je echt reed); de coach zegt het erbij, zodat je weet dat meer rijden nodig is. */
+const SHORT_PCT=.6;
+function shortfall(st,today){
+  const mon=mondayOf(today),log=st.plog||{},real=(st.rides||[]).filter(r=>!r.sim),pcts=[];
+  /* de laatste twee gewone weken; een herstelweek ertussen telt niet mee en wordt overgeslagen */
+  for(let w=1;w<=3&&pcts.length<2;w++){
+    const a=addDays(mon,-7*w),ka=iso(a),kb=iso(addDays(a,6));
+    if(st.started&&ka<st.started)return null;
+    if(['rec','taper','event'].includes(weekCtx(st,a).kind))continue;
+    if((st.healthLog||[]).concat(st.health?[st.health]:[]).some(h=>h.from<=kb&&(!h.to||h.to>=ka)))return null;
+    const plan=Object.keys(log).filter(k=>k>=ka&&k<=kb).reduce((x,k)=>x+(log[k].m||0),0);
+    if(plan<120)return null;
+    const done=real.filter(r=>r.date>=ka&&r.date<=kb).reduce((x,r)=>x+(r.dur||0)/60,0);
+    if(done>=plan*SHORT_PCT)return null;
+    pcts.push(done/plan);
+  }
+  return pcts.length===2?{pct:Math.round(avg(pcts)*100)}:null;
+}
 function planWeek(st,monday,today){
   const ctx=weekCtx(st,monday),rec=ctx.rec;
   const prof=coachFor(st,ctx);
