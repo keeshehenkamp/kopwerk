@@ -210,6 +210,7 @@ function coachLine(plan,today,rd){
   if(fat.health||fat.tired||(hs&&hs.ret)||plan.ctx.kind==='event')return null;
   const test=plan.days.some(d=>d.test&&d.iso>=tk);
   if(plan.ctx.kind==='test')return {t:'Laatste blokweek: rustiger, met een test.'};
+  if(plan.ctx.after)return {t:'Je evenement zit erop: deze week alleen rustig.'};
   const last=(state.blockLog||[]).slice(-1)[0],b=state.block;
   if(b&&b.raised&&dayDiff(parseISO(b.raised.date),today)<7)return {t:`Je loopt voor op schema: nieuw doel ${blockGoal(b)}.`};
   if(last&&b&&last.result&&dayDiff(parseISO(b.start),today)<7)return {t:`Blok klaar: ${blockVal(last,last.from)} naar ${blockVal(last,last.result)}${blockHit(last,last.result)?', doel gehaald':''}. Nieuw doel: ${blockGoal(b)}.`};
@@ -220,6 +221,9 @@ function coachLine(plan,today,rd){
   if(R&&R.k==='zwaar')return {t:R.ease?'Trainingen voelden zwaarder dan verwacht: eerst een paar lichtere dagen.':'Trainingen voelden zwaarder dan verwacht: deze week lichter.'};
   if(R&&R.test&&test)return {t:'Lichtere dagen gehad: nu de FTP-test.'};
   if(R&&R.k==='hoog')return {t:'Hartslag al een paar ritten hoog: zware trainingen lichter.'};
+  /* een test die eraan komt, zegt de coach vooraf: in een rustige week rijd je hem pas na een paar rustige dagen */
+  const tst=plan.days.find(d=>d.test&&d.iso>tk&&!d.logged);
+  if(tst&&!fat.level)return {t:`${DAYS_L[tst.i].replace(/^./,c=>c.toUpperCase())} FTP-test${plan.ctx.rec?': tot dan rustig, dan rijd je hem fris.':'.'}`};
   if(fat.level&&fat.pct)return {t:`${fat.pct}% meer gereden dan normaal en het voelt zwaar: zware trainingen lichter.`};
   const nx=plan.days.find(d=>d.adj&&d.iso>tk);if(nx)return {t:`${nx.adj.split(':')[0]}: ${DAYS_L[nx.i]} een stap lichter.`};
   /* een rit in deze week die veel langer is dan je gewend bent: alleen een melding */
@@ -327,7 +331,8 @@ function rodeTxt(plan){
 }
 /* meer tijd adviseren alleen als het echt nodig is: voor je evenement, of ruim onder wat je doel vraagt */
 function moreTimeTip(plan){
-  if(state.health||plan.ctx.rec||['rec','taper','test','event'].includes(plan.ctx.kind))return '';
+  /* in de piekweken is het te laat om er nog iets mee te doen */
+  if(state.health||plan.ctx.rec||['rec','peak','taper','test','event'].includes(plan.ctx.kind))return '';
   const chk=plan.ctx.toGo!=null&&state.event&&evCheck(state,state.event,new Date());
   /* kort, zonder uitleg: alleen wat zou helpen */
   if(chk&&chk.st!=='ok')return chk.day?`Plan als het kan één dag van ${durTxt(r5(chk.dayNeed*60))}.`:`Je langste rit moet naar ${durTxt(r5(chk.need*60))}.`;
@@ -459,7 +464,9 @@ function progressCard(){
     /* een schatting ver onder je FTP zegt alleen dat je niet voluit reed; die laten we weg */
     pts.push({m,f,est:est&&(!f||est>=f*.85)?est:null})}
   const kg=state.profile.weight||75,now=state.profile.ftp,est=pts[N0-1].est,bl=state.block&&blockKind(state.block.goal)!=='sprint'&&state.block.target&&!(state.event&&state.event.date>=iso(today))?state.block:null,goal=bl?bl.target:0;
-  const e0=pts.slice(0,Math.max(1,N0-6)).reverse().map(p=>p.est).find(v=>v),grow=est&&e0&&N0>=7?est-e0:null,head=est||now,hk=head/kg;
+  /* het grote getal loopt mee met je trainingen: de waarschijnlijke FTP, of je schatting uit ritten als die hoger is. Het doel kijkt naar wat gemeten is */
+  const tk0=iso(today),wkPlan=new Map(),planOf=m=>{const k=iso(m);if(!wkPlan.has(k))wkPlan.set(k,planWeek(state,m,today));return wkPlan.get(k)};
+  const pr=probFtp(tk0,planOf),meas=est||now,head=Math.max(pr?pr.v:0,meas),hk=head/kg,up=pr&&head>pr.v0?head-pr.v0:0;
   /* verwacht: als je het schema volgt. Groei per week hangt af van je niveau (hoe sterker, hoe trager) en van of je fitheid
      volgens het schema stijgt of daalt; samen nooit meer dan 12% erbij. Een schatting, geen belofte. */
   /* verwacht: met een doelblok het pad van het blok (van je FTP bij de start naar het doel op de einddatum);
@@ -468,21 +475,10 @@ function progressCard(){
   if(bl){FW=Math.max(1,Math.round(dayDiff(mon,mondayOf(parseISO(bl.end)))/7));for(let k=1;k<=FW;k++){const m=addDays(mon,7*k);pts.push({m,fut:blockPath(bl,addDays(m,6))})}}
   else{FW=clamp(Math.round(horizonDays(today)/7),6,16);const path=fitnessPath(today,FW*7),c0=Math.max(path.now.ctl,15),g0=gainFor(hk)*.07;let fv=head;
     for(let k=1;k<=FW;k++){const p=path.fut[Math.min(path.fut.length-1,k*7-1)],ratio=p?p.ctl/c0:1;fv=Math.min(head*1.12,fv*(1+g0*clamp((ratio-.8)/.2,-.5,1.5)));pts.push({m:addDays(mon,7*k),fut:Math.round(fv)})}}
-  /* waarschijnlijk: wat je werk in dit blok je FTP waarschijnlijk opleverde. Vanaf de start van het blok (of je laatste test erin)
-     het schema naar je doel, maal het deel van de geplande belasting dat je echt reed. Alleen voor de grafiek: je trainingen
-     rekenen met je ingestelde FTP. Een vuistregel, geen meting. */
-  const tk0=iso(today),wkPlan=new Map(),planOf=m=>{const k=iso(m);if(!wkPlan.has(k))wkPlan.set(k,planWeek(state,m,today));return wkPlan.get(k)};
-  const probOf=e=>{
-    const t=real.filter(r=>isTestRide(r)&&r.date>=bl.start&&r.date<=e&&ftpEstimate(r)).sort((a,b)=>a.date<b.date?1:-1)[0];
-    const a0=t?t.date:bl.start,v0=t?ftpEstimate(t):bl.from;let pl=0;
-    for(let m=mondayOf(parseISO(a0));iso(m)<=e;m=addDays(m,7))for(const d of planOf(m).days)if(d.wo&&d.iso>=a0&&d.iso<=e)pl+=d.wo.tss||0;
-    const dn=real.filter(r=>r.date>=a0&&r.date<=e&&!(t&&r.id===t.id)).reduce((x,r)=>x+(r.tss||0),0);
-    return Math.round(v0+Math.max(0,blockPath(bl,parseISO(e))-blockPath(bl,parseISO(a0)))*(pl?clamp(dn/pl,0,1):0));
-  };
-  /* één lijn voor wat je FTP was: in het blok de waarschijnlijke FTP (of de schatting uit je ritten als die hoger is), daarvoor
-     de schatting uit je ritten als die er is, anders wat er ingesteld stond */
-  pts.forEach((p,i)=>{if(i>=N0)return;const e=iso(addDays(p.m,6));
-    if(bl&&e>=bl.start){p.prob=probOf(e<tk0?e:tk0);p.v=Math.max(p.prob,p.est||0)}else p.v=p.est||p.f});
+  /* één lijn voor wat je FTP was: de waarschijnlijke FTP (of de schatting uit je ritten als die hoger is), en voor je eerste rit wat er ingesteld stond */
+  pts.forEach((p,i)=>{if(i>=N0)return;const e=iso(addDays(p.m,6)),q=probFtp(e<tk0?e:tk0,planOf);
+    if(q){p.prob=q.v;p.v=Math.max(q.v,p.est||0)}else p.v=p.est||p.f});
+  pts[N0-1].v=head;
   /* gereden FTP-tests als stip */
   const tdots=real.filter(isTestRide).map(r=>{const i=pts.findIndex((p,j)=>j<N0&&r.date>=iso(p.m)&&r.date<=iso(addDays(p.m,6)));return i>=0&&ftpEstimate(r)?[i,ftpEstimate(r)]:null}).filter(Boolean);
   const N=pts.length,vals=pts.flatMap(p=>[p.v,p.fut]).concat(goal?[goal]:[],tdots.map(d=>d[1])).filter(v=>v),lo=Math.min(...vals)*.8,hi=Math.max(...vals)*1.06,y=v=>200-(v-lo)/(hi-lo)*200,X=i=>(i/(N-1)*1000).toFixed(1);
@@ -495,13 +491,13 @@ function progressCard(){
   /* op schema? Alleen te zeggen na een FTP-test in dit blok: een schatting uit gewone ritten is daar te grof voor */
   const tst=bl?real.filter(r=>isTestRide(r)&&r.date>=bl.start&&ftpEstimate(r)).sort((a,b)=>a.date<b.date?1:-1)[0]:null,gap=tst?ftpEstimate(tst)-blockPath(bl,parseISO(tst.date)):null;
   /* het doel als eigen regel: waar, wanneer, en hoe ver je nog moet */
-  const hit=bl&&blockHit(bl,head),pct=bl?clamp(Math.round((head-bl.from)/Math.max(1,goal-bl.from)*100),0,100):0;
+  const hit=bl&&blockHit(bl,meas),pct=bl?clamp(Math.round((head-bl.from)/Math.max(1,goal-bl.from)*100),0,100):0;
   const goalHTML=!bl?'':`<div class="ftpgoal"><div class="kvl"><span><b>Doel ${goal} W</b> op ${dt(parseISO(bl.end))}</span><span>${hit?'gehaald':gap!=null&&gap<-blockBand(bl).m?`${-gap} W achter`:gap!=null?'op schema':`nog ${Math.max(0,goal-head)} W`}</span></div><div class="prog"><i style="width:${hit?100:pct}%;background:var(--acc)"></i></div></div>`;
   SCRUB.ftp=f=>{
     const i=Math.round(f*(N-1)),p=pts[i],v=p.fut||p.v;
     return {x:i/(N-1),html:`<span>Week ${weekNo(p.m)} · ${dt(p.m)}${i===N0-1?' · nu':''}</span><span><b>${v||'–'} W</b> ${p.fut?(bl?'volgens schema':'verwacht'):p.prob&&v===p.prob?'waarschijnlijk':p.est?'geschat':'ingesteld'}</span>${p.prob&&p.est&&p.est!==v?`<span>Uit je ritten ${p.est} W</span>`:goal&&v&&goal>v?`<span>Nog ${goal-v} W tot je doel</span>`:''}`};
   };
-  const ftpCard=`<div class="card"><div class="bignum tacc"><span>${est?'Geschatte FTP':'FTP'}</span><b>${head}<i>W ±${ftpMargin(head)}</i></b><small>${nl(hk.toFixed(1))} W/kg${!bl&&grow?` · <em class="${grow>0?'up':'down'}">${grow>0?'+':''}${grow} W</em> in zes weken`:''}</small></div>
+  const ftpCard=`<div class="card"><div class="bignum tacc"><span>${pr||est?'Geschatte FTP':'FTP'}</span><b>${head}<i>W ±${ftpMargin(head)}</i></b><small>${nl(hk.toFixed(1))} W/kg${up?` · <em class="up">+${up} W</em> door je trainingen sinds ${dt(parseISO(pr.a0))}`:''}</small></div>
     ${goalHTML}
     <div class="chart" data-scrub="ftp" style="height:170px;margin-top:14px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Je FTP: was, nu en verwacht">
       <line x1="${X(N0-1)}" x2="${X(N0-1)}" y1="0" y2="200" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>

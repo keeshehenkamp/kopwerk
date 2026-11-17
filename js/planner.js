@@ -87,7 +87,8 @@ function pickType(st,prof,base,monday,k,used,peak){
   if(!list.length)return base;
   const wi=Math.floor(dayDiff(parseISO('2024-01-01'),monday)/7),off=peak?0:wi+k;
   /* binnen de familie: wat je het langst niet deed, bij gelijke stand op volgorde. In de piekweken vast de eerste: die lijkt het meest op je evenement */
-  const lastOf=t=>(st.rides||[]).reduce((a,r)=>!r.sim&&r.type===t&&r.date>a?r.date:a,'');
+  /* alleen ritten van voor deze week: wat je deze week al reed, verandert de rest van de week niet */
+  const mk=iso(monday),lastOf=t=>(st.rides||[]).reduce((a,r)=>!r.sim&&r.type===t&&r.date<mk&&r.date>a?r.date:a,'');
   const order=list.map((_,j)=>list[(off+j)%list.length]);
   if(!peak)order.sort((a,b)=>lastOf(a)<lastOf(b)?-1:lastOf(a)>lastOf(b)?1:0);
   for(const t of order)if(!used.has(t))return t;
@@ -100,6 +101,20 @@ function pickSlots(st,src,monday,n,stalled){
   const from=iso(addDays(monday,stalled?-42:-21)),to=iso(monday),cnt={},wt=stalled?1.5:.75;
   for(const r of st.rides||[]){const t=TYPES[r.type]?r.type:r.as;if(!r.sim&&r.date>=from&&r.date<to&&TYPES[t]){const b=baseOf(t);cnt[b]=(cnt[b]||0)+1}}
   return src.map((b,i)=>({b,i,s:i+(cnt[b]||0)*wt})).sort((x,y)=>x.s-y.s||x.i-y.i).slice(0,n).sort((x,y)=>x.i-y.i).map(x=>x.b);
+}
+/* Afbouw en evenementweek: geen nieuwe trainingen. De zware trainingen van je laatste vier weken, de korte harde eerst. */
+function familiar(st,monday,n,used){
+  const a=iso(addDays(monday,-28)),b=iso(monday),seen=[];
+  for(const r of(st.rides||[]).filter(r=>!r.sim&&r.date>=a&&r.date<b).sort((x,y)=>y.ts-x.ts)){const t=TYPES[r.type]?r.type:r.as;if(t&&TYPES[t]&&TYPES[t].hard&&!isFtpTest(t)&&!seen.includes(t)&&!(used&&used.has(t)))seen.push(t)}
+  return seen.sort((x,y)=>isSharp(y)-isSharp(x)).slice(0,n);
+}
+/* de korte prikkels van een herstelweek, en de rustige ritten met cadanswerk: één keer per week */
+const PRIK=PACKS.find(p=>p.includes('openers')),SOUP=['souplesse','cadansladder','duurkracht','spinups','cadansgolf'];
+/* je langste fietsrit van de zes weken voor deze week, in minuten; met minder dan drie ritten: wat bij je niveau past */
+function longBefore(st,monday){
+  const a=iso(addDays(monday,-42)),b=iso(monday),nv=NIVEAU[st.profile.niveau];let top=0,n=0;
+  for(const r of st.rides||[])if(!r.sim&&r.date>=a&&r.date<b&&!['hardlopen','fitness','anders'].includes(r.type)){top=Math.max(top,(r.dur||0)/60);n++}
+  return n>=3?Math.max(top,60):Math.max(top,nv?nv.long:90);
 }
 /* werkt het? De laatste twee FTP-tests, minstens vier weken uit elkaar. Bijna geen groei: het accent verschuift. */
 function ftpTrend(st){
@@ -245,6 +260,8 @@ function weekCtx(st,monday){
       })();
       c.toGo=w;c.evIso=st.event.date;return c;
     }
+    /* de week na je evenement: herstellen, zonder test en zonder zware training */
+    if(w===-1)return Object.assign(CYCLE(3),{after:true});
   }
   /* laatste week van het doelblok: lichter, met een test */
   const bl=st.block;if(bl&&bl.end&&iso(monday)<=bl.end&&iso(addDays(monday,6))>=bl.end)return {label:'Testweek',kind:'test',rec:false,L:1,sp:2,vol:.75,cap:2};
@@ -301,7 +318,9 @@ function recentHours(st,monday){
 }
 /* Hoeveel en hoe lang: een weekvolume dat past bij je niveau, je doel, je evenement en de fase. */
 function coachTargets(st,monday,ctx,fat){
-  const p=st.profile,wkg=p.ftp/clamp(p.weight||75,35,200);
+  const p=st.profile,kg=clamp(p.weight||75,35,200);
+  /* Je uren voor een week liggen op maandag vast: een FTP-test in die week telt pas vanaf de week erna mee in je uren (de wattages kloppen wel meteen) */
+  const a0=iso(monday),a1=iso(addDays(monday,6)),tw=(st.rides||[]).filter(r=>isTestRide(r)&&r.ftp&&r.date>=a0&&r.date<=a1).sort((x,y)=>x.ts-y.ts)[0],wkg=(tw?tw.ftp:p.ftp)/kg;
   /* niveau: wat je zelf opgaf, en zodra je FTP bekend is ook je watt per kilo */
   const nv=NIVEAU[p.niveau],wl=clamp(3+(wkg-1.5)*3,4,12);
   const known=!!st.ftpGiven||(st.rides||[]).some(isTestRide);
@@ -317,20 +336,26 @@ function coachTargets(st,monday,ctx,fat){
   const base=hist==null?ideal*.85:hist<ideal?Math.min(ideal,Math.max(ideal*.45,hist*(1+buildPct(hist)))):Math.min(hist,ideal*1.25);
   const phase=k=>({build:[.92,1,1.08][ctx.L],base:[.95,1,1.05][ctx.L],peak:1.05,rec:.6,taper:.65,test:.75,event:.4}[k]||1);
   const weekH=base*phase(ctx.kind)*(fat.level===2?.8:fat.level?.9:fat.more?1.08:1);
-  let longT=clamp(level*60*.3,nv&&nivIdx(st)===0?60:90,210)*(p.goal==='duur'?1.25:1);
+  /* de lange rit: ongeveer 40% van de uren die bij je passen (vuistregel), naar een tocht toe de helft van de tochtduur */
+  let longT=clamp(level*60*.4,nv&&nivIdx(st)===0?60:90,210)*(p.goal==='duur'?1.15:1);
   if(evH){const evLong=evLongH(evH)*60;if(evLong>longT)longT+=(evLong-longT)*clamp((14-ctx.toGo)/10,0,1)}
-  longT*={build:[.9,1,1.1][ctx.L],base:[.9,1,1.05][ctx.L],peak:1.1,rec:.7,taper:.6,test:.7}[ctx.kind]||1;
+  longT*={build:[.9,1,1.1][ctx.L],base:[.9,1,1.05][ctx.L],peak:1.1,rec:.55,taper:.5,test:.55}[ctx.kind]||1;
   /* een duurrit levert pas echt iets op vanaf ongeveer anderhalf uur; alleen in een lichte week mag hij korter */
-  longT=r5(Math.max(['rec','taper','test','event'].includes(ctx.kind)||fat.level===2?60:90,Math.min(longT,weekH*60*.45)));
+  const light=['rec','taper','test','event'].includes(ctx.kind)||fat.level===2;
+  /* hij groeit vanaf wat je de afgelopen zes weken echt reed: per week hooguit tien minuten of een achtste erbij (vuistregel) */
+  if(!light){const was=longBefore(st,monday<now?monday:now);longT=Math.min(longT,Math.max(was+10,was*1.12))}
+  longT=r5(Math.max(light?60:90,Math.min(longT,weekH*60*.45)));
+  if(ctx.after)longT=Math.min(longT,75);
   return {wkg,level,ideal,hist,evH,weekH,longT,known,
     keyT:r5(clamp(level*8+15,60,level>=10?105:90)),keyTi:r5(clamp(level*8+15,60,75)),easyCap:level>=9||p.goal==='duur'?150:120};
 }
 /* Trede per soort training: je eigen voortgang, met kleine stappen per fase en terug bij vermoeidheid. */
-function lvlFor(st,t,C,ctx,fat){
+function lvlFor(st,t,C,ctx,fat,monday){
   if(!LADDER[t])return null;
-  const n=LADDER[t].steps.length,p=st.prog&&st.prog[t];
+  /* met een week erbij: de stand van voor die week, zodat de treden van een week op maandag vastliggen */
+  const n=LADDER[t].steps.length,p=progOf(st,t,monday?iso(monday):null);
   const start=Math.max(1,Math.round(n*(C.level<6?.2:C.level<8?.3:C.level<10?.4:.5)));
-  const bump={build:[-.5,0,.5][ctx.L],peak:1,taper:-1,rec:-1,event:-1}[ctx.kind]||0;
+  const bump={build:[-.5,0,.5][ctx.L],peak:1,taper:-1,test:-1,rec:-1,event:-1}[ctx.kind]||0;
   return clamp(Math.round((p!=null?p:start)+bump-(fat.steps||(fat.level?1:0))+(st.levelAdj||0)),1,n);
 }
 /* De tijd per dag: de week zelf als je die hebt ingevuld, anders de laatst ingevulde week ervoor (bij de start: wat je toen opgaf). */
@@ -413,7 +438,7 @@ function planWeek(st,monday,today){
   /* vandaag al gereden: dan ligt vandaag ook vast */
   for(const d of days)if(tk&&(d.iso<tk||(d.iso===tk&&((st.missed||{})[tk]||ridden(tk))))&&plog[d.iso]&&!d.event&&!(st.started&&d.iso<st.started))d.logged=plog[d.iso];
   const C=coachTargets(st,monday,ctx,fat);
-  const lv=t=>lvlFor(st,t,C,ctx,fat);
+  const lv=t=>lvlFor(st,t,C,ctx,fat,monday);
   /* blokduur in de lange rit: zo lang als de klimmen van je evenement */
   const evMin=ctx.toGo!=null&&st.event?evClimbMin(st.event,st.profile.ftp,st.profile.weight||75):0;
   /* korte klimmen in de lange rit iets korter dan de gemiddelde helling: de meeste hellingen in zo'n tocht zijn kort */
@@ -423,7 +448,7 @@ function planWeek(st,monday,today){
   const lenFor=t=>LONG_TYPES.includes(t)?C.longT:t==='duur'?Math.min(C.easyCap,90):t==='herstel'?60:keyLen(t);
   /* zelf gekozen trainingen staan vast; de beschikbare tijd blijft een maximum */
   for(const d of days)if(d.logged&&d.logged.t&&TYPES[d.logged.t]){
-    d.wo=buildWorkout(d.logged.t,d.logged.m,d.logged.L||0,d.logged.v,{b:d.logged.b});d.T=d.wo.minutes;d.key=!!d.logged.k;d.long=!!d.logged.l;
+    d.wo=buildWorkout(d.logged.t,d.logged.m,d.logged.L||0,d.logged.v,{b:d.logged.b,kaal:ctx.kind==='event'&&!!d.logged.k});d.T=d.wo.minutes;d.key=!!d.logged.k;d.long=!!d.logged.l;d.extra=!!d.logged.x;
   }
   /* wat je deze week echt reed, gepland of niet: een zware of lange rit telt als zware dag (de dag erna wordt niet zwaar
      en er gaat een zware training af), een rustige rit op een zware dag telt niet als die training (die komt later in de week terug),
@@ -434,28 +459,39 @@ function planWeek(st,monday,today){
     const ls=rs.map(r=>rideLoad(r,C)),min=ls.reduce((a,x)=>a+x.min,0);
     /* een zware training uit de app (de geplande of een andere) telt als zware dag, ook als je gevoel hem lichter vond */
     const asPlan=rs.some(r=>d.logged&&r.type===d.logged.t),appHard=rs.some(r=>TYPES[r.type]&&TYPES[r.type].hard);
-    d.done={min,hard:ls.some(x=>x.hard)||appHard||(asPlan&&d.key),long:ls.some(x=>x.long)||min>=Math.max(100,C.longT*.8)||(asPlan&&d.long)};
+    /* reed je de geplande rit ongeveer zo lang als hij stond, dan is hij wat hij was: een rustige rit van twee uur is niet opeens je lange rit */
+    const asLen=asPlan&&min<=(d.logged.m||0)+20;
+    d.done={min,hard:ls.some(x=>x.hard)||appHard||(asPlan&&d.key),long:asLen?!!d.long:ls.some(x=>x.long)||min>=Math.max(100,C.longT*.8)||(asPlan&&d.long)};
+    const g=d.logged;
     d.logged=d.logged||{t:''};d.planKey=!!d.key;d.planLong=!!d.long;d.key=d.done.hard;d.long=d.done.long;
     d.unplanned=d.done.hard&&!d.planKey||d.done.long&&!d.planLong;d.easier=d.planKey&&!d.done.hard;
+    /* gereden zoals het stond: de dag houdt bij het indelen zijn eigen plek (zware dag, lange rit, rustige rit of test op een rustige dag) */
+    if(!evDay&&g&&g.t&&asPlan&&!d.o.type&&Math.abs(min-(g.m||0))<=10&&d.done.hard===!!g.k&&d.done.long===!!g.l)d.role=g.x?'x':g.k||(rec&&PRIK.includes(g.t))?'k':g.l?'l':'e';
   }
+  /* Wat deze week al volgens plan ging, doet bij het indelen mee alsof het nog moet komen: een dag die je reed zoals hij stond, en een rustdag
+     die een rustdag bleef. De rest van de week wordt dan op dezelfde manier gekozen als op maandag en blijft dus wat hij was.
+     Alleen wat anders liep (gemist, zwaarder, langer, iets anders gereden) verandert de week. */
+  if(!evDay&&tk)for(const d of days)if(d.iso<tk&&d.logged&&d.logged.t===''&&!d.done&&!d.o.type)d.role='r';
   /* een geplande training die voorbij is en niet gereden (of afgemeld) kost geen tijd en geen trainingsdag meer:
      anders denkt de planner dat je week al vol zit en blijft je vrije tijd later in de week leeg */
   const gone=d=>!!tk&&!d.done&&(d.iso<tk||!!(st.missed||{})[d.iso]);
-  const mins=d=>d.done?d.done.min:gone(d)?0:d.wo?d.wo.minutes:0;
+  /* gereden zoals het stond: de geplande minuten, zodat een halve minuut verschil de rest van de week niet verschuift */
+  const mins=d=>d.role&&d.role!=='r'?d.logged.m||0:d.done?d.done.min:gone(d)?0:d.wo?d.wo.minutes:0;
   const forced=days.filter(d=>d.o.type&&!d.event&&!d.logged&&TYPES[d.o.type]);
   for(const d of forced){
     const t=d.o.type;d.T=d.minutes>=20?Math.min(d.minutes,lenFor(t)):lenFor(t);
     d.key=TYPES[t].hard&&!isFtpTest(t);d.long=LONG_TYPES.includes(t);
     d.wo=buildWorkout(t,d.T,isFtpTest(t)?0:L,lv(t),{b:blkFor(t)});
   }
-  forced.push(...days.filter(d=>d.logged&&(d.wo||d.done)));
-  const free=days.filter(d=>!d.event&&!d.o.type&&!d.logged&&d.minutes>=20);
+  forced.push(...days.filter(d=>d.logged&&!d.role&&(d.wo||d.done)));
+  const free=days.filter(d=>!d.event&&!d.o.type&&(!d.logged||d.role)&&d.minutes>=20);
   if(evDay){
     /* week van het evenement: één korte prikkel vroeg in de week, activatie de dag ervoor, verder rustig */
     const r=d=>evDay.i-d.i,pref=[5,4,6,3];
     const opts=free.filter(d=>pref.includes(r(d))&&d.minutes>=45&&!d.easyOnly).sort((a,b)=>pref.indexOf(r(a))-pref.indexOf(r(b)));
     const key=forced.some(d=>d.key)?null:opts[0];
-    if(key){const s0=prof.slots[2][0],t=pickType(st,prof,isSharp(s0)?s0:'vo2',monday,0,used,true);key.key=true;key.wo=buildWorkout(t,Math.min(key.minutes,60),0,lv(t))}
+    /* een training die je kent, op ongeveer de halve dosis: scherp blijven zonder nieuwe vermoeidheid */
+    if(key){const s0=prof.slots[2][0],kn=familiar(st,monday,6,used),t=kn.find(x=>isSharp(x)&&baseOf(x)===s0)||kn.find(isSharp)||pickType(st,prof,isSharp(s0)?s0:'vo2',monday,0,used,true),l0=lv(t);key.key=true;key.wo=buildWorkout(t,Math.min(key.minutes,45),0,l0?Math.max(1,Math.floor(l0/2)):undefined,{kaal:true})}
     const before=free.find(d=>r(d)===1);
     if(before)before.wo=buildWorkout('openers',Math.min(before.minutes,45),0);
     for(const d of free.filter(d=>!d.wo&&r(d)>=3&&r(d)<=4))d.wo=buildWorkout('duur',Math.min(d.minutes,r(d)===3?45:60),0);
@@ -477,15 +513,18 @@ function planWeek(st,monday,today){
     if(ctx.kind==='taper')nDays=Math.max(nDays,Math.min(Math.round(usualDays(st,monday)),slots));
     /* twee zware trainingen per week; drie bij veel uren, of als er geen tijd is voor een lange rit en je dus alleen korte ritten hebt */
     const longSlot=free.some(d=>d.minutes>=longMin&&!d.easyOnly);
-    let nHard=rec?1:ctx.kind==='base'||ctx.kind==='taper'||ctx.kind==='test'?2:effH>=7||!longSlot?3:2;
+    let nHard=rec?(ctx.after?0:1):ctx.kind==='base'||ctx.kind==='taper'||ctx.kind==='test'?2:effH>=7||!longSlot?3:2;
     if(fat.level===2&&nHard>1)nHard--;
     /* met weinig dagen blijft er naast de lange rit ruimte voor een rustige dag */
     nHard=scarce?Math.min(nHard,2,slots):Math.min(nHard,Math.max(1,slots-(longSlot?2:1)));
     if(nivIdx(st)===0)nHard=Math.min(nHard,2);
-    nHard=Math.max(0,nHard-forced.filter(d=>d.key).length);
+    /* de prikkels van een herstelweek tellen ook als je ze al deed: anders komen ze elke keer terug */
+    nHard=Math.max(0,nHard-forced.filter(d=>(d.key&&!d.extra)||(rec&&d.logged&&PRIK.includes(d.logged.t))).length);
     nDays=Math.max(0,nDays-live.length);
     const wantLong=!forced.some(d=>d.long);
-    const fixed=forced.filter(d=>d.key||d.long).map(d=>d.i);
+    /* de prikkeldag van een herstelweek houdt zijn plek in de week, ook als hij al gereden is */
+    /* een test die op een rustige dag kwam (extra) telde bij het kiezen van de dagen niet mee, dus nu ook niet */
+    const fixed=forced.filter(d=>(d.key&&!d.extra)||d.long||(rec&&d.logged&&PRIK.includes(d.logged.t))).map(d=>d.i);
     /* een rustige rit van een half uur levert alleen een beginner iets op; anders liever een rustdag */
     const easyMin=nivIdx(st)===0||scarce||ctx.kind==='taper'?30:40;
     /* zware dagen en lange rit: zo goed mogelijk passend in de beschikbare tijd en nooit twee zware dagen achter elkaar */
@@ -498,7 +537,9 @@ function planWeek(st,monday,today){
         const S=[...fixed,...H.map(d=>d.i)].concat(Ld?[Ld.i]:[]).sort((a,b)=>a-b);
         let sc=k*20+(Ld?25:0);
         for(const d of H)sc+=Math.min(d.minutes,C.keyT)/C.keyT*10;
-        if(Ld)sc+=Math.min(Ld.minutes,C.longT)/C.longT*12+(Ld.i>=5?8:0);
+        if(Ld)sc+=Math.min(Ld.minutes,C.longT)/C.longT*12+(Ld.i>=5?8:0)+Ld.i*.01;
+        /* wat al gereden is zoals het stond, houdt zijn plek */
+        for(const d of free)if(d.role&&(Ld===d?'l':H.includes(d)?'k':'o')!==(d.role==='k'||d.role==='l'?d.role:'o'))sc-=1000;
         /* wat er vandaag al stond, verandert niet zonder goede reden */
         if(was&&(Ld===td?'l':H.includes(td)?'k':'r')!==was)sc-=12;
         /* zwaar vlak na de lange rit is het slechtst, zwaar vlak ervoor het minst erg; zondag en maandag tellen ook als buren */
@@ -512,49 +553,44 @@ function planWeek(st,monday,today){
       }
     }
     const Ld=best.Ld,H=best.H;
-    /* rustige dagen: genoeg om het weekvolume te halen, met rustdagen ertussen */
-    const E0=free.filter(d=>d!==Ld&&!H.includes(d)&&d.minutes>=easyMin);
-    const nE=Math.max(0,Math.min(E0.length,nDays-H.length-(Ld?1:0)));
-    const stressAt=new Set([...fixed,...H.map(d=>d.i)].concat(Ld?[Ld.i]:[]));
-    const afterStress=i=>stressAt.has(i-1)||(i===0&&stressAt.has(6));
-    let bestE=null;
-    for(const E of combos(E0,nE)){
-      const on=new Array(7).fill(false);for(const i of stressAt)on[i]=true;for(const d of forced)on[d.i]=true;for(const d of E)on[d.i]=true;
-      let sc=0,run=0;
-      /* direct na een zware dag of de lange rit liever een rustdag dan een korte herstelrit */
-      for(const d of E)sc+=Math.min(d.minutes,90)/90*3-(afterStress(d.i)?2:0);
-      for(let i=0;i<7;i++){run=on[i]?run+1:0;if(run>3)sc-=6}
-      for(const i of stressAt)if(i>0&&!on[i-1])sc+=1;
-      if(!bestE||sc>bestE.sc)bestE={sc,E};
-    }
-    let E=bestE?bestE.E:[];
     /* soorten training: de blokken die tijd nodig hebben gaan naar de dagen met de meeste tijd */
     const climb=prof===GOALS.klimmen||prof===EVENTS.bergen||prof===EVENTS.middel;
     /* laatste FTP-tests laten weinig groei zien: een andere prikkel */
     if(trend&&trend.stall&&!rec&&!['peak','taper','event'].includes(ctx.kind))stalled=true;
     const src=stalled?[...new Set(prof.slots.flat())]:ctx.kind==='base'?(climb?['kracht','sweetspot']:['sweetspot','tempo']):prof.slots[ctx.sp];
-    for(const d of forced)if(d.wo)used.add(d.wo.type);
-    const fix=!rec&&prof.vast&&fat.level<2&&H.length&&['build','base'].includes(ctx.kind)&&(TYPES[prof.vast].min||0)<=nivIdx(st)&&!used.has(prof.vast)?[prof.vast]:[];
+    /* De soorten worden voor de hele week tegelijk gekozen, ook voor de zware dagen die al voorbij zijn (gepland en gemist, of zwaar gereden):
+       die houden een plek in de verdeling, zodat de dagen die nog komen niet twee keer hetzelfde krijgen. */
+    const had=forced.filter(d=>d.key&&!d.extra&&(d.logged||d.done)&&!(d.done&&!d.done.hard)),Hall=[...had,...H].sort((a,b)=>a.i-b.i);
+    const rode=d=>d.done?rides.filter(r=>!r.sim&&r.date===d.iso).map(r=>TYPES[r.type]?r.type:r.as).find(t=>t&&TYPES[t]&&TYPES[t].hard&&!isFtpTest(t)):null;
+    for(const d of forced)if(d.wo&&!had.includes(d))used.add(d.wo.type);
+    const fix=!rec&&prof.vast&&fat.level<2&&Hall.length&&['build','base'].includes(ctx.kind)&&(TYPES[prof.vast].min||0)<=nivIdx(st)&&!used.has(prof.vast)?[prof.vast]:[];
     fix.forEach(t=>used.add(t));
-    const want=rec?[]:fix.concat(pickSlots(st,src,monday,H.length-fix.length,stalled).map((b,k)=>{const t=pickType(st,prof,b,monday,k,used,peak);used.add(t);return t})).sort((x,y)=>(NEED[y]||2)-(NEED[x]||2));
+    /* afbouw: de trainingen van je laatste weken, geen nieuwe */
+    const known=ctx.kind==='taper'?familiar(st,monday,Hall.length,used):[];known.forEach(t=>used.add(t));
+    const want=rec?[]:fix.concat(known,pickSlots(st,src,monday,Math.max(0,Hall.length-fix.length-known.length),stalled).map((b,k)=>{const t=pickType(st,prof,b,monday,k,used,peak);used.add(t);return t})).sort((x,y)=>(NEED[y]||2)-(NEED[x]||2));
     /* in de afbouw blijft er een korte, harde prikkel */
     if(ctx.kind==='taper'&&want.length&&!want.some(isSharp)){const t=pickType(st,prof,'vo2',monday,0,used,true);used.add(t);want[want.length-1]=t}
-    const types=new Map();[...H].sort((x,y)=>y.minutes-x.minutes).forEach((d,k)=>types.set(d,rec?'openers':want[k]));
+    const types=new Map();[...Hall].sort((x,y)=>y.minutes-x.minutes).forEach((d,k)=>types.set(d,rec?'openers':want[k]));
     /* twee zware dagen achter elkaar: de training die de meeste frisheid vraagt eerst, daarna een andere prikkel die op vermoeide benen werkt */
-    if(scarce&&H.length===2&&Math.abs(H[0].i-H[1].i)===1){
-      const [a,b]=[...H].sort((x,y)=>x.i-y.i),[p,q]=[...want].sort((x,y)=>INTENSE.includes(y)-INTENSE.includes(x));
-      types.set(a,p);types.set(b,INTENSE.includes(q)?(used.has('sweetspot')?'tempo':'sweetspot'):q);
+    /* reed je op een zware dag een andere soort dan er stond (bijvoorbeeld de training van donderdag al op dinsdag), dan ruilen die twee:
+       de dag die nog komt krijgt wat er is blijven liggen */
+    if(!rec)for(const d of had){const rt=rode(d),e=rt&&baseOf(rt)!==baseOf(types.get(d)||'')&&H.find(x=>baseOf(types.get(x)||'')===baseOf(rt));if(e){const t=types.get(d);types.set(d,types.get(e));types.set(e,t)}}
+    if(scarce&&!rec&&Hall.length===2&&Hall[1].i-Hall[0].i===1){
+      const [a,b]=Hall,[p,q]=[...want].sort((x,y)=>INTENSE.includes(y)-INTENSE.includes(x)),q2=INTENSE.includes(q)?(used.has('sweetspot')?'tempo':'sweetspot'):q;
+      types.set(a,p);types.set(b,q2);
     }
     const need=[...H].reduce((a,d)=>a+Math.min(d.minutes,rec?60:keyLen(types.get(d))),0)+(Ld?Math.min(Ld.minutes,C.longT):0);
     const budget=C.weekH*60-forced.reduce((a,d)=>a+mins(d),0),fit=need>budget?clamp(budget/need,.6,1):1;
     /* minder tijd dan de coach zou willen: wat er over is, gaat naar deze trainingen, tot je beschikbare tijd vol is */
     const spare=scarce&&fit===1?Math.max(0,budget-need)/Math.max(1,H.length+(Ld?1:0)):0;
     for(const d of H){
+      if(d.role)continue;
       const t=types.get(d);
       d.T=Math.min(d.minutes,Math.max(45,r5((rec?60:keyLen(t))*fit+spare)));d.wo=buildWorkout(t,d.T,L,lv(t));d.key=!rec;
     }
     /* FTP-test: in de eerste week en daarna elke zes weken, in een rustige week zodat je fris bent */
     /* een test staat maar in één week: staat er deze week nog een, dan niet ook volgende week. Komt hij er niet van, dan schuift hij door zodra de nieuwe week begint */
+    let tdE=free.find(d=>d.role==='x')||null;
     const testOpen=thisWeek===7&&planWeek(st,mondayOf(today),today).days.some(d=>d.test&&d.iso>=tk&&!rides.some(r=>!r.sim&&r.date===d.iso));
     if(tk&&thisWeek>=0&&!testOpen&&!['peak','taper','event'].includes(ctx.kind)){
       /* een FTP die je bij de start zelf opgaf, telt als test */
@@ -567,43 +603,77 @@ function planWeek(st,monday,today){
       /* blijft het zwaarder voelen dan verwacht: misschien staat je FTP te hoog. Nog nooit getest: dan sneller */
       const tooHigh=read&&read.test&&since>=(rides.some(isTestRide)?42:21);
       /* gewoon op tijd: liefst in een rustige week, na acht weken ook in een andere. Niet als je net terug bent of eerst moet herstellen */
-      const calm=rec||ctx.kind==='base',onTime=last?(since>=42&&calm)||since>=56:calm||iso(monday)===st.planStart||since>=42;
+      /* een test rijd je fris: in een herstelweek of in de eerste week erna, niet in de derde week van de opbouw (dan zit de meeste vermoeidheid in je benen) */
+      const opb=['build','base'].includes(ctx.kind),heavyWk=opb&&ctx.L===2,calm=rec||(opb&&ctx.L===0);
+      const onTime=last?(since>=42&&calm)||(since>=70&&!heavyWk)||since>=84:calm||iso(monday)===st.planStart||since>=42;
       /* testweek aan het eind van het doelblok: altijd een test, tenzij je net getest hebt */
       const blockTest=ctx.kind==='test'&&since>=14;
       /* halverwege het blok een tussentest, in een rustige week tussen week 5 en 7 (anders in week 7): zo schuift het doel op tijd mee */
-      const bw=ctx.toGo==null&&st.block?Math.floor(dayDiff(parseISO(st.block.start),monday)/7):-1,midTest=bw>=4&&bw<=6&&(rec||bw===6)&&!rides.some(r=>isTestRide(r)&&r.date>=st.block.start);
+      const bw=ctx.toGo==null&&st.block?Math.floor(dayDiff(parseISO(st.block.start),monday)/7):-1,midTest=bw>=4&&bw<=7&&(rec||(bw>=6&&!heavyWk))&&!rides.some(r=>isTestRide(r)&&r.date>=st.block.start);
       /* binnen vijf weken komt de testweek van het blok: dan geen extra test ertussen */
       const soon=ctx.toGo==null&&st.block&&ctx.kind!=='test'&&dayDiff(monday,parseISO(st.block.end))<=35&&dayDiff(monday,parseISO(st.block.end))>=0;
       /* langer dan vier weken weg: na de eerste lichtere week een nieuwe test */
       const gapTest=cb&&cb.stage===3&&cb.age>=7&&!rides.some(r=>isTestRide(r)&&r.date>=cb.back);
-      const due=brk||gapTest||(fat.back==null&&fat.level<2&&(blockTest||midTest||(!soon&&(fitter||tooHigh||onTime))));
+      const due=!ctx.after&&(brk||gapTest||(fat.back==null&&fat.level<2&&(blockTest||midTest||(!soon&&(((fitter||tooHigh)&&!heavyWk)||onTime)))));
       /* nooit testen als het zwaar voelt: de uitslag valt dan te laag uit. Eerst een paar dagen zonder rit die zwaarder voelde dan verwacht */
       const heavyBefore=d=>rides.some(r=>!r.sim&&r.date<d.iso&&r.date>=iso(addDays(d.date,-3))&&rideSignal(r).f>0);
       const tt=ftpTestOf(st),tMin=tt==='test20'?55:45;
-      const td=due&&H.filter(d=>d.iso>=tk&&!heavyBefore(d)&&(tt!=='test20'||d.minutes>=tMin)).sort((a,b)=>a.i-b.i)[0];
-      if(td){td.wo=buildWorkout(tt,tMin,0);td.key=true;td.test=true}
+      const ok=d=>d.iso>=tk&&!d.role&&!heavyBefore(d)&&(tt!=='test20'||d.minutes>=tMin);
+      /* in een herstelweek of testweek pas vanaf donderdag, als de weken ervoor uit je benen zijn: op de zware dag, anders op een rustige dag (niet de lange rit) */
+      const late=rec||ctx.kind==='test'?[...H,...free.filter(d=>d!==Ld&&!H.includes(d)&&d.minutes>=45&&!d.easyOnly)].filter(d=>d.i>=3&&ok(d)).sort((a,b)=>H.includes(b)-H.includes(a)||a.i-b.i)[0]:null;
+      const td=due&&(late||H.filter(ok).sort((a,b)=>a.i-b.i)[0]);
+      if(td){td.wo=buildWorkout(tt,tMin,0);td.T=td.wo.minutes;td.key=true;td.test=true;if(!H.includes(td)){tdE=td;td.extra=true}}
       /* eenmalig een 20-minutentest vier dagen tot ruim drie weken na een ramptest: daaruit volgt je eigen verhouding (calibrate) */
       const ramp=rides.filter(r=>!r.sim&&r.type==='ramptest'&&r.best&&r.best[60]).sort((a,b)=>a.date<b.date?1:-1)[0];
       if(!td&&tt==='ramptest'&&!st.ftpCal&&ramp&&ctx.kind==='build'&&!fat.level&&(TYPES.test20.min||0)<=nivIdx(st)&&!rides.some(r=>!r.sim&&r.type==='test20'&&r.date>=ramp.date)){
-        const t20=H.filter(d=>{const n=dayDiff(parseISO(ramp.date),d.date);return d.iso>=tk&&n>=4&&n<=24&&d.minutes>=55&&!heavyBefore(d)}).sort((a,b)=>a.i-b.i)[0];
+        const t20=H.filter(d=>{const n=dayDiff(parseISO(ramp.date),d.date);return d.iso>=tk&&!d.role&&n>=4&&n<=24&&d.minutes>=55&&!heavyBefore(d)}).sort((a,b)=>a.i-b.i)[0];
         if(t20){t20.wo=buildWorkout('test20',55,0);t20.key=true;t20.test=true}
       }
     }
-    if(Ld){
+    /* rustige dagen: genoeg om het weekvolume te halen, met rustdagen ertussen. Een test op een rustige dag telt hier al mee als zware dag,
+       zodat de dagen eromheen niet verschuiven als hij gereden is */
+    const E0=free.filter(d=>d!==Ld&&d!==tdE&&!H.includes(d)&&d.minutes>=easyMin);
+    const nE=Math.max(0,Math.min(E0.length,nDays-H.length-(Ld?1:0)-(tdE?1:0)));
+    const stressAt=new Set([...fixed,...H.map(d=>d.i)].concat(Ld?[Ld.i]:[],tdE?[tdE.i]:[],forced.filter(d=>d.extra).map(d=>d.i)));
+    const afterStress=i=>stressAt.has(i-1)||(i===0&&stressAt.has(6));
+    let bestE=null;
+    for(const E of combos(E0,nE)){
+      const on=new Array(7).fill(false);for(const i of stressAt)on[i]=true;for(const d of forced)on[d.i]=true;for(const d of E)on[d.i]=true;
+      let sc=0,run=0;
+      /* direct na een zware dag of de lange rit liever een rustdag dan een korte herstelrit */
+      for(const d of E)sc+=Math.min(d.minutes,90)/90*3-(afterStress(d.i)?2:0);
+      for(let i=0;i<7;i++){run=on[i]?run+1:0;if(run>3)sc-=6}
+      for(const i of stressAt)if(i>0&&!on[i-1])sc+=1;
+      for(const d of E0)if(d.role==='e'&&!E.includes(d))sc-=1000;
+      if(!bestE||sc>bestE.sc)bestE={sc,E};
+    }
+    let E=bestE?bestE.E:[];
+    if(Ld&&Ld.role)Ld.T=mins(Ld);
+    else if(Ld){
       Ld.T=Math.min(Ld.minutes,Math.max(lightWk?60:90,r5(C.longT*fit+spare)));Ld.long=true;
       let lt=(ctx.kind==='build'||ctx.kind==='peak')&&Ld.T>=75?prof.long:'duur';
       /* weinig momenten: ook de lange rit krijgt een prikkel */
       if(scarce&&lt==='duur'&&Ld.T>=75)lt='duurtempo';
       Ld.wo=buildWorkout(lt,Ld.T,L,undefined,{b:blkFor(lt)});
     }
-    let left=C.weekH*60-[...forced,...H].concat(Ld?[Ld]:[]).reduce((a,d)=>a+mins(d),0);
+    let left=C.weekH*60-[...forced,...H].concat(Ld?[Ld]:[],tdE?[tdE]:[]).reduce((a,d)=>a+mins(d),0);
     E=E.slice().sort((a,b)=>a.minutes-b.minutes);
     while(E.length&&left/E.length<(scarce||ctx.kind==='taper'?30:40))E.shift();
     /* liever minder ritten die lang genoeg zijn dan veel korte: de kortste dag wordt dan een rustdag */
     if(!lightWk&&!scarce)while(E.length>1&&left/E.length<90&&E[E.length-1].minutes>=90)E.shift();
-    E.sort((a,b)=>Math.min(a.minutes,C.easyCap)-Math.min(b.minutes,C.easyCap));let soup=false;
+    /* cadanswerk één keer per week, ook als je die rit al reed */
+    E.sort((a,b)=>Math.min(a.minutes,C.easyCap)-Math.min(b.minutes,C.easyCap));let soup=forced.some(d=>d.wo&&SOUP.includes(d.wo.type));
+    /* een rustige rit is nooit langer dan de lange rit, en de dag na de lange rit hooguit een uur (behalve met veel uren per week) */
+    const longAt=forced.filter(d=>d.long).map(d=>d.i).concat(Ld?[Ld.i]:[]),longLen=Ld?Ld.T:Math.max(0,...forced.filter(d=>d.long).map(d=>mins(d)||(d.wo?d.wo.minutes:0)));
+    const eCap=longLen?Math.max(45,Math.min(C.easyCap,r5(longLen)-15)):C.easyCap;
+    /* een rustdag die een rustdag bleef, viel maandag ook al af */
+    E=E.filter(d=>d.role!=='r');
+    /* gereden, maar nu nergens ingedeeld (de week is intussen veranderd): de minuten tellen wel */
+    for(const d of free)if(d.role&&d.role!=='r'&&d!==Ld&&d!==tdE&&!H.includes(d)&&!E.includes(d))left-=mins(d);
     E.forEach((d,k)=>{
-      const T=r5(Math.min(d.minutes,C.easyCap,left/(E.length-k)));
+      if(d.role){left-=mins(d);if(d.wo&&SOUP.includes(d.wo.type))soup=true;return}
+      const afterL=C.level<9&&longAt.some(i=>d.i===i+1||(i===6&&d.i===0));
+      const T=r5(Math.min(d.minutes,afterL?60:eCap,left/(E.length-k)));
       if(T<30)return;
       const after=afterStress(d.i);
       /* een herstelrit alleen na een zware dag of de lange rit; verder rustige duur,
@@ -663,7 +733,7 @@ function logPlan(plan,today){
   const tk=iso(today),log=state.plog||(state.plog={}),cut=iso(addDays(today,-120));let ch=false;
   for(const d of plan.days){
     if(d.iso>tk||d.event||(d.iso<tk&&log[d.iso])||(d.iso===tk&&((state.missed||{})[tk]||d.done)&&log[tk]))continue;
-    const e=d.wo?{t:d.wo.type,m:d.wo.minutes,L:d.wo.L}:{t:''};if(d.wo&&d.wo.lvl)e.v=d.wo.lvl;if(d.wo&&d.wo.b)e.b=d.wo.b;if(d.wo&&d.key)e.k=1;if(d.wo&&d.long)e.l=1;
+    const e=d.wo?{t:d.wo.type,m:d.wo.minutes,L:d.wo.L}:{t:''};if(d.wo&&d.wo.lvl)e.v=d.wo.lvl;if(d.wo&&d.wo.b)e.b=d.wo.b;if(d.wo&&d.key)e.k=1;if(d.wo&&d.long)e.l=1;if(d.wo&&d.extra)e.x=1;
     if(JSON.stringify(log[d.iso])!==JSON.stringify(e)){log[d.iso]=e;ch=true}
   }
   for(const k of Object.keys(log))if(k<cut){delete log[k];ch=true}

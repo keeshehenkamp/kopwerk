@@ -4,6 +4,25 @@
 /* ---------- metingen ---------- */
 /* eFTP: de schatting uit je beste 20 minuten (×0,95) of een FTP-test, over de zes weken tot en met dag t */
 function eftpAt(t){const e=iso(t),s=iso(addDays(t,-42));let v=0;for(const r of state.rides)if(!r.sim&&r.date>=s&&r.date<=e)v=Math.max(v,ftpEstimate(r));return v||null}
+/* Waarschijnlijke FTP op dag e: wat je gereden trainingen je FTP waarschijnlijk opleverden. Alleen weergave: trainingen rekenen met je ingestelde FTP.
+   Vertrekpunt is je laatste FTP-test, een FTP die je zelf instelde (ftpLog), de start van je doelblok of je eerste rit. Daarvandaan het pad van
+   het blok (zonder blok: de winst die bij je niveau past in twaalf weken, blockTarget), maal het deel van de geplande belasting dat je echt reed.
+   Elke gereden training telt meteen mee; een training die nog moet komen niet. Vuistregel, geen meting: een test zet hem weer op de uitslag. */
+function probFtp(e,planOf){
+  const real=state.rides.filter(r=>!r.sim&&r.date<=e);if(!real.length)return null;
+  const bl=state.block&&blockKind(state.block.goal)!=='sprint'&&state.block.target&&state.block.from&&state.block.start<=e?state.block:null;
+  let a0='',v0=0,t=null;
+  for(const r of real)if(isTestRide(r)&&ftpEstimate(r)&&r.date>a0){a0=r.date;v0=ftpEstimate(r);t=r}
+  for(const x of state.ftpLog||[])if(x.d<=e&&x.d>a0){a0=x.d;v0=x.w;t=null}
+  if(bl&&bl.start>a0){a0=bl.start;v0=bl.from;t=null}
+  if(!a0){const f=real.reduce((a,r)=>r.date<a.date?r:a,real[0]);a0=f.date;v0=f.ftp||state.profile.ftp}
+  const P=bl&&a0>=bl.start?bl:{start:a0,from:v0,target:blockTarget(state,'ftp',v0)},tk=iso(new Date()),rode=new Set(real.map(r=>r.date));
+  let pl=0;
+  for(let m=mondayOf(parseISO(a0));iso(m)<=e;m=addDays(m,7))for(const d of planOf(m).days)if(d.wo&&d.iso>=a0&&d.iso<=e&&!(t&&d.iso===a0)&&(d.iso<tk||rode.has(d.iso)))pl+=d.wo.tss||0;
+  const dn=real.filter(r=>r.date>=a0&&r!==t).reduce((x,r)=>x+(r.tss||0),0);
+  const v=Math.round(v0+Math.max(0,blockPath(P,parseISO(e))-blockPath(P,parseISO(a0)))*(pl?clamp(dn/pl,0,1):0));
+  return {v,a0,v0};
+}
 /* niveau in woorden, op basis van watt per kilo bij je (geschatte) FTP */
 const LEVELS=[[2,'beginner'],[2.5,'recreant'],[3,'getrainde recreant'],[3.5,'sterk'],[4,'zeer sterk'],[4.6,'wedstrijdniveau'],[99,'elite']];
 const levelOf=wkg=>LEVELS.find(([t])=>wkg<t)[1];

@@ -327,7 +327,8 @@ const actions={
   bias(d){if(!P)return;P.bias=clamp(Math.round((P.bias+(+d.d))*100)/100,.5,1.5);P.sent=-1;renderPlayer()},
   erg(){if(!P)return;P.erg=!P.erg;if(P.erg)P.sent=-1;else simResend();renderPlayer()},
   grade(d){if(!P)return;P.grade=clamp(P.grade+(+d.d),-5,15);simResend();renderPlayer()},
-  shift(d){shift(+d.d)}
+  shift(d){shift(+d.d)},
+  kaartZoom(d){kaartZoom(+d.d)}
 };
 /* acties die je met één tik kunt terugdraaien: de melding erna krijgt 'Ongedaan maken' */
 const UNDO=new Set(['stravaOff','healthDrop','healthUndo','healthBetter','saveHealth','missedWhy','setFtp']);

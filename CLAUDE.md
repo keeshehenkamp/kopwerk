@@ -43,6 +43,11 @@ Elk scherm moet in één blik te lezen zijn. Loop deze lijst na vóór je een sc
 - Terug na een gat (`comeback`): 7-13 dagen een paar rustige dagen, 14-28 een stap terug en een lichtere week, langer twee stappen en een FTP-test. Een drukke week is geen waarschuwing.
 - Blokken van 8 minuten hebben een vaste plek bij de doelen FTP en Gewoon beter worden (`vast`). Sweet spot is een gebied op gevoel, duurritten zitten onder in zone 2.
 - Het doel van een blok heeft een marge (`blockBand`) en een eindtest daarbinnen telt als gehaald (`blockHit`). De afbouw houdt een korte, harde prikkel en ongeveer evenveel ritten.
+- Wie het schema volgt, krijgt de week die hij maandag zag. Wat al gereden is zoals het stond (en een rustdag die een rustdag bleef) houdt bij het indelen zijn plek (`d.role`); alleen wat anders liep, verandert de rest van de week. De controle 'vaste week' rekent dit door met vaste en willekeurige renners: nul veranderingen.
+- Varianten van dezelfde prikkel delen hun opbouw (`progOf`, `famOf`): een nieuwe variant begint niet onderaan, en na een te zware training gaat de hele familie een stap terug. De treden en de uren van een week liggen op maandag vast; een rit of een FTP-test van deze week telt vanaf de week erna.
+- De lange rit is de langste rit van de week en staat op de dag met de meeste tijd. Hij groeit vanaf je langste rit van de afgelopen zes weken (`longBefore`), per week hooguit tien minuten of een achtste. De dag erna is hooguit een uur rustig (tot negen uur per week).
+- Een FTP-test rijd je fris: in een herstelweek of testweek vanaf donderdag, of in de eerste week na het herstel. Niet in de derde opbouwweek. De coach kondigt hem aan.
+- Afbouw en evenementweek: geen nieuwe trainingen, maar die van je laatste weken (`familiar`); in de evenementweek op ongeveer de halve dosis. De week na je evenement is een herstelweek zonder test.
 - Het doel is beter worden: wat de app meet, moet de planning veranderen en niet alleen tekst opleveren. Een training die voelt zoals verwacht wordt langzaam zwaarder; zwaarte is altijd relatief aan het verwachte gevoel van die soort. Herstel- en duurritten worden niet zwaarder.
 
 ## Niet doen

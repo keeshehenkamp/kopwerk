@@ -64,12 +64,12 @@ function routeProfile(id){
    hp: reeksen haarspeldbochten [begin km, aantal bochten (oneven)]. */
 const ROUTES=[
   {id:'hoep',name:'Ronde Hoep',km:17,ontwerp:'hoep'},
-  {id:'heuvel',name:'Heuvelland',km:13,ontwerp:'heuvel'},
   {id:'ventoux',name:'Mont Ventoux',km:55,ontwerp:'ventoux'}
 ];
 const ROUTE_KEY='kopwerk.route';
-/* De Col is de Mont Ventoux geworden, de Polderronde de Ronde Hoep */
-const routeId=()=>{let v='';try{v=localStorage.getItem(ROUTE_KEY)||''}catch(e){}if(v==='col')v='ventoux';if(v==='polder')v='hoep';return ROUTES.some(r=>r.id===v)?v:'heuvel'};
+/* De Col is de Mont Ventoux geworden, de Polderronde de Ronde Hoep. Heuvelland (verzonnen, zonder echte kaart) is geen keuze meer:
+   js/routes/heuvel.js blijft bewaard als voorbeeld, wie hem gekozen had rijdt de Ronde Hoep */
+const routeId=()=>{let v='';try{v=localStorage.getItem(ROUTE_KEY)||''}catch(e){}if(v==='col')v='ventoux';if(v==='polder')v='hoep';return ROUTES.some(r=>r.id===v)?v:'hoep'};
 function setRoute(id){try{localStorage.setItem(ROUTE_KEY,id)}catch(e){}}
 /* positie binnen de ronde, ook voor afstanden voorbij één ronde of (bij de camera) net voor de start */
 const wrapD=(C,d)=>((d%C.L)+C.L)%C.L;
@@ -1037,7 +1037,7 @@ function peakGeo(MO,seed){
   g.setAttribute('color',new T.Float32BufferAttribute(cl,3));return g;
 }
 function worldClose(){
-  if(!W)return;const w=W;W=null;worldDrop(w);
+  if(!W)return;const w=W;W=null;kaartWeg(w);worldDrop(w);
 }
 /* binnenkant van een bocht: het land niet verder laten reiken dan de straal, anders schuift het over zichzelf */
 const innerOff=(off,k)=>{if(off*k<=0)return off;const lim=Math.max(8,.8/Math.abs(k));return Math.sign(off)*lim*Math.tanh(Math.abs(off)/lim)};
@@ -1673,10 +1673,98 @@ function worldHud(d){
   set('p-stars','★ '+g.stars.reduce((a,b)=>a+b,0));
   const pop=el('p-pop');if(pop){const on=g.pop&&now()-g.pop.t<3500;pop.hidden=!on;if(on)set('p-pop','★'.repeat(g.pop.st)+'☆'.repeat(3-g.pop.st))}
 }
+/* ---------- kaartje ----------
+   Een echte kaart rond je plek, noorden boven: OpenFreeMap (vectorkaart, gegevens © OpenStreetMap-bijdragers, getekend met
+   MapLibre) met wegen en plaatsnamen, daarop de route, wat je deze ronde gereden hebt, een pijl waar je bent en de naam van het dorp
+   waar je doorheen rijdt of dat eraan komt. Zoomen met + en − of het scrollwiel; de stand blijft per apparaat bewaard.
+   MapLibre wordt pas geladen als je een route met echte ligging rijdt. Een route zonder echte ligging (geen spoor uit een GPX)
+   krijgt het kaartje van de hele ronde (drawRonde), net als wanneer de kaart niet te laden is. */
+const KAART_ZOOM='kopwerk.kaartzoom',KZ0=11,KZ1=17,KAART_STIJL='https://tiles.openfreemap.org/styles/liberty',
+  MAPLIBRE='https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min';
+let kaartZ=(()=>{let z=14;try{z=+localStorage.getItem(KAART_ZOOM)||14}catch(e){}return clamp(Math.round(z),KZ0,KZ1)})();
+function kaartZoom(s){kaartZ=clamp(kaartZ+s,KZ0,KZ1);try{localStorage.setItem(KAART_ZOOM,kaartZ)}catch(e){}if(W&&W.kmap)W.kmap.easeTo({zoom:kaartZ,duration:250})}
+document.addEventListener('wheel',e=>{if(!e.target.closest||!e.target.closest('.pkaart.geo'))return;e.preventDefault();if(Math.abs(e.deltaY)>4)kaartZoom(e.deltaY<0?1:-1)},{passive:false});
+let kaartLib=null;
+const kaartLaad=()=>kaartLib||(kaartLib=new Promise((ok,no)=>{
+  const l=document.createElement('link');l.rel='stylesheet';l.href=MAPLIBRE+'.css';document.head.appendChild(l);
+  const s=document.createElement('script');s.src=MAPLIBRE+'.js';s.onload=()=>window.maplibregl?ok(window.maplibregl):no();s.onerror=()=>{kaartLib=null;no()};document.head.appendChild(s);
+}));
+/* de ligging van de route: elke 16 m een punt in lengte en breedte, plus de dorpen en genoemde plekken */
+function kaartGeo(C){
+  if(C.geo!==undefined)return C.geo;
+  const D=C.route.ontwerp&&ROUTE_DESIGN[C.route.ontwerp],S=D&&D.spoor&&ROUTE_SPOOR[D.spoor];
+  if(!S||S.lat0==null)return C.geo=null;
+  /* terug naar lengte en breedte, net andersom als tools/gpx_naar_spoor.py (oost en noord in meters, opgerekt met de schaal) */
+  const ky=111320,kx=ky*Math.cos(S.lat0*Math.PI/180),f=S.schaal||1,ll=(x,z)=>[S.lon0+(x/f)/kx,S.lat0+(-z/f)/ky];
+  const st=4,n=Math.ceil(C.N/st),pts=[];for(let i=0;i<=n;i++){const k=Math.min(i*st,C.N);pts.push(ll(C.X[k],C.Z[k]))}
+  const L=C.L,w=x=>((x%L)+L)%L,plek=[];
+  for(const v of D.dorpen||[])if(v.naam)plek.push({a:w(C.at(v.van)),b:w(C.at(v.tot)),naam:v.naam});
+  for(const p of D.punten||[])if(p.naam&&p.at!=null){const m=w(C.at(p.at));plek.push({a:w(m-80),b:w(m+80),naam:p.naam})}
+  return C.geo={ll,pts,st,plek};
+}
+/* waar je bent of wat eraan komt: in een dorp de naam, anders het eerstvolgende dorp of de eerstvolgende plek binnen 1,5 km */
+function kaartPlek(G,C,d){
+  const dl=wrapD(C,d),L=C.L,binnen=p=>p.a<=p.b?dl>=p.a&&dl<=p.b:dl>=p.a||dl<=p.b;
+  const nu=G.plek.find(binnen);if(nu)return nu.naam;
+  let best=null,bm=1500;for(const p of G.plek){const m=((p.a-dl)%L+L)%L;if(m<bm){bm=m;best=p}}
+  return best?`${best.naam} · ${bm>=1000?nl((bm/1000).toFixed(1))+' km':Math.round(bm/50)*50+' m'}`:'';
+}
+const lijn=c=>({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:c}});
+/* de kaart zelf: één keer per wereld gemaakt; bij elke nieuwe opbouw van het rijscherm verhuist hij mee naar de nieuwe plek */
+function kaartMaak(G,box){
+  const div=document.createElement('div');div.className='pmap';box.prepend(div);
+  const acc=getComputedStyle(document.documentElement).getPropertyValue('--acc').trim()||'#E8452C';
+  const K=W.kaart={div,G,ni:-1,id:W.C.route.id,laden:true};
+  kaartLaad().then(ml=>{
+    if(!W||W.kaart!==K)return;
+    const m=W.kmap=new ml.Map({container:div,style:KAART_STIJL,center:G.pts[0],zoom:kaartZ,interactive:false,attributionControl:false,fadeDuration:0,pixelRatio:Math.min(2,devicePixelRatio||1)});
+    m.on('load',()=>{
+      /* plaatsnamen in het Nederlands waar die er zijn, anders de eigen naam: Bédoin blijft Bédoin */
+      /* rustig houden: geen winkels, haltes en eenrichtingspijlen; de route onder de namen, zodat een dorpsnaam leesbaar blijft */
+      let onder;for(const l of m.getStyle().layers){if(l.type!=='symbol')continue;onder=onder||l.id;
+        if(/^poi|one_way|airport/.test(l.id))m.setLayoutProperty(l.id,'visibility','none');
+        else if(/^label_|name/.test(l.id)&&l.layout&&l.layout['text-field'])m.setLayoutProperty(l.id,'text-field',['coalesce',['get','name:nl'],['get','name']])}
+      m.addSource('route',{type:'geojson',data:lijn(G.pts)});m.addSource('gereden',{type:'geojson',data:lijn([G.pts[0],G.pts[0]])});
+      m.addSource('anderen',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+      m.addLayer({id:'route-rand',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#fff','line-width':7,'line-opacity':.9}},onder);
+      m.addLayer({id:'route',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#151922','line-width':3.5,'line-opacity':.55}},onder);
+      m.addLayer({id:'gereden',type:'line',source:'gereden',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':acc,'line-width':4.5}},onder);
+      m.addLayer({id:'anderen',type:'circle',source:'anderen',paint:{'circle-radius':5,'circle-color':'#151922','circle-stroke-color':'#fff','circle-stroke-width':2}},onder);
+      const pijl=document.createElement('div');pijl.className='pmij';pijl.style.setProperty('--acc',acc);
+      K.mij=new ml.Marker({element:pijl,rotationAlignment:'map'}).setLngLat(G.pts[0]).addTo(m);
+      K.laden=false;if(W)W.profT=0;
+    });
+    m.on('error',()=>{});
+  }).catch(()=>{if(W&&W.kaart===K)K.fout=true});
+  return K;
+}
+function drawMap(d){
+  const cv=document.getElementById('p-kaart');if(!cv)return;const C=W.C,box=cv.closest('.pkaart'),G=kaartGeo(C);
+  let K=W.kaart;if(K&&K.id!==C.route.id){kaartWeg(W);K=null}
+  const geo=!!G&&!(K&&K.fout);box.classList.toggle('geo',geo);
+  if(!geo)return drawRonde(d,cv);
+  if(!K)K=kaartMaak(G,box);
+  /* het rijscherm is opnieuw opgebouwd: de kaart verhuist mee */
+  if(K.div.parentNode!==box)box.prepend(K.div);
+  /* andere maat (verhuisd, telefoon gedraaid, of gemaakt toen het paneel nog verborgen was): de kaart past zich aan */
+  if(W.kmap&&K.w!==K.div.clientWidth){K.w=K.div.clientWidth;W.kmap.resize()}
+  const lab=document.getElementById('p-plaats');if(lab){const t=kaartPlek(G,C,d);if(lab.textContent!==t)lab.textContent=t;lab.hidden=!t}
+  const m=W.kmap;if(!m||K.laden)return;
+  const q=roadAt(C,d),pos=G.ll(q.x,q.z);
+  m.jumpTo({center:pos});K.mij.setLngLat(pos).setRotation(q.h*180/Math.PI);
+  /* gereden deel van deze ronde: alleen bijwerken als er een stukje bij is */
+  const ni=Math.min(G.pts.length-1,Math.floor(wrapD(C,d)/STEP/G.st));
+  if(ni!==K.ni){K.ni=ni;m.getSource('gereden').setData(lijn(G.pts.slice(0,ni+1).concat([pos])))}
+  /* anderen: het groepje of wie samen met je rijdt */
+  if(P.vrij||K.an){const an=[];if(P.vrij){if(W.bots)an.push(W.bots.d);if(typeof SAMEN!=='undefined')for(const r of SAMEN.riders.values())if(r.st!=='wacht'&&r.st!=='klaar')an.push(r.sd)}
+    K.an=an.length>0;m.getSource('anderen').setData({type:'FeatureCollection',features:an.filter(dd=>Math.abs(dd-d)>=25).map(dd=>{const o=roadAt(C,dd);return {type:'Feature',properties:{},geometry:{type:'Point',coordinates:G.ll(o.x,o.z)}}})})}
+}
+function kaartWeg(w){if(w.kmap)try{w.kmap.remove()}catch(e){}if(w.kaart&&w.kaart.div)w.kaart.div.remove();w.kmap=null;w.kaart=null}
 /* kaartje van de hele ronde, noorden boven: de route als lijn, wat je gereden hebt in de accentkleur, een stip waar je bent
    en kleine stippen voor wie er met je meerijdt. De lijn zelf wordt één keer per route getekend en daarna alleen overgezet. */
-function drawMap(d){
-  const cv=document.getElementById('p-kaart');if(!cv)return;const C=W.C,c=cv.getContext('2d'),w=cv.width,h=cv.height,m=22;
+function drawRonde(d,cv){
+  if(cv.width!==540||cv.height!==330){cv.width=540;cv.height=330}
+  const C=W.C,c=cv.getContext('2d'),w=cv.width,h=cv.height,m=22;
   let K=W.kaartje;
   if(!K||K.id!==C.route.id||K.w!==w){let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;const st=Math.max(1,Math.round(C.N/900));for(let k=0;k<C.N;k+=st){x0=Math.min(x0,C.X[k]);x1=Math.max(x1,C.X[k]);z0=Math.min(z0,C.Z[k]);z1=Math.max(z1,C.Z[k])}
     const s=Math.min((w-2*m)/Math.max(1,x1-x0),(h-2*m)/Math.max(1,z1-z0)),ox=(w-(x1-x0)*s)/2-x0*s,oz=(h-(z1-z0)*s)/2-z0*s,P2=[];for(let k=0;k<C.N;k+=st)P2.push([C.X[k]*s+ox,C.Z[k]*s+oz]);

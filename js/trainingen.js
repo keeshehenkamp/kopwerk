@@ -246,9 +246,10 @@ const EXTRA_OF={tempo:'ss',tempocad:'klim',tempolang:'kracht',tempogolf:'ss',swe
   sprint:'kracht',langesprint:'tempo',sprintblok:'ss',kasseien:'tempo',kasseitempo:'ss',groepsrit:'tempo',koersdag:'ss',demarrage:'cad',vier8:'tempo'};
 /* bij deze trainingen komt het extra werk eerst: het hoofdblok rij je dan op vermoeide benen */
 const EXTRA_FIRST=new Set(['tempolang','sslang','oplopend','tijdrit','drempelramp','klimtrappen','colsim','tempogolf','ssgolf','zwaarlicht','kasseitempo']);
-function shapeLong(type,main,left){
+function shapeLong(type,main,left,kaal){
   if(left<=.05)return {segs:main,tag:''};
-  const ex=TYPES[type].hard&&EX[EXTRA_OF[type]||'tempo'],pre=ex&&left>=12?Math.min(left*.25,8):left<=5?left:Math.min(left*.3,10);
+  /* kaal: geen extra werk erbij, de rest is rustig rijden (de prikkel in de week van je evenement) */
+  const ex=!kaal&&TYPES[type].hard&&EX[EXTRA_OF[type]||'tempo'],pre=ex&&left>=12?Math.min(left*.25,8):left<=5?left:Math.min(left*.3,10);
   let l=left-pre;
   /* net te weinig voor een extra blok: rustiger beginnen, want achteraan plakken doen we niet */
   if(ex&&l<12)return {segs:[...easyRun(left,'Inrijden'),...main],tag:''};
@@ -281,7 +282,7 @@ const FILL={
 const ladderWork=(type,st)=>LADDER[type].work?LADDER[type].work(st):type==='anaeroob'?st[0]*st[1]+(st[0]-1)*5:type==='sprint'?st[0]*5:st[0]*st[1]+(st[0]-1)*st[2];
 /* minuten die een trede nodig heeft, inclusief warming-up en cooling-down */
 const ladderNeed=(type,lvl)=>{const st=LADDER[type].steps;return ladderWork(type,st[clamp(Math.round(lvl),1,st.length)-1])+15};
-function ladderBuild(type,T,lvl){
+function ladderBuild(type,T,lvl,kaal){
   const Ld=LADDER[type],steps=Ld.steps;
   const wu=T>=60?10:T>=40?8:5,cd=T>=60?5:T>=40?4:3,room=T-wu-cd;
   let i=clamp(Math.round(lvl),1,steps.length)-1;
@@ -310,7 +311,7 @@ function ladderBuild(type,T,lvl){
     }
     used=ladderWork(type,[reps,on,off]);tag=`${reps}×${nl(on)}`;
   }
-  const shaped=shapeLong(type,segs,room-used);
+  const shaped=shapeLong(type,segs,room-used,kaal);
   return {segs:[S(wu*60,.45,.75,'Warming-up','warmup'),...shaped.segs,S(cd*60,.6,.4,'Cooling-down','cooldown')],tag:tag+shaped.tag,lvl:i+1};
 }
 /* opt.b = blokduur in minuten, afgestemd op de klimmen van je evenement (lange rit met klimblokken of korte klimmen) */
@@ -323,7 +324,7 @@ function buildWorkout(type,T,L,lvl,opt){
   let segs=[],tag='';
   if(LADDER[type]){
     const n=LADDER[type].steps.length;
-    ({segs,tag,lvl}=ladderBuild(type,T,lvl==null?Math.round(n*[.3,.5,.7][L]):lvl));
+    ({segs,tag,lvl}=ladderBuild(type,T,lvl==null?Math.round(n*[.3,.5,.7][L]):lvl,!!(opt&&opt.kaal)));
   }else if(FILL[type]){
     const light=/^herstel/.test(type),a=light?3:wu,z=light?2:cd;
     segs=[S(a*60,light?.4:.45,light?.5:.65,light?'Inrijden':'Warming-up','warmup'),...FILL[type](T-a-z),S(z*60,light?.5:.6,.4,light?'Uitrijden':'Cooling-down','cooldown')];
@@ -419,5 +420,5 @@ function buildWorkout(type,T,L,lvl,opt){
   const sec=segs.reduce((x,s)=>x+s.d,0);
   let p4=0;for(const s of segs){const m=(s.a+s.b)/2;p4+=s.d*m**4}
   const IF=(p4/sec)**.25;
-  return {id:`${type}-${T}-${L}-${lvl||0}${ob?'-b'+ob:''}`,b:ob||undefined,type,L,lvl:LADDER[type]?lvl:null,lvlMax:LADDER[type]?LADDER[type].steps.length:null,name:TYPES[type].name+(tag?' '+tag:''),desc:TYPES[type].desc,segs,sec,minutes:Math.round(sec/60),IF,tss:Math.round(sec/3600*IF*IF*100)};
+  return {id:`${type}-${T}-${L}-${lvl||0}${ob?'-b'+ob:''}${opt&&opt.kaal?'-k':''}`,b:ob||undefined,type,L,lvl:LADDER[type]?lvl:null,lvlMax:LADDER[type]?LADDER[type].steps.length:null,name:TYPES[type].name+(tag?' '+tag:''),desc:TYPES[type].desc,segs,sec,minutes:Math.round(sec/60),IF,tss:Math.round(sec/3600*IF*IF*100)};
 }

@@ -82,8 +82,23 @@ function progStep(r){
    (moe, herstelweek) of verhoging (piek) niet als blijvend. Pas je je gevoel later aan, dan rekent hij vanaf dezelfde stand. */
 function applyProg(r,again){
   state.prog=state.prog||{};
-  if(r.prog0==null)r.prog0=!again&&state.prog[r.type]!=null?state.prog[r.type]:r.lvl;
-  state.prog[r.type]=clamp(r.prog0+progStep(r),1,LADDER[r.type].steps.length);
+  if(r.prog0==null){const p=again?null:progOf(state,r.type,null,r);r.prog0=p!=null?p:r.lvl}
+  r.prog1=state.prog[r.type]=clamp(r.prog0+progStep(r),1,LADDER[r.type].steps.length);
+}
+/* Je stand op de opbouwladder van een training. Varianten van dezelfde prikkel (FAM) delen hun opbouw: de stand is wat je laatste training
+   in die familie opleverde, omgerekend naar de ladder van deze training. Een nieuwe variant begint dus niet onderaan, en na een training die
+   te zwaar was gaat de hele familie een stap terug. voor = alleen ritten van voor die dag (de planner zet de treden van een week op maandag vast);
+   skip = de rit die nu beoordeeld wordt: daarvoor tellen alleen eerdere ritten. Eigen keuze, geen bron: vuistregel. */
+const famOf=t=>{const s=new Set([t]);for(const f of Object.values(FAM))if(f.includes(t))for(const x of f)s.add(x);return s};
+const progAfter=r=>r.prog1!=null?r.prog1:clamp((r.prog0!=null?r.prog0:r.lvl)+progStep(r),1,LADDER[r.type].steps.length);
+function progOf(st,t,voor,skip){
+  if(!LADDER[t])return null;
+  const mem=famOf(t);let last=null;
+  for(const r of st.rides||[])if(!r.sim&&r!==skip&&r.lvl&&r.adj&&mem.has(r.type)&&LADDER[r.type]&&(!voor||r.date<voor)&&(!skip||r.ts<skip.ts)&&(!last||r.ts>last.ts))last=r;
+  if(!last)return st.prog&&st.prog[t]!=null&&!voor?st.prog[t]:null;
+  if(last.type===t)return progAfter(last);
+  const n=LADDER[t].steps.length,m=LADDER[last.type].steps.length;
+  return 1+(progAfter(last)-1)/(m-1)*(n-1);
 }
 /* Een FTP is een schatting. De marge is de herhaalfout van een test thuis (CV 3,7%, Matta 2022); een kleiner verschil dan 5 W nemen we niet vanzelf over. */
 const ftpMargin=w=>Math.round((w||0)*.037);

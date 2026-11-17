@@ -97,6 +97,96 @@ function runCoachChecks(add){
   T('opbouw','percentage daalt naarmate je meer rijdt',()=>buildPct(3)<.25&&buildPct(3)>buildPct(7)&&buildPct(7)>buildPct(12));
   T('opbouw','voor 7 uur nauwelijks anders',()=>Math.abs(7*(1+buildPct(7))-8.2)<.2);
 }
+/* ---------- een trainer die je week niet omgooit (16-11-2026) ----------
+   Een renner die precies doet wat er staat, rijdt door het schema. Elke dag ligt naast wat er die maandag stond:
+   wie het schema volgt, krijgt de week die hij zag. Daarnaast per week wat een trainer zou nakijken. */
+const OPENERS=['openers','openers30','scherp','prikkels'];
+function volg(sc,tot,na){
+  state=fresh(sc);if(sc.niveau){state.profile.niveau=sc.niveau;state.profile.ftp={beginner:150,recreant:197,gevorderd:230,ervaren:280}[sc.niveau]}
+  const eind=parseISO(tot),wk=[],fl=[];let w=null,mp=null;
+  const sig=d=>d.wo?d.wo.type+(d.wo.lvl?'#'+d.wo.lvl:'')+'/'+d.wo.minutes:'';
+  for(let day=parseISO('2026-11-09');day<eind;day=addDays(day,1)){
+    NOW=new RD(day.getFullYear(),day.getMonth(),day.getDate(),8).getTime();
+    const today=new Date(NOW);if(sc.block)ensureBlock(state,today);
+    const plan=planWeek(state,mondayOf(today),today);logPlan(plan,today);
+    if(dow(today)===0){mp=plan.days.map(sig);w={m:iso(plan.monday),kind:plan.ctx.kind,L:plan.ctx.L,label:plan.label,level:plan.coach.level,
+      days:plan.days.map(d=>({i:d.i,t:d.wo?d.wo.type:'',m:d.wo?d.wo.minutes:0,lvl:d.wo&&d.wo.lvl,work:d.wo?workMin(d.wo):0,key:!!d.key,long:!!d.long,test:!!d.test,av:d.minutes})),rides:[]};wk.push(w)}
+    const d=plan.days[dow(today)];
+    if(sig(d)!==mp[d.i])fl.push(`${iso(today)}: ${mp[d.i]||'rust'} werd ${sig(d)||'rust'}`);
+    if(!d.wo||d.event)continue;
+    const wo=d.wo,r={id:'v'+NOW,date:iso(today),ts:NOW,name:wo.name,type:wo.type,lvl:wo.lvl||null,planned:wo.sec,ftp:state.profile.ftp,sim:false,rpe:rpeExp(wo.type)??null,adj:true,laps:[],dur:wo.sec,
+      avgP:Math.round(state.profile.ftp*wo.IF*.95),np:Math.round(state.profile.ftp*wo.IF),IF:wo.IF,tss:wo.tss,kj:0,zones:[0,0,0,0,0,0,0],best:{},score:95,decoup:null};
+    if(wo.type==='ramptest'){const g=Math.round(state.profile.ftp*1.03);r.best={60:Math.round(g/rampRatio())};if(ftpAdopt(g,state.profile.ftp))state.profile.ftp=g}
+    if(wo.type==='test20'){r.best={1200:Math.round(state.profile.ftp/.95)};state.rides.push(r);calibrate(r,state);state.rides.pop()}
+    if(LADDER[wo.type]&&wo.lvl)applyProg(r);
+    state.rides.push(r);w.rides.push(r);
+  }
+  if(na)na();
+  return {wk,fl};
+}
+function runWeekChecks(add){
+  const T=(regel,t,tekst,fn)=>{try{const r=fn();if(r!==true)add(regel,t,tekst+(typeof r==='string'?': '+r:''))}catch(e){add(regel,t,tekst+' (fout: '+e.message+')')}};
+  const SCN={evenement:[{},'2027-04-17'],blok:[{noEvent:true,goal:'ftp',block:true},'2027-05-10'],veel:[{avail:[60,90,60,90,60,180,240]},'2027-02-01'],weinig:[{avail:[0,60,0,60,0,0,120]},'2027-02-01'],klim:[{noEvent:true,goal:'klimmen',block:true},'2027-02-01']};
+  const V={};let post=null;
+  for(const k in SCN)T('vaste week',k,'doorrekenen lukt niet',()=>{V[k]=volg(SCN[k][0],SCN[k][1],k==='evenement'?()=>{
+    /* de tocht zelf gereden: wat staat er de maandag erna? */
+    state.rides.push({id:'ev',date:'2027-04-17',ts:parseISO('2027-04-17').getTime()+9*36e5,name:'Amstel Gold Race',type:'buiten',sim:false,rpe:9,dur:6.5*3600,tss:340,IF:.72,zones:[0,0,0,0,0,0,0],best:{},laps:[]});
+    NOW=parseISO('2027-04-19').getTime()+8*36e5;const d=new Date(NOW);ensureBlock(state,d);post=planWeek(state,mondayOf(d),d)}:null);return true});
+  const licht=w=>['rec','taper','test','event'].includes(w.kind);
+  for(const k in V){const {wk,fl}=V[k];
+    /* 1. wie het schema volgt, krijgt de week die hij maandag zag */
+    T('vaste week',k,`${fl.length} keer veranderde een training in de loop van de week`,()=>!fl.length||fl.slice(0,3).join('; '));
+    /* 2. herstelweek: één keer korte prikkels, niet elke keer opnieuw als je ze gedaan hebt */
+    T('herstelweek',k,'meer dan één keer prikkels in een herstelweek',()=>{const b=wk.find(w=>w.kind==='rec'&&w.rides.filter(r=>OPENERS.includes(r.type)).length>1);return !b||b.m});
+    /* 3. de lange rit is de langste rit van de week, en de dag erna is kort */
+    T('lange rit',k,'een rustige rit is langer dan de lange rit',()=>{for(const w of wk){if(licht(w))continue;const L=w.days.find(d=>d.long&&d.t);if(!L)continue;const e=w.days.find(d=>d.t&&!d.long&&!d.key&&!d.test&&d.m>L.m);if(e)return `${w.m} lang ${L.m} min, ${e.t} ${e.m} min`}return true});
+    T('lange rit',k,'de lange rit staat niet op de dag met de meeste tijd',()=>{for(const w of wk){if(licht(w))continue;const L=w.days.find(d=>d.long&&d.t);if(!L)continue;const top=Math.max(...w.days.map(d=>d.av));if(L.av<top&&L.m>=L.av-5)return `${w.m} lang op ${DAYS[L.i]} (${L.av} min vrij), meeste tijd ${top}`}return true});
+    T('lange rit',k,'de dag na de lange rit is langer dan een uur',()=>{for(const w of wk){if(w.level>=9)continue;const L=w.days.find(d=>d.long&&d.t),n=L&&w.days[L.i+1];if(n&&n.t&&n.m>60)return `${w.m} ${n.t} ${n.m} min`}return true});
+    /* 4. een FTP-test rijd je fris: niet in de derde opbouwweek, en in een rustige week pas vanaf donderdag */
+    T('test fris',k,'FTP-test in de zwaarste week van de opbouw',()=>{const b=wk.find(w=>['build','base'].includes(w.kind)&&w.L===2&&w.days.some(d=>d.test));return !b||b.m+' '+b.label});
+    T('test fris',k,'FTP-test in een rustige week al voor donderdag',()=>{const b=wk.find(w=>['rec','test'].includes(w.kind)&&w.days.some(d=>d.test&&d.i<3));return !b||b.m+' '+b.label});
+  }
+  /* 1b. steekproef: zestig willekeurige renners (tijd per dag, doel, niveau, met of zonder evenement) die tien weken het schema volgen */
+  T('vaste week','steekproef','bij willekeurige renners verandert de week onderweg',()=>{const R=rng(2026),pick=a=>a[Math.floor(R()*a.length)],bad=[];
+    for(let n=0;n<60;n++){const avail=[0,0,0,0,0,0,0].map((_,i)=>R()<(i>=5?.8:.55)?pick([45,60,75,90,120,180,240]):0);if(avail.filter(Boolean).length<2){avail[1]=60;avail[6]=120}
+      const goal=pick(Object.keys(GOALS)),niveau=pick(NIV_KEYS),noEvent=R()<.6,v=volg({avail,goal,niveau,noEvent,block:noEvent},'2027-01-18');
+      if(v.fl.length)bad.push(`${niveau}, ${goal}, ${noEvent?'blok':'evenement'}, tijd [${avail}]: ${v.fl[0]}`)}
+    return !bad.length||`${bad.length} van 60, bijvoorbeeld ${bad[0]}`});
+  /* 5. de lange rit groeit mee met wat je rijdt, tot wat je week toelaat (zondag 3 uur vrij) */
+  T('lange rit','blok','na tien weken trouw rijden is de lange rit nog geen twee uur en een kwartier',()=>{const m=Math.max(...V.blok.wk.slice(8,11).map(w=>Math.max(0,...w.days.filter(d=>d.long).map(d=>d.m))));return m>=135||m+' min'});
+  T('lange rit','blok','de lange rit springt meer dan 25 minuten in een week',()=>{let prev=0;for(const w of V.blok.wk){const m=Math.max(0,...w.days.filter(d=>d.long).map(d=>d.m));if(prev&&m>prev+25)return `${w.m}: ${prev} naar ${m} min`;if(m>prev)prev=m}return true});
+  /* 6. varianten delen hun opbouw: na maanden trouw trainen sta je in de piekweken niet onderaan een ladder */
+  T('opbouw','evenement','een zware training in de piekweken staat nog onderaan zijn ladder',()=>{for(const w of V.evenement.wk.filter(w=>w.kind==='peak'))for(const d of w.days)if(d.key&&d.lvl&&LADDER[d.t]&&(d.lvl-1)/(LADDER[d.t].steps.length-1)<.33)return `${w.m} ${d.t} trede ${d.lvl} van ${LADDER[d.t].steps.length}`;return true});
+  const fam=(rpe)=>{state=fresh({noEvent:true,goal:'ftp'});state.started=state.planStart=state.ftpGiven='2026-09-07';
+    const r={id:'f1',date:'2026-11-03',ts:parseISO('2026-11-03').getTime()+9*36e5,name:'Sweet spot',type:'sweetspot',lvl:6,sim:false,rpe,adj:true,laps:[],dur:4200,tss:75,IF:.85,zones:[0,0,0,0,0,0,0],best:{},score:95};
+    applyProg(r);state.rides.push(r);NOW=parseISO('2026-11-09').getTime()+8*36e5;const d=new Date(NOW),mon=mondayOf(d),ctx=weekCtx(state,mon),C=coachTargets(state,mon,ctx,{level:0});
+    return lvlFor(state,'ssgolf',C,Object.assign({},ctx,{kind:'build',L:1}),{level:0})};
+  T('opbouw','familie','een nieuwe variant begint onderaan terwijl je in die soort al ver bent',()=>{const l=fam(6);return l>=4||'ssgolf trede '+l+' na sweet spot trede 6'});
+  T('opbouw','familie','voelde de vorige zwaar, dan gaat ook de andere variant een stap terug',()=>fam(9)<fam(6));
+  /* 6b. de training van donderdag al op dinsdag gereden: donderdag staat dan wat dinsdag is blijven liggen, niet nog eens hetzelfde */
+  T('vaste week','geruild','na ruilen van twee zware dagen krijg je twee keer dezelfde soort',()=>{
+    state=fresh({noEvent:true,goal:'ftp'});state.profile.niveau='gevorderd';const at=k=>{NOW=parseISO(k).getTime()+8*36e5;return new Date(NOW)};
+    let d=at('2026-11-09'),p=planWeek(state,mondayOf(d),d);logPlan(p,d);const keys=p.days.filter(x=>x.key&&x.wo);if(keys.length<2)return 'minder dan twee zware dagen';
+    const [a,b]=keys,wo=b.wo;d=at(a.iso);p=planWeek(state,mondayOf(d),d);logPlan(p,d);
+    state.rides.push({id:'ruil',date:a.iso,ts:NOW,name:wo.name,type:wo.type,lvl:wo.lvl||null,planned:wo.sec,ftp:197,sim:false,rpe:rpeExp(wo.type),adj:true,laps:[],dur:wo.sec,np:160,avgP:150,IF:wo.IF,tss:wo.tss,kj:0,zones:[0,0,0,0,0,0,0],best:{},score:95});
+    d=at(iso(addDays(a.date,1)));p=planWeek(state,mondayOf(d),d);const nu=p.days[b.i].wo;
+    return (nu&&nu.type===a.wo.type)||`${DAYS[a.i]} stond ${a.wo.type}, gereden ${wo.type}; ${DAYS[b.i]} is nu ${nu?nu.type:'rust'}`});
+  /* 7. afbouw en evenementweek: geen nieuwe trainingen, en in de laatste week een kleine dosis */
+  T('afbouw','evenement','in de afbouw of de evenementweek staat een training die je nog nooit deed',()=>{const wk=V.evenement.wk;for(let i=0;i<wk.length;i++){if(!['taper','event'].includes(wk[i].kind))continue;const eerder=new Set(wk.slice(Math.max(0,i-10),i).flatMap(w=>w.rides.map(r=>r.type)));
+    const d=wk[i].days.find(d=>d.key&&d.t&&!eerder.has(d.t));if(d)return `${wk[i].label}: ${d.t}`}return true});
+  T('afbouw','evenement','de zware training in de evenementweek is te groot',()=>{const w=V.evenement.wk.find(w=>w.kind==='event'),d=w&&w.days.find(d=>d.key);return !d||d.work<=12||`${d.t} met ${Math.round(d.work)} min werk`});
+  /* 9. de geschatte FTP loopt mee met wat je reed (Kees, 17-11-2026: na een volle week geen stijging zien motiveert niet), met en zonder doelblok */
+  for(const [naam,sc] of [['blok',{noEvent:true,goal:'ftp',block:true}],['evenement',{}]])T('ftp meelopen',naam,'de geschatte FTP stijgt niet mee met gereden trainingen',()=>{
+    volg(sc,'2026-11-23');const cache=new Map(),planOf=m=>{const k=iso(m);if(!cache.has(k))cache.set(k,planWeek(state,m,new Date(NOW)));return cache.get(k)};
+    const dagen=[...new Set(state.rides.map(r=>r.date))].sort(),vs=dagen.map(d=>probFtp(d,planOf).v),p=probFtp(dagen[dagen.length-1],planOf);
+    if(!(p.v>=p.v0+3))return `na twee weken volgens schema ${p.v0} naar ${p.v} W`;
+    for(let i=1;i<vs.length;i++)if(vs[i]<vs[i-1])return `daalt van ${vs[i-1]} naar ${vs[i]} W op ${dagen[i]}`;
+    /* zonder trainingen geen winst */
+    state.rides=state.rides.slice(0,1);cache.clear();const q=probFtp(dagen[dagen.length-1],planOf);return q.v<=q.v0+1||`met één rit toch ${q.v0} naar ${q.v} W`});
+  /* 8. de week na je evenement: herstellen, geen test en geen zware training */
+  T('na evenement','evenement','de week na je evenement is geen herstelweek',()=>!!post&&(post.ctx.kind==='rec'||post.label));
+  T('na evenement','evenement','test of zware training in de week na je evenement',()=>{const d=post&&post.days.find(d=>d.wo&&(d.key||d.test||d.wo.minutes>75));return !d||`${DAYS[d.i]} ${d.wo.type} ${d.wo.minutes} min`});
+}
 function runChecks(){
   state=Object.assign(defaults(),{setup:true,profile:{ftp:200,weight:75,goal:'ftp',niveau:'gevorderd'}});
   const bad=[],types=Object.keys(TYPES).filter(t=>!isFtpTest(t));
@@ -160,6 +250,7 @@ function runChecks(){
   if(stil.rec.p.length>5)add('rijtijd','bestand',`10 min stilstand telt als ${stil.rec.p.length} s`);
   if(gaps.dist!==240)add('rijtijd','bestand',`afstand ${gaps.dist} m in plaats van 240 m`);
   runCoachChecks(add);
+  runWeekChecks(add);
   return bad;
 }
 function showChecks(){
