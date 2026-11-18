@@ -207,6 +207,18 @@ function runWeekChecks(add){
     NOW=parseISO('2026-12-09').getTime()+8*36e5;const t=new Date(NOW),p=planWeek(state,mon,t),v=p.days.find(d=>d.movedFrom!=null||(d.i>1&&d.wo&&d.wo.own));return !v||`${DAYS[v.i]} ${v.wo.name}`});
   T('eigen rit','buiten gereden','een buitenrit op de dag van je eigen rit wordt een training uit het schema',()=>{eigen(Object.assign({noEvent:true,goal:'fit',block:true},WEEKEND),'2026-12-07',{[sat]:{m:180,e:1}});
     NOW=parseISO(sat).getTime()+18*36e5;const r={id:'own1',date:sat,ts:NOW,type:'buiten',name:'Buitenrit',manual:true,dur:175*60,rpe:5,sim:false};matchFeel(r);feelLoad(r);return r.type==='buiten'||r.type});
+  /* 11. een paar weken te weinig gereden (Kees, 17-11-2026: dan moet de app zeggen dat je meer moet doen). Twee weken onder 60% van je schema:
+     de coach zegt het op Home. Niet als je het schema volgde, niet bij één slechte week en niet als je ziek was. */
+  const weinig=(sc,frac,extra)=>{volg(sc,'2026-11-23');
+    /* twee weken waarin je elke training maar voor een deel rijdt */
+    for(let day=parseISO('2026-11-23');day<parseISO('2026-12-07');day=addDays(day,1)){NOW=day.getTime()+8*36e5;const t=new Date(NOW),p=planWeek(state,mondayOf(t),t);logPlan(p,t);
+      const d=p.days[dow(t)];if(d.wo&&!d.event){const wo=d.wo;state.rides.push({id:'w'+NOW,date:iso(t),ts:NOW,name:wo.name,type:wo.type,lvl:wo.lvl||null,planned:wo.sec,ftp:state.profile.ftp,sim:false,rpe:rpeExp(wo.type)??null,adj:true,laps:[],dur:Math.round(wo.sec*frac),avgP:150,np:160,IF:wo.IF,tss:Math.round(wo.tss*frac),kj:0,zones:[0,0,0,0,0,0,0],best:{},score:95})}}
+    if(extra)extra();NOW=parseISO('2026-12-07').getTime()+8*36e5;const t=new Date(NOW),p=planWeek(state,mondayOf(t),t),c=coachLine(p,t,readiness(t));return {sf:shortfall(state,t),c:c?c.t:''}};
+  const BLOK={noEvent:true,goal:'ftp',block:true};
+  T('te weinig','blok','twee weken elke rit een derde van de tijd en de coach zegt niets',()=>{const r=weinig(BLOK,.35);return (!!r.sf&&/van je schema gereden/.test(r.c))||`melding: ${r.c||'geen'}`});
+  T('te weinig','evenement','twee weken elke rit een derde van de tijd en de coach noemt je evenement niet',()=>{const r=weinig({},.35);return /Amstel Gold Race/.test(r.c)||`melding: ${r.c||'geen'}`});
+  T('te weinig','gevolgd','je volgt het schema en toch zegt de coach dat het te weinig is',()=>{const r=weinig(BLOK,1);return !r.sf||`${r.sf.pct}%`});
+  T('te weinig','ziek','ziek gemeld en toch zegt de coach dat het te weinig is',()=>{const r=weinig(BLOK,.35,()=>{state.healthLog=[{kind:'ziekZ',from:'2026-11-24',to:'2026-11-30'}]});return !r.sf||`${r.sf.pct}%`});
   /* 8. de week na je evenement: herstellen, geen test en geen zware training */
   T('na evenement','evenement','de week na je evenement is geen herstelweek',()=>!!post&&(post.ctx.kind==='rec'||post.label));
   T('na evenement','evenement','test of zware training in de week na je evenement',()=>{const d=post&&post.days.find(d=>d.wo&&(d.key||d.test||d.wo.minutes>75));return !d||`${DAYS[d.i]} ${d.wo.type} ${d.wo.minutes} min`});
