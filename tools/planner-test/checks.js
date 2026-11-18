@@ -219,6 +219,18 @@ function runWeekChecks(add){
   T('te weinig','evenement','twee weken elke rit een derde van de tijd en de coach noemt je evenement niet',()=>{const r=weinig({},.35);return /Amstel Gold Race/.test(r.c)||`melding: ${r.c||'geen'}`});
   T('te weinig','gevolgd','je volgt het schema en toch zegt de coach dat het te weinig is',()=>{const r=weinig(BLOK,1);return !r.sf||`${r.sf.pct}%`});
   T('te weinig','ziek','ziek gemeld en toch zegt de coach dat het te weinig is',()=>{const r=weinig(BLOK,.35,()=>{state.healthLog=[{kind:'ziekZ',from:'2026-11-24',to:'2026-11-30'}]});return !r.sf||`${r.sf.pct}%`});
+  /* 12. een FTP-test rijd je uitgerust (Kees, 18-11-2026: drie dagen na een van de zwaarste ritten van zijn leven, ruim twee uur met gevoel 8-9,
+     stond een FTP-test). Na een zeer zware rit (gevoel 8+ of zwaarder dan verwacht) drie dagen geen test (Hammes 2016), na een zware de dag erna niet (Stanley 2013).
+     Ook na een buitenrit of hardlopen, waarvan de app geen verwachte zwaarte heeft. */
+  const fris=(rit,dagen)=>{volg({},'2026-12-28');const mon=parseISO('2026-12-28');let t=new Date(NOW=mon.getTime()+8*36e5);
+    const voor=planWeek(state,mon,t).days.find(d=>d.test);if(!voor)return 'geen test in deze week om mee te vergelijken';
+    const zo=iso(addDays(voor.date,-3));state.rides.push(Object.assign({id:'zwaar',date:zo,ts:parseISO(zo).getTime()+9*36e5,sim:false,laps:[],zones:[0,0,0,0,0,0,0],best:{}},rit));
+    for(let d=addDays(parseISO(zo),1);iso(d)<=iso(addDays(mon,6));d=addDays(d,1)){NOW=d.getTime()+8*36e5;t=new Date(NOW);
+      const x=planWeek(state,mondayOf(t),t).days.find(y=>y.test&&y.iso>=iso(t)&&dayDiff(parseISO(zo),y.date)<=dagen);if(x)return `op ${iso(t)} staat een test op ${DAYS[x.i]} ${x.iso}, ${dayDiff(parseISO(zo),x.date)} dagen na de rit van ${zo}`}
+    return true};
+  T('test fris','buitenrit','een FTP-test binnen drie dagen na een zeer zware buitenrit',()=>fris({type:'buiten',name:'Buitenrit',manual:true,dur:130*60,rpe:9,tss:190,IF:.86},3));
+  T('test fris','hardlopen','een FTP-test de dag na zwaar hardlopen',()=>fris({type:'hardlopen',name:'Hardlopen',manual:true,dur:50*60,rpe:7,dist:11000,tss:70,IF:.9},1));
+  T('test fris','zoals bedoeld','een FTP-test binnen drie dagen na een zware training die zo zwaar voelde als bedoeld',()=>fris({type:'vier8',name:'Blokken van 8 minuten',dur:60*60,rpe:8,tss:80,IF:.85},3));
   /* 8. de week na je evenement: herstellen, geen test en geen zware training */
   T('na evenement','evenement','de week na je evenement is geen herstelweek',()=>!!post&&(post.ctx.kind==='rec'||post.label));
   T('na evenement','evenement','test of zware training in de week na je evenement',()=>{const d=post&&post.days.find(d=>d.wo&&(d.key||d.test||d.wo.minutes>75));return !d||`${DAYS[d.i]} ${d.wo.type} ${d.wo.minutes} min`});
