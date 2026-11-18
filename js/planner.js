@@ -429,6 +429,20 @@ function shortfall(st,today){
   }
   return pcts.length===2?{pct:Math.round(avg(pcts)*100)}:null;
 }
+/* Hoeveel dagen na deze rit er geen FTP-test mag komen. Een test rijd je uitgerust: in vermoeide toestand valt hij te laag uit
+   (Halson 2002) en rekent het hele schema met een te lage FTP.
+   - Een zware training (gevoel 7, of zonder gevoel een hoge intensiteit): de dag erna niet. Het hart herstelt in 24-48 uur na drempelwerk
+     en in 48 uur of meer na hoge intensiteit (Stanley 2013), dus de test komt op zijn vroegst twee dagen later.
+   - Zeer zwaar (gevoel 8 of meer, een belasting van 150 of meer, of zwaarder dan verwacht voor die soort): drie dagen niet. Opgestapelde
+     vermoeidheid was in drie dagen herstel weer weg (Hammes 2016).
+   Ook voor buitenritten en hardlopen, waarvan de app geen verwachte zwaarte heeft. De grenzen 7 en 8 op de gevoelsschaal en 150 zijn
+   vuistregels; zie docs/onderbouwing.md. 0 = geen bezwaar. */
+function testRest(r){
+  const tss=r.tss||0,IF=r.IF||0;
+  if(isFtpTest(r.type)||(r.rpe!=null&&r.rpe>=8)||tss>=150||rideSignal(r).f>0)return 3;
+  if(r.rpe!=null?r.rpe>=7:IF>=.8||(tss>=100&&IF>=.75))return 1;
+  return 0;
+}
 function planWeek(st,monday,today){
   const ctx=weekCtx(st,monday),rec=ctx.rec;
   const prof=coachFor(st,ctx);
@@ -652,7 +666,9 @@ function planWeek(st,monday,today){
       const gapTest=cb&&cb.stage===3&&cb.age>=7&&!rides.some(r=>isTestRide(r)&&r.date>=cb.back);
       const due=!ctx.after&&(brk||gapTest||(fat.back==null&&fat.level<2&&(blockTest||midTest||(!soon&&(((fitter||tooHigh)&&!heavyWk)||onTime)))));
       /* nooit testen als het zwaar voelt: de uitslag valt dan te laag uit. Eerst een paar dagen zonder rit die zwaarder voelde dan verwacht */
-      const heavyBefore=d=>rides.some(r=>!r.sim&&r.date<d.iso&&r.date>=iso(addDays(d.date,-3))&&rideSignal(r).f>0);
+      /* een test rijd je uitgerust: niet kort na een zware rit (testRest), en ook niet kort na een zware training die er nog gepland staat en nog moet komen (met het gevoel dat bij die soort hoort) */
+      const heavyBefore=d=>rides.some(r=>!r.sim&&r.date<d.iso&&dayDiff(parseISO(r.date),d.date)<=testRest(r))
+        ||[...(rec?[]:H),...forced.filter(x=>x.key&&!x.done)].some(x=>x!==d&&x.wo&&(!tk||x.iso>=tk)&&x.i<d.i&&d.i-x.i<=Math.max(1,testRest({type:x.wo.type,rpe:rpeExp(x.wo.type),tss:x.wo.tss,IF:x.wo.IF})));
       const tt=ftpTestOf(st),tMin=tt==='test20'?55:45;
       const ok=d=>d.iso>=tk&&!d.role&&!heavyBefore(d)&&(tt!=='test20'||d.minutes>=tMin);
       /* in een herstelweek of testweek pas vanaf donderdag, als de weken ervoor uit je benen zijn: op de zware dag, anders op een rustige dag (niet de lange rit) */
