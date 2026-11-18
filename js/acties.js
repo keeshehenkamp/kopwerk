@@ -163,7 +163,7 @@ const actions={
     const min=clamp(Math.round(+g('c-min').value)||0,0,900),km=g('c-km')?+g('c-km').value||0:0;
     if(min<5)return toast('Vul in hoe lang je bezig was.');
     if(M.how==='hardlopen'&&km<.2)return toast('Vul in hoeveel kilometer je liep.');
-    M.min=min;M.km=km;M.name=g('c-name')?g('c-name').value.trim():'';M.step=2;render();
+    M.min=min;M.km=km;M.hm=g('c-hm')?clamp(Math.round(+g('c-hm').value)||0,0,9000):0;M.name=g('c-name')?g('c-name').value.trim():'';M.step=2;render();
   },
   logRpe(d,el){ui.modal.rpe=+d.n;el.parentNode.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===el)))},
   logFile(d,el){
@@ -174,7 +174,7 @@ const actions={
         const txt=rd.result,r=resample(isFit?parseFit(txt):/\.gpx$/i.test(f.name)?parseGpx(txt):parseTcx(txt));
         if(r.rec.p.length<120)throw 0;
         const start=r.start||Date.now(),ride=makeRide({wo:{name:'Buitenrit',type:'buiten',sec:r.rec.p.length},ftp:state.profile.ftp,rec:r.rec,dist:r.dist,laps:[{l:'Buitenrit',k:'steady',c:0,s:0}],sim:false,startTs:start});
-        ride.id='i'+Math.round(start/1000).toString(36);ride.adj=true;ride.dist=r.dist;
+        ride.id='i'+Math.round(start/1000).toString(36);ride.adj=true;ride.dist=r.dist;ride.elev=r.elev||0;
         if(state.rides.some(x=>x.id===ride.id)){ui.modal=null;render();return toast('Deze rit staat er al in.')}
         if(!r.hasP){ride.noPower=true;ride.best={};ride.zones=[0,0,0,0,0,0,0]}
         else matchPlan(ride,r.rec);
@@ -190,7 +190,7 @@ const actions={
     let ride=M.ride;
     if(!ride){
       const K=LOG_KIND[M.how];
-      ride={id:'m'+Date.now().toString(36),dist:Math.round((M.km||0)*1000),date:M.iso,ts:parseISO(M.iso).getTime()+18*36e5,name:M.name||K.name,type:K.type,lvl:null,manual:true,planned:M.min*60,ftp:state.profile.ftp,sim:false,rpe:null,adj:true,laps:[],
+      ride={id:'m'+Date.now().toString(36),dist:Math.round((M.km||0)*1000),elev:M.hm||0,date:M.iso,ts:parseISO(M.iso).getTime()+18*36e5,name:M.name||K.name,type:K.type,lvl:null,manual:true,planned:M.min*60,ftp:state.profile.ftp,sim:false,rpe:null,adj:true,laps:[],
         dur:M.min*60,avgP:0,np:0,IF:0,tss:0,kj:0,avgHr:0,maxHr:0,avgCad:0,zones:[0,0,0,0,0,0,0],best:{},score:null,decoup:null};
     }
     ride.rpe=M.rpe;

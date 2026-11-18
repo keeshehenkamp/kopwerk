@@ -63,3 +63,43 @@ function bindChart(){
 /* grafieken op Voortgang en Prestaties: bij het tekenen zetten ze hier wat er bij elke plek hoort */
 const SCRUB={},scrubMarks='<span class="cur"></span><span class="tip"></span>';
 function bindScrubs(){document.querySelectorAll('.chart[data-scrub]').forEach(c=>{const at=SCRUB[c.dataset.scrub];if(at)scrubOn(c,at)})}
+
+/* ---------- een training om doorheen te scrollen ----------
+   De blokken van links naar rechts, de streep in het midden is "nu": erboven staat wat je daar trapt.
+   Zo breed dat het kortste blok werk nog een label met watt kan dragen. */
+const WOS={};
+function segWatt(s,f){
+  if(/^Sweet spot/.test(s.label))return watts(s.a-.03)+'–'+watts(s.a+.03);
+  return String(watts(s.a+(s.b-s.a)*f));
+}
+function woScroll(w){
+  const segs=w.segs,T=segs.reduce((a,s)=>a+s.d,0);if(!T)return '';
+  const work=segs.filter(s=>s.kind==='work'||(s.a+s.b)/2>=.76),md=Math.min(...(work.length?work:segs).map(s=>s.d));
+  const pps=clamp(44/md,.25,1.2),W=Math.round(T*pps),H=120,maxI=Math.max(1.25,...segs.map(s=>Math.max(s.a,s.b)))*1.08,y=v=>H-v/maxI*H;
+  let x=0,poly='',lab='';
+  for(const s of segs){const x0=x*pps,x1=(x+s.d)*pps;x+=s.d;
+    poly+=`<polygon points="${x0.toFixed(1)},${H} ${x0.toFixed(1)},${y(s.a).toFixed(1)} ${x1.toFixed(1)},${y(s.b).toFixed(1)} ${x1.toFixed(1)},${H}" fill="var(--z${zoneOf((s.a+s.b)/2)})"/>`;
+    /* watt boven het blok, als het past; een lang rustig stuk één keer */
+    if(x1-x0>=40)lab+=`<span style="left:${((x0+x1)/2).toFixed(1)}px;top:${(y((s.a+s.b)/2)-18).toFixed(1)}px">${s.a===s.b||/^Sweet spot/.test(s.label)?segWatt(s,0):watts(s.a)+'–'+watts(s.b)}</span>`}
+  const step=T>5400?900:T>2400?600:300;let ticks='';
+  for(let t=step;t<T;t+=step)ticks+=`<span style="left:${(t*pps).toFixed(1)}px">${t>=3600?Math.floor(t/3600)+':'+pad(t%3600/60):t/60+' min'}</span>`;
+  const ftp=y(1).toFixed(1);
+  WOS.cur={segs,pps,T};
+  return `<div class="wos"><div class="wosr" aria-live="off"><b id="wos-w"></b><span id="wos-l"></span><span id="wos-t"></span></div>
+    <div class="wosw"><div class="wosc" id="wos" tabindex="0" aria-label="Training, scroll door de blokken"><div class="wosi" style="width:${W}px">
+      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${poly}<line x1="0" x2="${W}" y1="${ftp}" y2="${ftp}" stroke="var(--ink)" stroke-opacity=".3" stroke-dasharray="3 4"/></svg>
+      <div class="wosl">${lab}</div><div class="wost">${ticks}</div></div></div><i class="wosn" aria-hidden="true"></i></div></div>`;
+}
+function bindWoScroll(){
+  const c=document.getElementById('wos'),X=WOS.cur;if(!c||!X)return;
+  const pad=Math.round(c.clientWidth/2);c.firstElementChild.style.margin=`0 ${pad}px`;
+  const w=document.getElementById('wos-w'),l=document.getElementById('wos-l'),tt=document.getElementById('wos-t');
+  const upd=()=>{const t=clamp(c.scrollLeft/X.pps,0,X.T-.01);let a=0,s=X.segs[0];for(const g of X.segs){if(t<a+g.d){s=g;break}a+=g.d}
+    const f=(t-a)/s.d;w.innerHTML=`${segWatt(s,f)}<i>W</i>`;
+    l.textContent=`${s.label}${s.cad?` · ${s.cad} rpm`:''} · ${clock(s.d)}`;tt.textContent=clock(t)};
+  c.addEventListener('scroll',()=>requestAnimationFrame(upd),{passive:true});upd();
+  /* met de muis: slepen schuift de training */
+  let dr=null;c.addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse')return;dr={x:e.clientX,s:c.scrollLeft};c.setPointerCapture(e.pointerId);c.style.cursor='grabbing'});
+  c.addEventListener('pointermove',e=>{if(dr)c.scrollLeft=dr.s-(e.clientX-dr.x)});
+  const up=()=>{dr=null;c.style.cursor=''};c.addEventListener('pointerup',up);c.addEventListener('pointercancel',up);
+}

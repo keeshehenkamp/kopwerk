@@ -126,17 +126,22 @@ function prestatiesView(){
   const head=`<div class="head"><div><h1>Prestaties</h1></div>${vtabs()}</div>`,real=state.rides.filter(r=>!r.sim);
   if(!real.length)return `${head}<div class="card"><p class="muted">Nog geen ritten.</p></div>`;
   const per=ui.perf??91,cut=per?iso(addDays(new Date(),-per)):'',sel=real.filter(r=>!cut||r.date>=cut);
-  const chips=`<div class="seg" role="group" aria-label="Periode">${PERIODS.map(([v,t])=>`<button class="btn small" data-act="perf" data-p="${v}" aria-pressed="${v===per}">${t}</button>`).join('')}</div>`;
-  /* word je sterker? je beste 1, 5 en 20 minuten, en het verschil met de periode ervoor */
-  const now=records(sel),prev=per?records(real.filter(r=>r.date<cut&&r.date>=iso(addDays(new Date(),-2*per)))):{};
+  const chips=`<div class="seg plain" role="group" aria-label="Periode">${PERIODS.map(([v,t])=>`<button class="btn small" data-act="perf" data-p="${v}" aria-pressed="${v===per}">${t}</button>`).join('')}</div>`;
+  /* word je sterker? je beste 1, 5 en 20 minuten met wat dat per kilo is, en het verschil met de periode ervoor */
+  const now=records(sel),prev=per?records(real.filter(r=>r.date<cut&&r.date>=iso(addDays(new Date(),-2*per)))):{},kg=state.profile.weight||75;
   const nums=[[60,'1 min'],[300,'5 min'],[1200,'20 min']].map(([w,t])=>{const v=now[w]&&now[w].w,o=prev[w]&&prev[w].w,d=v&&o?v-o:0;
-    return `<div><b>${v||'–'}${v?'<i>W</i>':''}</b><span>${t}${d?` · <em class="${d>0?'up':'down'}" style="font-style:normal;font-weight:600">${d>0?'+':'−'}${Math.abs(d)} W</em>`:''}</span></div>`}).join('');
-  const kg=state.profile.weight||75,perKg=[[60,'1 min'],[300,'5 min'],[1200,'20 min']].filter(([w])=>now[w]).map(([w,t])=>`${t} ${nl((now[w].w/kg).toFixed(1))}`).join(' · ');
-  /* nieuwste records, de laatste drie: groot, en een tik opent de rit */
-  const prs=sel.filter(r=>r.prs&&r.prs.length).sort((a,b)=>b.ts-a.ts).flatMap(r=>r.prs.map(x=>({x,r}))).slice(0,3);
-  const prHTML=prs.length?`<div class="prs"><h3>${I.flag}Nieuwe records</h3><div class="prg">${prs.map(({x,r})=>{const d=parseISO(r.date);
-    return `<button class="prb" data-act="openRide" data-id="${r.id}"><b>${x.w} W</b><span>${x.t} · <em>+${x.w-x.old} W</em></span><span>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}</span></button>`}).join('')}</div></div>`:'';
-  return `${head}<div class="stack">${chips}<div><div class="nrow prow">${nums}</div>${perKg?`<p class="small muted" style="margin-top:8px">Per kilo: ${perKg} W/kg</p>`:''}</div>${prHTML}${curveChart(now,prev,per)}</div>`;
+    return `<div><b>${v||'–'}${v?'<i>W</i>':''}</b><span>${t}${d?` · <em class="${d>0?'up':'down'}">${d>0?'+':'−'}${Math.abs(d)} W</em>`:''}</span>${v?`<span class="kg">${nl((v/kg).toFixed(1))} W/kg</span>`:''}</div>`}).join('');
+  /* nieuwe records staan er één bezoek: wat je nu voor het eerst ziet, blijft staan tot je de pagina verlaat */
+  if(lastScreen!==routeOf()||!ui.prNew){ui.prNew=real.filter(r=>r.prs&&r.prs.length&&!r.prSeen).map(r=>r.id);if(ui.prNew.length){for(const r of real)if(ui.prNew.includes(r.id))r.prSeen=true;save()}}
+  const best=new Map();for(const r of real)if(ui.prNew.includes(r.id))for(const x of r.prs){const o=best.get(x.d);if(!o||x.w>o.x.w)best.set(x.d,{x,r})}
+  /* de langste drie: daar zit de vooruitgang die telt */
+  const prs=[...best.values()].sort((a,b)=>b.x.d-a.x.d).slice(0,3).reverse();
+  const prHTML=prs.length?`<div class="prnew">${I.flag}<span><b>${prs.length>1?'Nieuwe records':'Nieuw record'}</b> ${prs.map(({x,r})=>`<button class="link" data-act="openRide" data-id="${r.id}">${x.t} ${x.w} W <em>+${x.w-x.old}</em></button>`).join(' · ')}</span></div>`:'';
+  /* wat je reed in deze periode: afstand, hoogtemeters, tijd en ritten (alleen fietsen) */
+  const bike=sel.filter(r=>r.type!=='hardlopen'&&(!r.manual||r.type==='buiten'));
+  const km=Math.round(bike.reduce((a,r)=>a+(r.dist||0),0)/1000),hm=bike.reduce((a,r)=>a+(r.elev||0),0),uur=Math.round(bike.reduce((a,r)=>a+r.dur,0)/3600);
+  const tot=bike.length?`<div class="nrow sm tots">${[[km.toLocaleString('nl-NL'),'km'],[Math.round(hm).toLocaleString('nl-NL'),'hoogtemeters'],[uur,'uur'],[bike.length,bike.length===1?'rit':'ritten']].map(([v,k])=>`<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>`:'';
+  return `${head}<div class="stack">${chips}${prHTML}<div class="nrow prow">${nums}</div>${tot}${curveChart(now,prev,per)}</div>`;
 }
 /* je beste vermogen per duur: hoe lang je hoeveel watt volhield */
 function curveChart(now,prev,per){
@@ -150,8 +155,8 @@ function curveChart(now,prev,per){
     const [w,t]=ds.reduce((p,c)=>Math.abs(X(c[0])-f)<Math.abs(X(p[0])-f)?c:p),d=parseISO(now[w].date),o=prev[w];
     return {x:X(w),html:`<span>${t}</span><span><b>${now[w].w} W</b> ${nl((now[w].w/kg).toFixed(1))} W/kg</span><span>${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}${o?` · ervoor ${o.w} W`:''}</span>`};
   };
-  return `<div class="card">${sech('tacc',I.zap,'Beste vermogen per duur','h3')}
-    <div class="chart" data-scrub="curve" style="height:170px;margin-top:12px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Beste vermogen per duur">
+  return `<div>${sech('tacc',I.zap,'Per duur','h3')}
+    <div class="chart" data-scrub="curve" style="height:150px;margin-top:12px"><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="Beste vermogen per duur">
       <path d="${line(ds,now)}L1000,200L0,200Z" fill="var(--acc)" fill-opacity=".14"/>
       ${pv.length>1?`<path d="${line(pv,prev)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>`:''}
       <path d="${line(ds,now)}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>${ticks}${scrubMarks}</div>

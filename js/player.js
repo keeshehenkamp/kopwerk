@@ -350,8 +350,8 @@ function makeRide(a){
   const d=new Date(a.startTs||Date.now());
   const hrOff=a.sim?null:hrOffset(a.rec,a.ftp),perf=typeof meetSummary==='function'?meetSummary():null;
   /* afstand uit de 3D-wereld, tenzij je vooral in de cijferweergave reed: dan staat de wereld stil en telt de rit zelf */
-  const wd=typeof W!=='undefined'&&W&&W.dist||0,dist=Math.round(wd>=(a.dist||0)*.5?wd:a.dist||0);
-  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),dist,date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,route:typeof W!=='undefined'&&W&&W.C?W.C.route.id:undefined,planned:a.wo.type==='vrij'?a.rec.p.length:(a.planned||a.wo.sec),ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game),kjb:a.sim?{}:kjBests(a.rec.p)},hrOff!=null?{hrOff}:{},perf?{perf}:{},an);
+  const wd=typeof W!=='undefined'&&W&&W.dist||0,useW=wd>=(a.dist||0)*.5,dist=Math.round(useW?wd:a.dist||0),elev=Math.round(useW&&W?W.climb||0:a.elev||0);
+  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),dist,elev,date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,route:typeof W!=='undefined'&&W&&W.C?W.C.route.id:undefined,planned:a.wo.type==='vrij'?a.rec.p.length:(a.planned||a.wo.sec),ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game),kjb:a.sim?{}:kjBests(a.rec.p)},hrOff!=null?{hrOff}:{},perf?{perf}:{},an);
 }
 async function storeRide(a){
   const before=a.sim?null:planSnap(),ride=makeRide(a);if(!a.sim)learnHr(a.rec,a.ftp);
