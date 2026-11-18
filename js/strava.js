@@ -47,7 +47,7 @@ async function stravaFetch(manual){
       const res=resample(T.map((t,i)=>({t:ts/1000+t,p:v('watts',i),hr:v('heartrate',i),cad:v('cadence',i),dm:v('distance',i)})));
       if(res.rec.p.length<120)continue;
       const ride=makeRide({wo:{name:a.name||'Buitenrit',type:'buiten',sec:res.rec.p.length},ftp:state.profile.ftp,rec:res.rec,laps:[{l:'Rit',k:'steady',c:0,s:0}],sim:false,startTs:ts});
-      ride.id=id;ride.adj=true;ride.strava=a.id;ride.dist=Math.round(a.distance||0);
+      ride.id=id;ride.adj=true;ride.strava=a.id;ride.dist=Math.round(a.distance||0);ride.elev=Math.round(a.total_elevation_gain||0);
       if(!res.hasP){const IF=EFFORT[1][0];ride.IF=IF;ride.tss=Math.round(ride.dur/3600*IF*IF*100);ride.noPower=true;ride.best={};ride.zones=[0,0,0,0,0,0,0]}
       if(res.rec&&res.rec.p&&res.rec.p.some(x=>x>0)){learnHr(res.rec,ride.ftp);matchPlan(ride,res.rec)}markRecords(ride);state.rides.push(ride);await idb.put('s:'+id,res.rec);n++;
     }

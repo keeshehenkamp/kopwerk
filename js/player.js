@@ -159,7 +159,7 @@ function paintPlayer(){
   const pos=Math.min(P.pos,P.total-1),i=segAt(pos),s=P.wo.segs[i],tgt=tgtAt(pos),pw=dispPower();
   const fh=now()-live.tH<5000,fp=now()-live.tP<3000;
   el('p-elapsed').textContent=clock(P.rec.p.length);
-  if(el('p-prog')&&!P.vrij){el('p-prog').style.width=Math.min(100,P.pos/P.total*100)+'%';const rs=el('p-rest');if(rs)rs.textContent=clock(Math.max(0,P.total-P.pos));if(!P.free)paintList(segAt(Math.min(P.pos,P.total-1)))}
+  if(!P.vrij){if(el('p-prog'))el('p-prog').style.width=Math.min(100,P.pos/P.total*100)+'%';const rs=el('p-rest');if(rs)rs.textContent=clock(Math.max(0,P.total-P.pos));if(!P.free)paintList(segAt(Math.min(P.pos,P.total-1)))}
   /* aftellen in de laatste 3 seconden van een blok, in 3D en in de cijferweergave */
   {const cd=el('p-cd'),rem=P.starts[i]+s.d-P.pos,on=!P.free&&P.mode==='run'&&s.d>=20&&P.wo.segs[i+1]&&rem>0&&rem<=3;
     if(cd){cd.hidden=!on;if(on&&cd.textContent!==String(rem)){cd.textContent=rem;cd.style.animation='none';void cd.offsetWidth;cd.style.animation=''}}}
@@ -200,6 +200,8 @@ function paintPlayer(){
   if(el('p-dot'))el('p-dot').style.left=(50+dev*2.5)+'%';
   const hb=el('p-hint');if(hb){const on=!!P.hint&&P.hint.i===i;hb.hidden=!on;if(on)el('p-hintt').textContent=`Hartslag ${P.hint.hr}, normaal ${P.hint.exp}`}
   el('p-cur').setAttribute('x1',P.pos/P.total*1000);el('p-cur').setAttribute('x2',P.pos/P.total*1000);
+  {const pp=el('p-past');if(pp)pp.setAttribute('width',(P.pos/P.total*1000).toFixed(1));
+}
   if(P.drawn!==P.tr.length){P.drawn=P.tr.length;el('p-trace').setAttribute('points',P.trace)}
 }
 /* cijfer in de cijferweergave: groen goed, oranje of rood eraf, met een pijl de kant op die je moet */
@@ -230,6 +232,8 @@ function playerHTML(){
   let x=0;
   const polys=w.segs.map(s=>{const x0=x/P.total*1000,x1=(x+s.d)/P.total*1000;x+=s.d;const y0=100-s.a/P.maxI*100,y1=100-s.b/P.maxI*100;
     return `<polygon${x1-x0<8?' class="n"':''} points="${x0.toFixed(1)},100 ${x0.toFixed(1)},${y0.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},100" fill="var(--z${zoneOf((s.a+s.b)/2)})"/>`}).join('');
+  /* de hele training als balk; wat je al reed iets lichter */
+  const chartIn=`<svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<rect id="p-past" x="0" y="0" width="0" height="100"/><polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg>`;
   const tr=ble.on?`<span class="dotst on"></span>${esc(ble.name)}`:`<span class="dotst"></span>Geen trainer gekoppeld`;
   const hr=ble.hrOn?`<span class="dotst on"></span>${esc(ble.hrName)}`:ble.hrBusy?`<span class="dotst"></span>${esc(ble.hrName)} verbinden…`:'';
   const status=P.sim?'<span class="badge">Demo zonder trainer</span>':`<span class="small muted">${tr}${hr?' &nbsp; '+hr:''}</span>`;
@@ -289,7 +293,7 @@ function playerHTML(){
       <div class="zcur"><span id="p-seg"></span><div class="zct"><span><b id="p-target">–</b><i>W</i></span><b id="p-left"></b></div><div class="pbar"><i id="p-blk"></i></div><span id="p-next" class="znext"></span></div></div>
     ${hud?`<div class="zside">${hud}</div>`:''}${load}
     ${startBox}
-    <div class="zchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
+    <div class="zchart">${chartIn}</div>
     <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>
     <div class="pctl zctl" id="p-ctl">${ctl}</div>
   </div>`;
@@ -301,6 +305,7 @@ function playerHTML(){
       <div class="row">${ready?'<button class="btn" data-act="closePlayer">Sluiten</button>':'<button class="btn" data-act="view3d">3D-wereld</button>'}</div>
     </div>
     ${hud}${load}<div class="pcd" id="p-cd" hidden></div>
+    ${P.vrij||P.free?'':`<div class="plist"><div class="plh"><b>Schema</b><span>nog <b id="p-rest">${clock(P.total)}</b></span></div><div id="p-list"></div></div>`}
     <div class="pmain">
       ${readyBox}
       <div class="pblock"><div class="pbh"><span id="p-seg"></span><span id="p-next"></span></div><div class="pbar"><i id="p-blk"></i></div></div>
@@ -311,7 +316,7 @@ function playerHTML(){
       </div>
       <div class="pfoot"><span><i aria-hidden="true">♥</i> <b id="p-hr">–</b> bpm</span><span id="p-sk"></span></div>
     </div>
-    <div class="pchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
+    <div class="pchart">${chartIn}</div>
     <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>
     <div class="pctl">${ctl}</div>
   </div>`;
@@ -350,8 +355,8 @@ function makeRide(a){
   const d=new Date(a.startTs||Date.now());
   const hrOff=a.sim?null:hrOffset(a.rec,a.ftp),perf=typeof meetSummary==='function'?meetSummary():null;
   /* afstand uit de 3D-wereld, tenzij je vooral in de cijferweergave reed: dan staat de wereld stil en telt de rit zelf */
-  const wd=typeof W!=='undefined'&&W&&W.dist||0,dist=Math.round(wd>=(a.dist||0)*.5?wd:a.dist||0);
-  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),dist,date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,route:typeof W!=='undefined'&&W&&W.C?W.C.route.id:undefined,planned:a.wo.type==='vrij'?a.rec.p.length:(a.planned||a.wo.sec),ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game),kjb:a.sim?{}:kjBests(a.rec.p)},hrOff!=null?{hrOff}:{},perf?{perf}:{},an);
+  const wd=typeof W!=='undefined'&&W&&W.dist||0,useW=wd>=(a.dist||0)*.5,dist=Math.round(useW?wd:a.dist||0),elev=Math.round(useW&&W?W.climb||0:a.elev||0);
+  return Object.assign({id:'r'+(a.startTs||Date.now()).toString(36),dist,elev,date:iso(d),ts:d.getTime(),name:a.wo.name,type:a.wo.type,lvl:a.wo.lvl||null,route:typeof W!=='undefined'&&W&&W.C?W.C.route.id:undefined,planned:a.wo.type==='vrij'?a.rec.p.length:(a.planned||a.wo.sec),ftp:a.ftp,sim:!!a.sim,rpe:null,adj:false,laps:a.laps,game:gameResult(a.game),kjb:a.sim?{}:kjBests(a.rec.p)},hrOff!=null?{hrOff}:{},perf?{perf}:{},an);
 }
 async function storeRide(a){
   const before=a.sim?null:planSnap(),ride=makeRide(a);if(!a.sim)learnHr(a.rec,a.ftp);

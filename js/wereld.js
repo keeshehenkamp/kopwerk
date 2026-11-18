@@ -1063,7 +1063,7 @@ function clipOff(C,d,p,off){
 function worldBuild(){
   const T=T3;
   if(W.root){for(const ci of [...W.chunks.keys()])dropChunk(ci);W.root.traverse(o=>{if(o.geometry&&!o.userData.shared)o.geometry.dispose();if(o.material)[].concat(o.material).forEach(m=>{if(m.map&&m.map!==W.tex.asf&&m.map!==W.tex.gras)m.map.dispose();m.dispose()})});W.scene.remove(W.root)}
-  W.jobs=new Map();W.fin=null;const C=buildCourse(),root=new T.Group();roadHash(C);C.finish=-1e9;W.C=C;decorFor(C);W.root=root;W.mills=[];W.chunks=new Map();W.dist=12;W.v=0;W.lastD=0;
+  W.jobs=new Map();W.fin=null;const C=buildCourse(),root=new T.Group();roadHash(C);C.finish=-1e9;W.C=C;decorFor(C);W.root=root;W.mills=[];W.chunks=new Map();W.dist=12;W.v=0;W.lastD=0;W.climb=0;W.ly=null;
   if(!W.mat){const tree=new T.MeshPhongMaterial({vertexColors:true,shininess:12,specular:'#1a1a1a'});
     const crowd=new T.MeshLambertMaterial({vertexColors:true});
     const tintPart=v=>'attribute float pat;\n'+v.replace('#include <color_vertex>','vColor=vec3(1.);\n#ifdef USE_COLOR\nvColor*=color;\n#endif\n#ifdef USE_INSTANCING_COLOR\nvColor.xyz*=mix(vec3(1.),instanceColor.xyz,pat);\n#endif');
@@ -1563,7 +1563,9 @@ function worldStep(t){
   const run=P.mode==='run'&&!P.auto,rate=run?(P.sim?P.speed:1):0;
   /* de route ligt vast: je snelheid volgt uit je vermogen, je gewicht en de helling (met wat traagheid, zoals op een echte fiets) */
   {const d0=W.dist||0,sl0=(roadAt(C,d0+8).y-roadAt(C,d0).y)/8*100,vt=run?speedFor(dispPower()||0,sl0,W.draft||0):0;
-    W.v=(W.v||0)+(vt-(W.v||0))*Math.min(1,dt*(vt<(W.v||0)?.5:.8));W.dist=d0+W.v*dt*(P.sim?P.speed:1)}
+    W.v=(W.v||0)+(vt-(W.v||0))*Math.min(1,dt*(vt<(W.v||0)?.5:.8));W.dist=d0+W.v*dt*(P.sim?P.speed:1);
+    /* hoogtemeters: wat je op de route omhoog bent gereden */
+    const y=roadAt(C,W.dist).y;if(W.ly!=null&&y>W.ly&&y-W.ly<20)W.climb=(W.climb||0)+y-W.ly;W.ly=y}
   const d=W.dist,p=roadAt(C,d);
   const pos=Math.min(P.pos,P.total-1),tgt=P.free?0:tgtAt(pos),pw=dispPower();
   /* De tempomaker trekt rustig op: in de eerste acht seconden van een blok telt een achterstand maar geleidelijk mee

@@ -380,9 +380,6 @@ function phaseStrip(today){
     <div class="legend"><span><i style="background:var(--z2);opacity:.55"></i>Basis</span><span><i style="background:var(--z3)"></i>Opbouw</span><span><i style="background:var(--z1);opacity:.6"></i>Herstel</span><span><i style="background:var(--z5)"></i>Piek</span><span><i style="background:var(--z4)"></i>Afbouw</span></div></div>`;
 }
 /* ---------- een training in detail ---------- */
-function segList(w){
-  return `<div class="segs">${w.segs.map(s=>`<div><i style="background:var(--z${zoneOf((s.a+s.b)/2)})"></i><span>${esc(s.label)}${s.cad?` <span class="muted">op ${s.cad} rpm</span>`:''}</span><span class="muted">${clock(s.d)}</span><b>${/^Sweet spot/.test(s.label)?watts(s.a-.03)+'–'+watts(s.a+.03):s.a===s.b?watts(s.a):watts(s.a)+'–'+watts(s.b)} W</b></div>`).join('')}</div>`;
-}
 function modalWo(){
   const m=ui.detail;if(!m)return null;
   if(m.kind==='wo')return {wo:libWo(m.type,m.min)};
@@ -411,17 +408,14 @@ function trainingView(){
       ${day.iso<iso(new Date())&&!rideOn(day.iso)?`<div class="card">${sech('tacc',I.done,'Hoe ging je rit?')}${checkBtns(day.iso)}</div>`:`<div class="row"><button class="btn lab" data-act="ownOpen" data-iso="${day.iso}">${I.pencil}Aanpassen</button></div>`}</div>`;
   if(!w)return `${back}<div class="head"><div><h1>Rustdag</h1><p>${title}</p></div></div>
     <div class="detail">${adjust}</div>`;
-  const why=whyOn(day?day.date:new Date(),w.type),T=w.sec;
-  const ticks=[0,.25,.5,.75,1].map(f=>`<span>${clock(f*T)}</span>`).join('');
+  const why=whyOn(day?day.date:new Date(),w.type);
   return `${back}<div class="head"><div><h1>${esc(w.name)}</h1><p>${title}</p></div></div>
     <div class="stack">
-      <div>${profileSVG(w.segs)}<div class="axis">${ticks}</div></div>
-      <div><div class="nrow"><div class="tacc"><b>${durTxt(w.minutes)}</b><span>duur</span></div><div class="tblue"><b>${w.tss}</b><span>TSS</span></div></div>
-        </div>
+      <div class="nrow sm"><div class="tacc"><b>${durTxt(w.minutes)}</b><span>duur</span></div><div class="tblue"><b>${w.tss}</b><span>TSS</span></div></div>
+      ${woScroll(w)}
       ${day&&day.iso<iso(new Date())&&!rideOn(day.iso)?`<div class="card">${sech('tacc',I.done,'Hoe ging deze training?')}${checkBtns(day.iso)}</div>`
       :canRide()?`<div class="cta"><button class="btn pri big lab" data-act="startModal">${I.play}Start training</button>${swapBtn(day)}<button class="btn" data-act="zwoModal">Zwift</button></div>`:`<div class="noride">${swapBtn(day)}</div>`}
       <div class="card stack"><p>${esc(w.desc)}</p>${['duur','duurgolf','duuropbouw'].includes(w.type)&&state.profile.maxHr?`<p class="small muted">♥ onder ${Math.round(state.profile.maxHr*.7)} bpm</p>`:''}${why?`<details class="why"><summary>Waarom deze training?</summary><p class="small muted" style="margin-top:8px">${esc(why)}</p></details>`:''}</div>
-      <details class="card fold"><summary>Specificatie</summary><div style="margin-top:8px">${segList(w)}</div></details>
       ${adjust}</div>`;
 }
 
@@ -541,9 +535,12 @@ function rideView(){
   /* met de hand ingevoerd: alleen wat je invulde; iets anders dan een training uit het schema heeft geen geplande duur */
   const other=r.manual&&!TYPES[r.type];
   const run=r.type==='hardlopen'&&r.dist;
-  const noP=r.manual||r.noPower,speed=!run&&noP&&r.dist&&r.dur?nl((r.dist/1000/(r.dur/3600)).toFixed(1)):'',keyN=[noP&&r.dist?[nl((r.dist/1000).toFixed(1)),'km']:null,speed?[speed,'km/u']:null,[clock(r.dur),!outdoor&&!other&&r.planned&&Math.abs(r.planned-r.dur)>30?`tijd · van ${clock(r.planned)}`:'tijd'],r.avgP?[r.avgP,'watt gemiddeld']:null,[r.tss,'TSS']].filter(Boolean);
-  const keyM=[r.dist&&!noP?`${nl((r.dist/1000).toFixed(1))} km`:'',r.np?`${r.np} W genormaliseerd`:'',r.avgHr?`♥ ${r.avgHr} bpm${r.maxHr?`, max ${r.maxHr}`:''}`:''].filter(Boolean).join(' · ');
-  const keys=`<div class="nrow md ncol">${keyN.map(([v,k])=>`<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>`;
+  /* buiten en zonder vermogen: afstand en hoogtemeters voorop; een training: tijd, watt en TSS. De rest klein op één regel */
+  const noP=r.manual||r.noPower,road=!run&&(outdoor||noP)&&r.dist>=100,km=r.dist>=100?nl((r.dist/1000).toFixed(1)):'',hm=r.elev>=5?Math.round(r.elev).toLocaleString('nl-NL'):'';
+  const speed=road&&r.dur?nl((r.dist/1000/(r.dur/3600)).toFixed(1)):'',tijd=[clock(r.dur),!outdoor&&!other&&r.planned&&Math.abs(r.planned-r.dur)>30?`tijd · van ${clock(r.planned)}`:'tijd'];
+  const keyN=(run?[[km,'km'],tijd,[r.tss,'TSS']]:road?[[km,'km'],hm?[hm,'hoogtemeters']:null,tijd,hm?null:[r.tss,'TSS']]:[tijd,r.avgP?[r.avgP,'watt gemiddeld']:null,[r.tss,'TSS']]).filter(Boolean);
+  const keyM=[road&&hm?`${r.tss} TSS`:'',!road&&!run&&km?km+' km':'',!road&&hm?hm+' hm':'',speed?`${speed} km/u`:'',road&&r.avgP?`${r.avgP} W gemiddeld`:'',r.np?`${r.np} W genormaliseerd`:'',r.kj?`${r.kj.toLocaleString('nl-NL')} kcal`:'',r.avgHr?`♥ ${r.avgHr} bpm${r.maxHr?`, max ${r.maxHr}`:''}`:''].filter(Boolean).join(' · ');
+  const keys=`<div><div class="nrow md ncol">${keyN.map(([v,k])=>`<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>${keyM?`<p class="small muted keym">${keyM}</p>`:''}</div>`;
   /* gevoel: eerst de vraag; na je antwoord een korte regel die je kunt aanpassen */
   const scale=rpeScale('rpe',r.rpe);
   const rpe=r.sim?'':r.rpe==null?`<div class="card stack"><h3>Hoe zwaar was het?</h3>${scale}</div>`
@@ -568,7 +565,7 @@ function rideView(){
           ${r.maxHr>mh?`<p class="small muted" style="margin-top:10px">${r.maxHr} bpm gehaald, boven je maximum van ${mh}. Pas het aan bij Profiel.</p>`:''}</div>`}
       else hz=`<div class="card"><h3 style="margin-bottom:8px">Tijd per hartslagzone</h3><p class="muted">Vul je maximale hartslag in bij Profiel.</p></div>`}
     const why=verdictMore(r).map(t=>`<p class="small muted">${esc(t)}</p>`).join('');
-    deep=`<div class="stack">${why?`<div class="stack" style="gap:6px">${why}</div>`:''}${keyM?`<p class="small muted">${keyM}</p>`:''}${more}<div class="cols"><div class="card"><h3 style="margin-bottom:8px">Beste inspanningen</h3><table><tbody>${best||'<tr><td class="muted">Geen vermogensgegevens.</td></tr>'}</tbody></table></div>${hz||'<div></div>'}</div>
+    deep=`<div class="stack">${why?`<div class="stack" style="gap:6px">${why}</div>`:''}${more}<div class="cols"><div class="card"><h3 style="margin-bottom:8px">Beste inspanningen</h3><table><tbody>${best||'<tr><td class="muted">Geen vermogensgegevens.</td></tr>'}</tbody></table></div>${hz||'<div></div>'}</div>
       ${rec?'<div><button class="btn" data-act="csv">Download meetgegevens</button></div>':''}</div>`;
   }
   const from=TABS.find(t=>t[0]===tabOf('ride'))||TABS[1];
@@ -670,7 +667,8 @@ function logModal(){
       ${M.pick?`<div class="wide"><label class="f" for="c-date">Datum</label><input type="date" id="c-date" value="${M.iso}" max="${iso(new Date())}"></div>`:''}
       ${M.how==='anders'?`<div class="wide"><label class="f" for="c-name">Wat?</label><input type="text" id="c-name" maxlength="30" value="${esc(M.name||'')}" placeholder="Zwemmen"></div>`:''}
       <div><label class="f" for="c-min">Minuten</label><input type="number" id="c-min" min="5" max="900" inputmode="numeric" value="${min}"></div>
-      ${M.how==='manual'||M.how==='hardlopen'?`<div><label class="f" for="c-km">Kilometer</label><input type="number" id="c-km" min="0" max="400" step="0.1" inputmode="decimal" value="${km}"></div>`:''}</div>
+      ${M.how==='manual'||M.how==='hardlopen'?`<div><label class="f" for="c-km">Kilometer</label><input type="number" id="c-km" min="0" max="400" step="0.1" inputmode="decimal" value="${km}"></div>`:''}
+      ${M.how==='manual'?`<div><label class="f" for="c-hm">Hoogtemeters</label><input type="number" id="c-hm" min="0" max="9000" step="10" inputmode="numeric" value="${M.hm||''}"></div>`:''}</div>
       ${M.how==='hardlopen'?'<p class="small" id="c-run"></p>':''}
       <button class="btn pri big" data-act="logNext">Verder</button>`;
   }else{
@@ -739,6 +737,7 @@ function render(){
   lastModal=mk;
   initWheels();
   if(ui.view==='ride')bindChart();
+  if(ui.view==='training')bindWoScroll();
   bindScrubs();if(ui.modal&&ui.modal.kind==='check')runPreview();
   routeSync();
 }

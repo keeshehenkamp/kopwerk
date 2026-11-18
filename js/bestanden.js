@@ -6,7 +6,7 @@ function parseFit(buf){
   let pos=b[0];const end=Math.min(b.length,b[0]+dv.getUint32(4,true));
   const defs={},out=[];let lastTs=0;
   const read=(def,tsOff)=>{
-    const le=def.le;let ts=null,p=null,hr=null,cad=null,dm=null;
+    const le=def.le;let ts=null,p=null,hr=null,cad=null,dm=null,alt=null;
     for(const f of def.fields){
       if(def.g===20){
         if(f.n===253&&f.s===4)ts=dv.getUint32(pos,le);
@@ -14,13 +14,16 @@ function parseFit(buf){
         else if(f.n===3&&f.s===1){const v=b[pos];if(v!==0xFF)hr=v}
         else if(f.n===4&&f.s===1){const v=b[pos];if(v!==0xFF)cad=v}
         else if(f.n===5&&f.s===4){const v=dv.getUint32(pos,le);if(v!==0xFFFFFFFF)dm=v/100}
+        /* hoogte: 2 (16 bits) of 78 (32 bits, gaat voor), schaal 5, 500 m eraf */
+        else if(f.n===2&&f.s===2&&alt==null){const v=dv.getUint16(pos,le);if(v!==0xFFFF)alt=v/5-500}
+        else if(f.n===78&&f.s===4){const v=dv.getUint32(pos,le);if(v!==0xFFFFFFFF)alt=v/5-500}
       }else if(f.n===253&&f.s===4){const v=dv.getUint32(pos,le);if(v!==0xFFFFFFFF)lastTs=v}
       pos+=f.s;
     }
     pos+=def.dev;
     if(def.g===20){
       if(ts==null&&tsOff!=null){ts=(lastTs&~31)+tsOff;if(tsOff<(lastTs&31))ts+=32}
-      if(ts!=null){lastTs=ts;out.push({t:ts+631065600,p,hr,cad,dm})}
+      if(ts!=null){lastTs=ts;out.push({t:ts+631065600,p,hr,cad,dm,alt})}
     }
   };
   while(pos<end){
@@ -40,16 +43,17 @@ function parseTcx(text){
   const all=doc.getElementsByTagName('*');
   for(const tp of all){
     if(tp.localName!=='Trackpoint')continue;
-    let t=null,p=null,hr=null,cad=null,dm=null;
+    let t=null,p=null,hr=null,cad=null,dm=null,alt=null;
     for(const e of tp.getElementsByTagName('*')){
       const v=e.textContent.trim();
       if(e.localName==='Time')t=Date.parse(v)/1000;
       else if(e.localName==='Watts')p=+v;
       else if(e.localName==='DistanceMeters'&&e.parentNode===tp)dm=+v;
+      else if(e.localName==='AltitudeMeters'&&e.parentNode===tp)alt=+v;
       else if(e.localName==='Cadence'&&e.parentNode===tp)cad=+v;
       else if(e.localName==='Value'&&e.parentNode.localName==='HeartRateBpm')hr=+v;
     }
-    if(t)out.push({t,p,hr,cad,dm});
+    if(t)out.push({t,p,hr,cad,dm,alt});
   }
   return out;
 }
@@ -58,15 +62,21 @@ function parseGpx(text){
   const doc=new DOMParser().parseFromString(text,'application/xml'),out=[];let dm=0,la=null,lo=null;
   for(const tp of doc.getElementsByTagName('*')){
     if(tp.localName!=='trkpt')continue;
-    const y=+tp.getAttribute('lat'),x=+tp.getAttribute('lon');let t=null,p=null,hr=null,cad=null;
+    const y=+tp.getAttribute('lat'),x=+tp.getAttribute('lon');let t=null,p=null,hr=null,cad=null,alt=null;
     for(const e of tp.getElementsByTagName('*')){
       const v=e.textContent.trim(),n=e.localName.toLowerCase();
-      if(n==='time')t=Date.parse(v)/1000;else if(n==='power'||n==='watts')p=+v;else if(n==='hr')hr=+v;else if(n==='cad')cad=+v;
+      if(n==='time')t=Date.parse(v)/1000;else if(n==='ele'&&e.parentNode===tp)alt=+v;else if(n==='power'||n==='watts')p=+v;else if(n==='hr')hr=+v;else if(n==='cad')cad=+v;
     }
     if(la!=null){const R=6371000,r=Math.PI/180,a=Math.sin((y-la)*r/2)**2+Math.cos(y*r)*Math.cos(la*r)*Math.sin((x-lo)*r/2)**2;dm+=2*R*Math.asin(Math.sqrt(a))}
-    la=y;lo=x;if(t)out.push({t,p,hr,cad,dm});
+    la=y;lo=x;if(t)out.push({t,p,hr,cad,dm,alt});
   }
   return out;
+}
+/* Hoogtemeters: alleen stijgen telt, en pas als het meer dan 2 m is, zodat de ruis van gps en luchtdruk niet optelt */
+function climbOf(alts){
+  let up=0,ref=null;
+  for(const a of alts){if(a==null||!isFinite(a))continue;if(ref==null||a<ref)ref=a;else if(a-ref>=2){up+=a-ref;ref=a}}
+  return Math.round(up);
 }
 /* Naar één meetpunt per seconde; stilstand van meer dan 5 seconden telt niet mee. Een gat waarin je wel vooruitkwam is geen stilstand:
    veel fietscomputers en de Strava-app slaan niet elke seconde een punt op. */
@@ -80,7 +90,7 @@ function resample(pts){
     if(x.dm>dist)dist=x.dm;
     for(let k=0;k<n;k++){rec.p.push(Math.round(x.p||0));rec.hr.push(Math.round(x.hr||0));rec.cad.push(Math.round(x.cad||0));rec.tgt.push(0)}
   }
-  return {rec,hasP,dist:Math.round(dist),start:pts.length?pts[0].t*1000:0};
+  return {rec,hasP,dist:Math.round(dist),elev:climbOf(pts.map(x=>x.alt)),start:pts.length?pts[0].t*1000:0};
 }
 const EFFORT=[[.55,'Rustig, praattempo'],[.68,'Gemiddeld, stevig doorgereden'],[.8,'Zwaar, veel tempo of klimmen'],[.9,'Zeer zwaar, koers of alles gegeven']];
 
