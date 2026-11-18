@@ -200,6 +200,8 @@ function paintPlayer(){
   if(el('p-dot'))el('p-dot').style.left=(50+dev*2.5)+'%';
   const hb=el('p-hint');if(hb){const on=!!P.hint&&P.hint.i===i;hb.hidden=!on;if(on)el('p-hintt').textContent=`Hartslag ${P.hint.hr}, normaal ${P.hint.exp}`}
   el('p-cur').setAttribute('x1',P.pos/P.total*1000);el('p-cur').setAttribute('x2',P.pos/P.total*1000);
+  {const pp=el('p-past');if(pp)pp.setAttribute('width',(P.pos/P.total*1000).toFixed(1));
+    const wn=el('p-win');if(wn&&P.win<P.total){const st=clamp(P.pos-P.win*.25,0,P.total-P.win);wn.style.transform=`translateX(${(-st/P.total*100).toFixed(3)}%)`}}
   if(P.drawn!==P.tr.length){P.drawn=P.tr.length;el('p-trace').setAttribute('points',P.trace)}
 }
 /* cijfer in de cijferweergave: groen goed, oranje of rood eraf, met een pijl de kant op die je moet */
@@ -230,6 +232,12 @@ function playerHTML(){
   let x=0;
   const polys=w.segs.map(s=>{const x0=x/P.total*1000,x1=(x+s.d)/P.total*1000;x+=s.d;const y0=100-s.a/P.maxI*100,y1=100-s.b/P.maxI*100;
     return `<polygon${x1-x0<8?' class="n"':''} points="${x0.toFixed(1)},100 ${x0.toFixed(1)},${y0.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},100" fill="var(--z${zoneOf((s.a+s.b)/2)})"/>`}).join('');
+  /* tijdens het rijden: een venster van een kwartier rond nu, met de watt boven elk blok; wat je al reed iets lichter */
+  const PW=Math.min(P.total,900),wide=P.total/PW*100,labs=(()=>{let t=0;return w.segs.map(s=>{const t0=t;t+=s.d;if(s.d/PW<.075)return '';
+    const lo=Math.round(s.a*P.ftp*P.bias),hi=Math.round(s.b*P.ftp*P.bias);
+    return `<span style="left:${((t0+s.d/2)/P.total*100).toFixed(3)}%;bottom:${(Math.max(s.a,s.b)/P.maxI*100).toFixed(1)}%">${lo===hi?lo:lo+'–'+hi}</span>`}).join('')})();
+  const chartIn=`<div class="pwin" id="p-win" style="width:${wide.toFixed(2)}%"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<rect id="p-past" x="0" y="0" width="0" height="100"/><polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg><div class="pwl">${labs}</div></div>`;
+  P.win=PW;
   const tr=ble.on?`<span class="dotst on"></span>${esc(ble.name)}`:`<span class="dotst"></span>Geen trainer gekoppeld`;
   const hr=ble.hrOn?`<span class="dotst on"></span>${esc(ble.hrName)}`:ble.hrBusy?`<span class="dotst"></span>${esc(ble.hrName)} verbinden…`:'';
   const status=P.sim?'<span class="badge">Demo zonder trainer</span>':`<span class="small muted">${tr}${hr?' &nbsp; '+hr:''}</span>`;
@@ -289,7 +297,7 @@ function playerHTML(){
       <div class="zcur"><span id="p-seg"></span><div class="zct"><span><b id="p-target">–</b><i>W</i></span><b id="p-left"></b></div><div class="pbar"><i id="p-blk"></i></div><span id="p-next" class="znext"></span></div></div>
     ${hud?`<div class="zside">${hud}</div>`:''}${load}
     ${startBox}
-    <div class="zchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
+    <div class="zchart">${chartIn}</div>
     <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>
     <div class="pctl zctl" id="p-ctl">${ctl}</div>
   </div>`;
@@ -311,7 +319,7 @@ function playerHTML(){
       </div>
       <div class="pfoot"><span><i aria-hidden="true">♥</i> <b id="p-hr">–</b> bpm</span><span id="p-sk"></span></div>
     </div>
-    <div class="pchart"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg></div>
+    <div class="pchart">${chartIn}</div>
     <div class="phint" id="p-hint" hidden><span id="p-hintt"></span><span class="row"><button class="btn small pri" data-act="hintLower">Stap lager</button><button class="btn small" data-act="hintOk">Gaat goed</button></span></div>
     <div class="pctl">${ctl}</div>
   </div>`;

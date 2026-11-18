@@ -141,7 +141,18 @@ function prestatiesView(){
   const bike=sel.filter(r=>r.type!=='hardlopen'&&(!r.manual||r.type==='buiten'));
   const km=Math.round(bike.reduce((a,r)=>a+(r.dist||0),0)/1000),hm=bike.reduce((a,r)=>a+(r.elev||0),0),uur=Math.round(bike.reduce((a,r)=>a+r.dur,0)/3600);
   const tot=bike.length?`<div class="nrow sm tots">${[[km.toLocaleString('nl-NL'),'km'],[Math.round(hm).toLocaleString('nl-NL'),'hoogtemeters'],[uur,'uur'],[bike.length,bike.length===1?'rit':'ritten']].map(([v,k])=>`<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>`:'';
-  return `${head}<div class="stack">${chips}${prHTML}<div class="nrow prow">${nums}</div>${tot}${curveChart(now,prev,per)}</div>`;
+  return `${head}<div class="stack">${chips}${prHTML}<div class="nrow prow">${nums}</div>${tot}${curveChart(now,prev,per)}${monthTable(real)}</div>`;
+}
+/* per maand en per jaar: ritten, km, hoogtemeters en uren, nieuwste eerst, als één doorlopende lijst (alleen fietsen) */
+function monthTable(real){
+  const bike=real.filter(r=>r.type!=='hardlopen'&&(!r.manual||r.type==='buiten'));if(!bike.length)return '';
+  const M=new Map();for(const r of bike){const k=r.date.slice(0,7);const m=M.get(k)||{n:0,km:0,hm:0,s:0};m.n++;m.km+=(r.dist||0)/1000;m.hm+=r.elev||0;m.s+=r.dur;M.set(k,m)}
+  const f=v=>Math.round(v).toLocaleString('nl-NL'),row=(t,m,cls='')=>`<div class="mrow${cls}"><span>${t}</span><b>${m.n}</b><b>${f(m.km)}</b><b>${f(m.hm)}</b><b>${f(m.s/3600)}</b></div>`;
+  let out='',yr='';const keys=[...M.keys()].sort().reverse();
+  for(const k of keys){const y=k.slice(0,4);
+    if(y!==yr){yr=y;const t={n:0,km:0,hm:0,s:0};for(const [kk,m] of M)if(kk.startsWith(y)){t.n+=m.n;t.km+=m.km;t.hm+=m.hm;t.s+=m.s}out+=row(y,t,' yr')}
+    out+=row(MONTHS[+k.slice(5,7)-1].replace(/^./,c=>c.toUpperCase()),M.get(k))}
+  return `<div class="mtabw">${sech('tgreen',I.route,'Per maand','h3')}<div class="mtab"><div class="mrow mh"><span></span><span>ritten</span><span>km</span><span>hm</span><span>uur</span></div>${out}</div></div>`;
 }
 /* je beste vermogen per duur: hoe lang je hoeveel watt volhield */
 function curveChart(now,prev,per){

@@ -99,3 +99,5 @@ Elke push naar `main` werkt de site via GitHub Pages bij.
 
 Verhoog bij elke wijziging het `?v=`-nummer achter de scripts en het stylesheet in `index.html`. Anders laden browsers soms nog een oud bestand naast een nieuw bestand.
 - Ritten krijgen `elev`: hoogtemeters. Uit een bestand (.fit veld 2/78, .tcx `AltitudeMeters`, .gpx `ele`; alleen stijgingen van 2 m of meer tellen, `climbOf`), van Strava (`total_elevation_gain`), uit de 3D-wereld (`W.climb`) of met de hand ingevuld. `prSeen`: de nieuwe records van die rit zijn op Prestaties getoond; daarna staan ze daar niet meer.
+- Rijscherm: de grafiek onderaan is een venster van een kwartier rond nu (`P.win`, `#p-win` schuift mee), met de watt boven elk blok; wat je al reed staat lichter. Een training korter dan een kwartier staat er helemaal.
+- Prestaties: onder de grafiek een doorlopende lijst per maand, met het jaar als tussenkop (`monthTable`): ritten, km, hoogtemeters en uren, alleen fietsen.
