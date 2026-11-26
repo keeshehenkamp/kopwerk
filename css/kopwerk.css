@@ -410,7 +410,7 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 @media (max-width:900px){.ptop{flex-wrap:wrap;gap:4px 12px;padding-top:10px;padding-bottom:10px}.ptop>div:first-child{flex:1 1 100%}.ptop h2{font-size:21px}.pclock{font-size:26px}.pclock span{font-size:17px}#p-elapsed{font-size:26px!important}
 .phud{right:16px;top:118px}.phud b{font-size:30px}.phud .pmult{font-size:15px}.w3 .pnums{grid-template-columns:1fr 1fr 1fr;gap:4px 12px;padding:8px 14px}.w3 .pnum.big{grid-column:1/-1}.w3 .pnum b{font-size:clamp(26px,8vw,44px)}.w3 .pnum.big b{font-size:clamp(48px,15vw,80px)}.w3 .pchart{display:none}}
 /* 3D-rit: indeling met vakken aan de randen, het midden blijft vrij */
-.w3 .zpow{position:absolute;left:16px;top:16px;background:var(--acc);color:#fff;border-radius:10px;padding:12px 16px 12px;min-width:200px;box-shadow:0 4px 18px rgba(0,0,0,.25);overflow:hidden}
+.w3 .zpow{position:absolute;left:16px;top:16px;background:var(--acc);color:#fff;border-radius:10px;padding:12px 16px 12px;width:220px;box-sizing:border-box;box-shadow:0 4px 18px rgba(0,0,0,.25);overflow:hidden}
 .w3 .zband{position:absolute;left:0;top:0;bottom:0;width:7px;background:var(--z3)}
 .w3 .zp1 b{font-size:60px;font-weight:800;line-height:.95;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .w3 .zp1 i,.w3 .zp2 i,.w3 .zb1 i,.w3 .zct i{font-style:normal;font-size:14px;font-weight:700;margin-left:3px;opacity:.85}
@@ -433,8 +433,13 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .w3 .zcur{background:#151922;color:#fff;padding:10px 12px}.w3 .zcur #p-seg{display:block;font-size:13px;font-weight:700;opacity:.85}
 .w3 .zct{display:flex;justify-content:space-between;align-items:baseline}.w3 .zct b{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums}
 .w3 .znext{display:block;font-size:12px;opacity:.7;margin-top:2px}
+/* wat er hierna komt staat al in het schema; alleen op de telefoon (schema ingeklapt) of bij de finish als tekst */
+.w3 .znext[data-n="1"]{display:none}
 .w3 .zside{position:absolute;right:16px;top:16px;text-align:right}.w3 .zside .phud{position:static;align-items:flex-end}
 .w3 .pprof{left:auto;right:16px;top:132px;width:270px;background:rgba(255,255,255,.93);color:#151922}.w3 .pprof span{color:#151922}
+/* helling van nu groot, de klim als geheel klein ernaast */
+.pprof #p-proft{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:8px}.pprof #p-proft b{font-family:var(--cond);font-size:24px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}.pprof #p-proft i{font-style:normal;font-weight:500}
+@media (max-width:900px){.pprof #p-proft b{font-size:18px}}
 /* kaartje: echte kaart rond je plek, met de naam van het dorp en zoomknoppen */
 .pkaart{position:relative;margin-bottom:4px}.player.vrij .pkaart{margin-bottom:0}.pprof .pkaart #p-kaart{margin-bottom:0}
 .w3 .pprof:has(.pkaart.geo){width:300px}
@@ -457,7 +462,8 @@ div.f{font-size:13.5px;color:var(--muted);margin-bottom:6px}
 .w3 .zready{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);width:min(640px,92vw)}
 @media (max-width:900px){
   .w3 .zbar{left:8px;right:8px;transform:none;min-width:0;top:8px;padding:6px 10px}.w3 .zb1{gap:8px}.w3 .zb1 b{font-size:19px}.w3 .zb1 i{font-size:11px}.w3 .zb2{font-size:11px;flex-wrap:nowrap;gap:8px}.w3 .zb2>span:not(.zbtns){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.w3 .zbtns{flex:none}
-  .w3 .zpow{left:8px;top:112px;min-width:0;padding:8px 12px 8px 14px}.w3 .zp1 b{font-size:42px}.w3 .zp2 b{font-size:18px}.w3 .zp2{gap:10px}.w3 .zhr b{font-size:32px}.w3 .zhr span{font-size:20px}
+  .w3 .zpow{left:8px;top:112px;width:150px;padding:8px 12px 8px 14px}.w3 .zp1 b{font-size:42px}.w3 .zp2 b{font-size:18px}.w3 .zp2{gap:10px}.w3 .zhr b{font-size:32px}.w3 .zhr span{font-size:20px}
+  .w3 .znext[data-n="1"]{display:block}
   .w3 .zlist{top:auto;bottom:66px;left:8px;width:180px}.w3 #p-list,.w3 .zlh{display:none}.w3 .zct b{font-size:26px}
   .w3 .zside{top:112px;right:8px}.w3 .pprof,.w3 .pprof:has(.pkaart.geo){right:8px;top:234px;width:160px}.pkaart #p-plaats{font-size:11px;left:4px;top:4px;padding:1px 5px;max-width:calc(100% - 34px)}.pkaart .pzoom{right:4px;top:4px}.pkaart .pzoom button{width:22px;height:22px;font-size:15px}.pkaart .pbron{position:static;display:block;border-radius:0;font-size:7px;padding:2px 4px;background:#fff}.w3 .zchart{left:8px;right:8px;bottom:8px;height:36px}
   /* bediening als paneel onderin, zodat de fietser vrij blijft; knoppen lopen door over meerdere regels */
@@ -640,7 +646,8 @@ h1{font-size:36px;line-height:1.05}h2{font-size:24px}.wcard h3{font-size:23px;li
 @media (hover:hover){.player:not(.w3):not(.isready):not(.end) .pctl{opacity:.5;transition:opacity .2s}.player:not(.w3) .pctl:hover,.player:not(.w3) .pctl:focus-within{opacity:1!important}}
 .pctl>.row{gap:8px;flex-wrap:nowrap}.pctl>.row:empty{display:none}
 .btn.lab{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
-.w3 .padv{display:block;font-weight:500;color:#fff;font-size:13px;margin-top:4px}
+/* vaste maat: het blok groeit en krimpt niet mee met het cadansadvies */
+.w3 .padv{display:block;font-weight:500;color:#fff;font-size:13px;margin-top:4px;height:18px;line-height:18px;white-space:nowrap;overflow:hidden}
 .w3 .zcur .pbar{height:6px;margin:6px 0;background:rgba(255,255,255,.2)}
 @media (max-width:900px){.pctl>.row{flex-wrap:wrap;justify-content:center}.ptgt{font-size:13px}.ptgt b{font-size:20px}}
 @media (min-width:901px){.w3 .zlist{top:238px;max-height:calc(100vh - 308px);display:flex;flex-direction:column}.w3 #p-list{flex:1;min-height:0;overflow:hidden}}
