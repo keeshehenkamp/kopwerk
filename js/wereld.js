@@ -1804,17 +1804,36 @@ function drawProfile(d){
     c.beginPath();c.moveTo(i/N*w,h);c.lineTo(i/N*w,Y(ys[i]));c.lineTo((i+1)/N*w+.6,Y(ys[i+1]));c.lineTo((i+1)/N*w+.6,h);c.fill()}
   c.globalAlpha=1;c.strokeStyle='#fff';c.lineWidth=2;c.beginPath();ys.forEach((y,i)=>i?c.lineTo(i/N*w,Y(y)):c.moveTo(0,Y(y)));c.stroke();
   const x=(d-a)/(b-a)*w,yy=Y(roadAt(C,d).y);c.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--acc').trim()||'#1D4ED8';c.strokeStyle='#fff';c.lineWidth=2.5;c.beginPath();c.arc(x,yy,6,0,7);c.fill();c.stroke();
-  /* tekst: de klim die eraan komt of waar je in zit */
-  const G=dd=>(roadAt(C,dd+20).y-roadAt(C,dd).y)/20*100,len=m=>m>=1000?nl((m/1000).toFixed(1))+' km':Math.round(m/10)*10+' m';
-  let s0=-1,s1=-1;for(let dd=d;dd<d+3000;dd+=20){const g2=G(dd);if(s0<0?g2>2.5:g2>1.5){if(s0<0)s0=dd;s1=dd+20}else if(s0>=0&&dd-s1>60)break}
-  const lab=document.getElementById('p-proft');if(lab){let t='Vlak';
-    /* tijdens een afdaling eerst de afdaling, tenzij de klim er vlak achter begint */
-    if(s0>=0&&s0-d<1400&&!(G(d)<-1.5&&s0-d>250)){const inC=s0<=d+10,a0=inC?d:s0,pct=(roadAt(C,s1).y-roadAt(C,a0).y)/(s1-a0)*100;
-      t=inC?`Klim: nog ${len(s1-d)} · ${nl(pct.toFixed(1))}%`:`Klim over ${Math.round((s0-d)/10)*10} m · ${len(s1-s0)} · ${nl(pct.toFixed(1))}%`}
-    else{let e1=-1;for(let dd=d;dd<d+3000;dd+=20){if(G(dd)<-1.5)e1=dd+20;else if(dd-Math.max(e1,d)>60)break}
-      const drop=e1>d+40?roadAt(C,d).y-roadAt(C,e1).y:0;if(drop>3)t=`Afdaling: nog ${len(e1-d)} · ${nl((drop/(e1-d)*100).toFixed(1))}%`}
-    if(lab.textContent!==t)lab.textContent=t}
+  /* tekst: groot de helling waar je nu op rijdt, klein de klim als geheel (lengte en wat er nog komt) */
+  const len=m=>m>=1000?nl((m/1000).toFixed(1))+' km':Math.round(m/10)*10+' m',pc=g=>nl((Math.round(g*2)/2).toFixed(1))+'%';
+  const lab=document.getElementById('p-proft');if(lab){
+    const gNu=(roadAt(C,d+25).y-roadAt(C,d-25).y)/50*100,cl=climbAt(C,d);let t='';
+    if(cl&&cl.a<=d)t=`klim ${len(cl.b-cl.a)} · nog ${len(cl.b-d)}`;
+    else if(cl&&cl.a-d<1500)t=`klim over ${len(cl.a-d)} · ${len(cl.b-cl.a)} · gem. ${pc(cl.g)}`;
+    else{let e1=-1;for(let dd=d;dd<d+3000;dd+=20){if((roadAt(C,dd+20).y-roadAt(C,dd).y)/20*100<-1.5)e1=dd+20;else if(dd-Math.max(e1,d)>60)break}
+      if(e1>d+40&&roadAt(C,d).y-roadAt(C,e1).y>3)t=`afdaling nog ${len(e1-d)}`}
+    const h=`<b>${pc(gNu)}</b>${t?`<i>${t}</i>`:''}`;if(lab.innerHTML!==h)lab.innerHTML=h}
 }
+/* De klimmen van een ronde, elk als geheel: een klim loopt door tot de top, ook als er een vlak stuk of een korte afdaling
+   tussen zit. Hij eindigt pas als de weg duidelijk zakt (meer dan 10% van wat je al klom, minstens 10 en hooguit 40 m)
+   of als er 1,5 km lang geen hoger punt komt. Kleine bulten (onder 20 m stijging of 400 m) tellen niet. Vuistregel. */
+function climbList(C){
+  if(C.klimmen)return C.klimmen;
+  const S=25,n=Math.ceil(C.L/S);let k0=0,lo=1e9;for(let k=0;k<n;k++){const y=roadAt(C,k*S).y;if(y<lo){lo=y;k0=k}}
+  const d0=k0*S,Y=[];for(let k=0;k<=n+4;k++)Y.push(roadAt(C,d0+k*S).y);
+  const out=[];let st=-1,top=-1;
+  const close=()=>{const gain=Y[top]-Y[st],l=(top-st)*S;if(gain>=20&&l>=400)out.push({a:d0+st*S,b:d0+top*S,g:gain/l*100});st=top=-1};
+  for(let k=0;k<=n;k++){
+    if(st<0){if((Y[k+4]-Y[k])/(4*S)>.02){st=top=k}continue}
+    if(Y[k]>=Y[top])top=k;
+    const gain=Y[top]-Y[st];if(Y[top]-Y[k]>clamp(gain*.1,10,40)||(k-top)*S>1500)close()}
+  if(st>=0)close();
+  return C.klimmen=out}
+/* de klim waar je in zit of die eraan komt (binnen een ronde, ook over de start heen) */
+function climbAt(C,d){
+  const lap=Math.floor((d-0)/C.L)*C.L;let best=null;
+  for(const sh of[-C.L,0,C.L])for(const c of climbList(C)){const a=c.a+lap+sh,b=c.b+lap+sh;if(b<=d)continue;if(!best||a<best.a)best={a,b,g:c.g}}
+  return best}
 addEventListener('pointermove',()=>{if(W)W.uiT=now()});addEventListener('pointerdown',()=>{if(W)W.uiT=now()});
 /* wordt na elke renderPlayer aangeroepen */
 function worldSync(){

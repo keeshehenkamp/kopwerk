@@ -168,6 +168,7 @@ function paintPlayer(){
     el('p-target').textContent='–';el('p-power').textContent=pw==null?'–':pw;
     el('p-cad').textContent=fp&&live.cad?Math.round(live.cad):'–';el('p-hr').textContent=fh&&live.hr?live.hr:'–';
     el('p-cadl').textContent='Cadans';if(el('p-cadadv'))el('p-cadadv').textContent='';if(el('p-blk'))el('p-blk').style.width='0';if(el('p-blen'))el('p-blen').textContent='';el('p-seg').textContent='Vrij rijden';el('p-left').textContent=clock(P.freeSec);
+    el('p-next').dataset.n='';
     if(!P.vrij){const fm=typeof finishLeft==='function'?finishLeft():null;el('p-next').textContent=fm!=null?`Nog ${fm} m tot de finish`:'Training klaar · vrij rijden'}else if(!v3now())el('p-next').textContent=samenOn()?'Groepsrit '+SAMEN.code:'Geen schema';
     el('p-zone').style.background='var(--z3)';if(el('p-dot'))el('p-dot').style.left='50%';toneOff('p-pv');toneOff('p-cv');
     el('p-cur').setAttribute('x1',1000);el('p-cur').setAttribute('x2',1000);
@@ -179,7 +180,7 @@ function paintPlayer(){
   el('p-cad').textContent=fp&&live.cad?Math.round(live.cad):'–';
   /* cadans: advies en meter kijken live mee, net als bij het vermogen */
   {const c=cadAdvice(s),v=fp&&live.cad?Math.round(live.cad):null,off=v==null?0:v-c,a=el('p-cadadv'),dt=el('p-cdot');
-    if(a){a.textContent=`Advies ${c} rpm${v==null?'':off<-5?' · sneller trappen':off>5?' · rustiger trappen':' · goed'}`;a.dataset.ok=v==null?'':Math.abs(off)<=5?'1':'0'}
+    if(a){a.textContent=`advies ${c} rpm${v==null||Math.abs(off)<=5?'':off<0?' ↑':' ↓'}`;a.dataset.ok=v==null?'':Math.abs(off)<=5?'1':'0'}
     if(dt)dt.style.left=(50+clamp(off,-40,40)/40*50)+'%';
     if(el('p-cdoel'))el('p-cdoel').textContent=c;
     /* kleur alleen waar het ertoe doet: in de warming-up, herstel en cooling-down blijft het rustig.
@@ -190,12 +191,14 @@ function paintPlayer(){
   el('p-seg').textContent=s.label;
   el('p-left').textContent=clock(P.starts[i]+s.d-P.pos);
   if(el('p-blen'))el('p-blen').textContent=`blok van ${clock(s.d)}`;
-  {const b=el('p-blk');if(b){b.style.width=clamp((pos-P.starts[i])/s.d*100,0,100)+'%';b.style.background=`var(--z${zoneOf(fracAt(i,pos))})`}}
+  {const b=el('p-blk');if(b){b.style.width=clamp((pos-P.starts[i])/s.d*100,0,100)+'%';b.style.background=`var(--z${zoneOf(fracAt(i,pos)*P.bias)})`}}
   {const ex=el('p-ext');if(ex)ex.hidden=i<P.wo.segs.length-1}
   const nx=P.wo.segs[i+1];
   const sk=el('p-sk');if(sk)sk.textContent=`${Math.round((pw?speedFor(pw,0):0)*3.6)} km/u · ${nl(((P.dist||0)/1000).toFixed(1))} km`;
-  el('p-next').textContent=nx?`Hierna: ${nx.label}, ${clock(nx.d)} op ${Math.round(nx.a*P.ftp*P.bias)} W, ${cadAdvice(nx)} rpm`:(fm=>fm!=null?`Laatste blok · finish over ${fm} m`:'Laatste blok')(typeof finishLeft==='function'?finishLeft():null);
-  el('p-zone').style.background=`var(--z${zoneOf(fracAt(i,pos))})`;
+  /* kort: het schema links toont al wat er komt; op de telefoon is dit de enige plek */
+  el('p-next').dataset.n=nx?'1':'';
+  el('p-next').textContent=nx?`Hierna ${Math.round(nx.a*P.ftp*P.bias)} W · ${clock(nx.d)}`:(fm=>fm!=null?`Finish over ${fm} m`:'Laatste blok')(typeof finishLeft==='function'?finishLeft():null);
+  el('p-zone').style.background=`var(--z${zoneOf(fracAt(i,pos)*P.bias)})`;
   const dev=pw==null||!tgt?0:clamp((pw/tgt-1)*100,-20,20);
   if(el('p-dot'))el('p-dot').style.left=(50+dev*2.5)+'%';
   const hb=el('p-hint');if(hb){const on=!!P.hint&&P.hint.i===i;hb.hidden=!on;if(on)el('p-hintt').textContent=`Hartslag ${P.hint.hr}, normaal ${P.hint.exp}`}
@@ -230,8 +233,10 @@ const plb=(act,k,label,title,extra='',cls='')=>`<button class="btn lab${cls}" da
 function playerHTML(){
   const w=P.wo,ready=P.mode==='ready',run=P.mode==='run',pause=P.mode==='pause',v3=view3d();
   let x=0;
-  const polys=w.segs.map(s=>{const x0=x/P.total*1000,x1=(x+s.d)/P.total*1000;x+=s.d;const y0=100-s.a/P.maxI*100,y1=100-s.b/P.maxI*100;
-    return `<polygon${x1-x0<8?' class="n"':''} points="${x0.toFixed(1)},100 ${x0.toFixed(1)},${y0.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},100" fill="var(--z${zoneOf((s.a+s.b)/2)})"/>`}).join('');
+  /* zwaarder of lichter (P.bias) schaalt de balken mee: hoogte en zonekleur volgen het echte doel */
+  const B=P.bias,yOf=f=>Math.max(1,100-f*B/P.maxI*100);
+  const polys=w.segs.map(s=>{const x0=x/P.total*1000,x1=(x+s.d)/P.total*1000;x+=s.d;const y0=yOf(s.a),y1=yOf(s.b);
+    return `<polygon${x1-x0<8?' class="n"':''} points="${x0.toFixed(1)},100 ${x0.toFixed(1)},${y0.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},100" fill="var(--z${zoneOf((s.a+s.b)/2*B)})"/>`}).join('');
   /* de hele training als balk; wat je al reed iets lichter */
   const chartIn=`<svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Verloop van de training">${polys}<rect id="p-past" x="0" y="0" width="0" height="100"/><polyline id="p-trace" points=""/><line id="p-cur" x1="0" x2="0" y1="0" y2="100"/></svg>`;
   const tr=ble.on?`<span class="dotst on"></span>${esc(ble.name)}`:`<span class="dotst"></span>Geen trainer gekoppeld`;
@@ -324,10 +329,10 @@ function playerHTML(){
 /* 3D: schema als lijst, het huidige blok uitgelicht, sterren bij afgeronde blokken */
 function paintList(i){
   const el=document.getElementById('p-list');if(!el)return;
-  const g=P.game||{},key=i+'|'+(g.stars?g.stars.length:0);if(el.dataset.k===key)return;el.dataset.k=key;
+  const g=P.game||{},key=i+'|'+(g.stars?g.stars.length:0)+'|'+P.bias;if(el.dataset.k===key)return;el.dataset.k=key;
   const segs=P.wo.segs,a=Math.max(0,i-2),b=Math.min(segs.length,a+8);
   el.innerHTML=segs.slice(a,b).map((s,j)=>{const k=a+j,st=g.by&&g.by[k];
-    return `<div class="zrow${k===i?' on':''}${k<i?' done':''}"><i style="background:var(--z${zoneOf((s.a+s.b)/2)})"></i><span>${st!=null?'<em>'+'★'.repeat(st)+'</em>':''}${esc(s.label)}</span><b>${clock(s.d)}</b><b>${Math.round(s.a*P.ftp*P.bias)} W</b></div>`}).join('');
+    return `<div class="zrow${k===i?' on':''}${k<i?' done':''}"><i style="background:var(--z${zoneOf((s.a+s.b)/2*P.bias)})"></i><span>${st!=null?'<em>'+'★'.repeat(st)+'</em>':''}${esc(s.label)}</span><b>${clock(s.d)}</b><b>${Math.round(s.a*P.ftp*P.bias)} W</b></div>`}).join('');
 }
 function renderPlayer(){if(!P)return;const sb=document.querySelector('.zsbody'),top=sb?sb.scrollTop:0;
   document.getElementById('app').innerHTML=playerHTML();const nb=document.querySelector('.zsbody');if(nb)nb.scrollTop=top;P.drawn=-1;paintPlayer();worldSync()}
